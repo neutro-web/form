@@ -927,7 +927,7 @@ svelte: [
   });
 
   const { state, handleSubmit } = useSvelteForm(form);
-</script>
+<\/script>
 
 <form on:submit={handleSubmit(async (values) => console.log(values))}>
   <input
@@ -955,7 +955,7 @@ svelte: [
 
   // Only re-evaluates when 'email' changes
   const emailStore = useSvelteFormPath(form, 'email');
-</script>
+<\/script>
 
 <div>
   <input
@@ -973,7 +973,7 @@ svelte: [
     desc: `<p>Use <code>$state.values.todos</code> to iterate and <code>form.arrayAppend</code> / <code>form.arrayRemove</code> to mutate.</p>`,
     code: `<script>
   const { state } = useSvelteForm(form);
-</script>
+<\/script>
 
 {#each $state.values.todos as todo, i}
   <div>
@@ -1022,7 +1022,7 @@ const { state, handleSubmit } = useVueForm(form);
 const onSubmit = handleSubmit(async (values) => {
   await api.save(values);
 });
-</script>
+<\/script>
 
 <template>
   <form @submit="onSubmit">
@@ -1049,7 +1049,7 @@ import { useVueFormPath } from '@agw/form/adapters/vue';
 
 const { value, fieldState } = useVueFormPath(form, 'email');
 //   or: useVueFormPath(form, computed(() => \`items.\${idx}.name\`))
-</script>
+<\/script>
 
 <template>
   <div>
@@ -1067,7 +1067,7 @@ const { value, fieldState } = useVueFormPath(form, 'email');
     desc: `<p>Iterate over <code>state.values.todos</code> in a <code>v-for</code>. Use a <code>computed</code> ref for the index to feed into <code>useVueFormPath</code>.</p>`,
     code: `<script setup>
 const { state } = useVueForm(form);
-</script>
+<\/script>
 
 <template>
   <div v-for="(todo, i) in state.values.todos" :key="i">
