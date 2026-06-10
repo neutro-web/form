@@ -1,0 +1,17 @@
+{
+  "name": "agw-form",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter \"@agnostic-web/*\" --filter \"@agw/*\" run build",
+    "test": "vitest run",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "typescript": "^5.0.0",
+    "vitepress": "^1.3.0"
+  }
+}

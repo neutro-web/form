@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ES2022"
+    ],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "baseUrl": ".",
+    "paths": {
+      "@agw/form/core": [
+        "packages/core/src/index.ts"
+      ],
+      "@agw/form/adapters/react": [
+        "packages/adapters/react/src/index.ts"
+      ],
+      "@agw/form/adapters/svelte": [
+        "packages/adapters/svelte/src/index.ts"
+      ],
+      "@agw/form/adapters/vue": [
+        "packages/adapters/vue/src/index.ts"
+      ],
+      "@agw/form/adapters/solid": [
+        "packages/adapters/solid/src/index.ts"
+      ],
+      "@agw/form/adapters/angular": [
+        "packages/adapters/angular/src/index.ts"
+      ]
+    }
+  },
+  "exclude": [
+    "**/dist/**",
+    "**/node_modules/**"
+  ]
+}
