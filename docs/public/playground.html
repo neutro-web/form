@@ -1,1363 +1,2893 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>@agw/form — Playground &amp; Tutorial</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-<style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0d1117; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; min-height: 100vh; }
-  .hljs { background: #161b22 !important; border-radius: 8px; padding: 1rem !important; font-size: 13px; line-height: 1.6; overflow-x: auto; }
-  input, select, textarea { background: #21262d; border: 1px solid #30363d; color: #e6edf3; border-radius: 6px; padding: 6px 10px; font-size: 14px; outline: none; transition: border-color .15s; }
-  input:focus, select:focus, textarea:focus { border-color: #58a6ff; }
-  input[type=checkbox] { width: 16px; height: 16px; accent-color: #58a6ff; }
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #e6edf3; font-size: 13px; cursor: pointer; transition: background .15s, border-color .15s; }
-  .btn:hover { background: #30363d; border-color: #58a6ff; }
-  .btn-primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
-  .btn-primary:hover { background: #388bfd; border-color: #388bfd; }
-  .btn-danger { background: #21262d; border-color: #f85149; color: #f85149; }
-  .btn-danger:hover { background: #2d1214; }
-  .error-msg { color: #f85149; font-size: 12px; margin-top: 3px; }
-  .state-box { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px; font-size: 12px; font-family: monospace; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
-  .badge-blue { background: #1d2d50; color: #58a6ff; }
-  .badge-green { background: #1a2e22; color: #3fb950; }
-  .badge-red { background: #2d1214; color: #f85149; }
-  .step-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background .12s; border: none; background: none; color: #e6edf3; width: 100%; text-align: left; }
-  .step-item:hover { background: #161b22; }
-  .step-item.active { background: #1d2d50; }
-  .step-num { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #30363d; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; margin-top: 1px; }
-  .step-item.active .step-num { background: #1f6feb; border-color: #1f6feb; color: #fff; }
-  .step-item.done .step-num { background: #238636; border-color: #238636; color: #fff; }
-  .fw-tab { padding: 6px 14px; border-radius: 6px; border: 1px solid transparent; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .15s; background: none; color: #8b949e; }
-  .fw-tab:hover { color: #e6edf3; border-color: #30363d; }
-  .fw-tab.active { background: #1d2d50; color: #58a6ff; border-color: #1f6feb; }
-  .fw-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-  .live-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #8b949e; margin-bottom: 8px; }
-  details summary { cursor: pointer; user-select: none; }
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>@agw/form — Playground</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="form-core.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg0:#0d1117; --bg1:#161b22; --bg2:#21262d; --bg3:#2d333b;
+      --border:#30363d; --focus:#58a6ff;
+      --t0:#e6edf3; --t1:#b1bac4; --t2:#8b949e;
+      --blue:#58a6ff; --green:#3fb950; --red:#f85149; --yellow:#d29922; --purple:#a371f7;
+      --hdr:52px; --tabs:42px; --foot:52px; --side:214px; --perf:218px;
+    }
+    html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--t0);
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+      font-size:14px;line-height:1.5;}
+
+    /* ── header */
+    .hdr{height:var(--hdr);background:var(--bg1);border-bottom:1px solid var(--border);
+      display:flex;align-items:center;padding:0 20px;gap:12px;}
+    .hdr-logo{font-size:15px;font-weight:700;color:var(--blue);font-family:'SF Mono',Menlo,monospace;}
+    .hdr-tag{font-size:12px;color:var(--t2);border-left:1px solid var(--border);padding-left:12px;}
+    .hdr-right{margin-left:auto;display:flex;gap:8px;align-items:center;}
+    .chip{background:var(--bg2);border:1px solid var(--border);color:var(--t1);
+      font-size:11px;padding:3px 10px;border-radius:20px;font-family:'SF Mono',Menlo,monospace;
+      text-decoration:none;transition:all .15s;}
+    .chip:hover{border-color:var(--blue);color:var(--blue);}
+
+    /* ── framework tabs */
+    .fw-tabs{height:var(--tabs);background:var(--bg1);border-bottom:1px solid var(--border);
+      display:flex;align-items:stretch;padding:0 12px;gap:2px;overflow-x:auto;}
+    .fw-tabs::-webkit-scrollbar{display:none;}
+    .fw-tab{padding:0 16px;font-size:13px;font-weight:500;color:var(--t2);cursor:pointer;
+      border:none;background:transparent;border-bottom:2px solid transparent;
+      display:flex;align-items:center;gap:6px;white-space:nowrap;transition:color .15s;}
+    .fw-tab:hover{color:var(--t0);}
+    .fw-tab.active{color:var(--t0);border-bottom-color:var(--blue);}
+
+    /* ── workspace grid */
+    .workspace{display:grid;
+      grid-template-columns:var(--side) 1fr 1fr var(--perf);
+      height:calc(100vh - var(--hdr) - var(--tabs) - var(--foot));overflow:hidden;}
+    .workspace.hide-perf{grid-template-columns:var(--side) 1fr 1fr;}
+
+    /* ── sidebar */
+    .sidebar{background:var(--bg1);border-right:1px solid var(--border);
+      overflow-y:auto;padding:6px 0;}
+    .sidebar::-webkit-scrollbar{width:4px;}
+    .sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+    .sidebar-label{font-size:10px;font-weight:700;letter-spacing:.08em;
+      text-transform:uppercase;color:var(--t2);padding:8px 14px 4px;}
+    .step-item{display:flex;align-items:center;gap:8px;padding:5px 14px;
+      cursor:pointer;font-size:12px;color:var(--t1);
+      border-left:2px solid transparent;transition:all .1s;}
+    .step-item:hover{background:var(--bg2);color:var(--t0);}
+    .step-item.active{background:var(--bg2);color:var(--blue);border-left-color:var(--blue);}
+    .step-num{min-width:18px;height:18px;background:var(--bg2);border:1px solid var(--border);
+      border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-size:9px;font-family:'SF Mono',Menlo,monospace;font-weight:700;color:var(--t2);}
+    .step-item.active .step-num{background:var(--blue);border-color:var(--blue);color:#fff;}
+
+    /* ── code panel */
+    .code-panel{background:var(--bg1);border-right:1px solid var(--border);
+      display:flex;flex-direction:column;overflow:hidden;}
+    .panel-hdr{padding:7px 14px;border-bottom:1px solid var(--border);
+      font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+      color:var(--t2);display:flex;align-items:center;gap:8px;background:var(--bg0);flex-shrink:0;}
+    .panel-badge{background:var(--bg2);border:1px solid var(--border);
+      padding:1px 7px;border-radius:10px;font-size:10px;}
+    .step-hdr{padding:11px 16px 0;flex-shrink:0;}
+    .step-hdr h2{font-size:14px;font-weight:600;color:var(--t0);}
+    .step-hdr p{font-size:12px;color:var(--t2);margin-top:3px;padding-bottom:10px;
+      border-bottom:1px solid var(--border);line-height:1.6;}
+    .code-scroll{flex:1;overflow:auto;}
+    .code-scroll::-webkit-scrollbar{width:6px;height:6px;}
+    .code-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+    .code-scroll pre{margin:0;padding:14px 16px;font-size:12.5px;line-height:1.72;min-height:100%;}
+    .code-scroll pre code{background:transparent!important;padding:0!important;}
+
+    /* ── demo panel */
+    .demo-panel{background:var(--bg0);display:flex;flex-direction:column;overflow:hidden;}
+    .demo-area{flex:1;overflow-y:auto;padding:16px;}
+    .demo-area::-webkit-scrollbar{width:4px;}
+    .demo-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+    .demo-iframe{width:100%;height:100%;border:none;}
+
+    /* ── perf panel */
+    .perf-panel{background:var(--bg1);border-left:1px solid var(--border);
+      overflow-y:auto;display:flex;flex-direction:column;}
+    .perf-panel::-webkit-scrollbar{width:4px;}
+    .perf-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+    .perf-row{padding:10px 12px;border-bottom:1px solid var(--border);}
+    .perf-lbl{font-size:10px;font-weight:700;letter-spacing:.05em;
+      text-transform:uppercase;color:var(--t2);margin-bottom:2px;}
+    .perf-val{font-size:22px;font-weight:700;font-family:'SF Mono',Menlo,monospace;color:var(--blue);}
+    .perf-val.sm{font-size:12px;word-break:break-all;}
+    .perf-sub{font-size:10px;color:var(--t2);margin-top:1px;}
+    .perf-path-item{display:flex;justify-content:space-between;
+      font-size:10px;font-family:'SF Mono',Menlo,monospace;color:var(--t1);padding:2px 0;}
+    .perf-path-item em{color:var(--blue);font-style:normal;}
+
+    /* ── footer nav */
+    .foot{height:var(--foot);background:var(--bg1);border-top:1px solid var(--border);
+      display:flex;align-items:center;justify-content:center;gap:16px;padding:0 20px;}
+    .nav-btn{padding:7px 20px;border-radius:6px;border:1px solid var(--border);
+      background:var(--bg2);color:var(--t0);font-size:13px;cursor:pointer;transition:all .15s;}
+    .nav-btn:hover:not(:disabled){border-color:var(--blue);color:var(--blue);}
+    .nav-btn:disabled{opacity:.35;cursor:not-allowed;}
+    .step-ctr{font-size:12px;color:var(--t2);min-width:88px;text-align:center;
+      font-family:'SF Mono',Menlo,monospace;}
+
+    /* ── demo-area components */
+    .df{max-width:360px;}
+    .fld{margin-bottom:13px;}
+    .fld label{display:block;font-size:10px;font-weight:700;letter-spacing:.05em;
+      text-transform:uppercase;color:var(--t2);margin-bottom:3px;}
+    .fld input,.fld select,.fld textarea{width:100%;background:var(--bg2);
+      border:1px solid var(--border);color:var(--t0);border-radius:6px;
+      padding:7px 10px;font-size:13px;outline:none;transition:border-color .15s;font-family:inherit;}
+    .fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--focus);}
+    .ferr{color:var(--red);font-size:11px;margin-top:3px;min-height:15px;}
+    .fok{color:var(--green);font-size:11px;margin-top:3px;}
+    .fhint{color:var(--t2);font-size:11px;margin-top:3px;}
+
+    .btn{padding:7px 16px;border-radius:6px;border:1px solid var(--border);
+      background:var(--bg2);color:var(--t0);font-size:13px;cursor:pointer;transition:all .15s;}
+    .btn:hover:not(:disabled){background:var(--bg3);border-color:var(--t2);}
+    .btn.primary{background:#1f6feb;border-color:#1f6feb;color:#fff;}
+    .btn.primary:hover:not(:disabled){background:var(--blue);border-color:var(--blue);}
+    .btn.danger{border-color:var(--red);color:var(--red);}
+    .btn.danger:hover:not(:disabled){background:rgba(248,81,73,.1);}
+    .btn.sm{padding:4px 10px;font-size:12px;}
+    .btn:disabled{opacity:.4;cursor:not-allowed;}
+    .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+
+    .box{background:var(--bg1);border:1px solid var(--border);border-radius:8px;
+      padding:11px 14px;font-size:11.5px;font-family:'SF Mono',Menlo,monospace;
+      white-space:pre;overflow:auto;max-height:200px;line-height:1.6;}
+    .box::-webkit-scrollbar{width:4px;height:4px;}
+    .box::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+    .sec{font-size:10px;font-weight:700;letter-spacing:.06em;
+      text-transform:uppercase;color:var(--t2);margin-bottom:7px;}
+    .hr{border:none;border-top:1px solid var(--border);margin:12px 0;}
+
+    .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+    .badge.g{background:rgba(63,185,80,.15);color:var(--green);}
+    .badge.r{background:rgba(248,81,73,.15);color:var(--red);}
+    .badge.b{background:rgba(88,166,255,.15);color:var(--blue);}
+    .badge.y{background:rgba(210,153,34,.15);color:var(--yellow);}
+
+    .alert{padding:9px 13px;border-radius:6px;font-size:13px;margin-top:10px;line-height:1.5;}
+    .alert.ok{background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.3);color:var(--green);}
+    .alert.err{background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);color:var(--red);}
+    .alert.info{background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.3);color:var(--blue);}
+
+    .spin{width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--blue);
+      border-radius:50%;display:inline-block;animation:sp .6s linear infinite;vertical-align:middle;}
+    @keyframes sp{to{transform:rotate(360deg);}}
+
+    .arr-item{display:flex;align-items:center;gap:6px;background:var(--bg1);
+      border:1px solid var(--border);border-radius:6px;padding:7px 10px;margin-bottom:6px;}
+    .arr-item input{flex:1;background:var(--bg2);border:1px solid var(--border);
+      color:var(--t0);border-radius:4px;padding:4px 8px;font-size:12px;outline:none;}
+    .arr-item input:focus{border-color:var(--focus);}
+
+    .wiz-steps{display:flex;margin-bottom:18px;}
+    .wiz-step{flex:1;text-align:center;padding:7px 4px;font-size:11px;font-weight:600;
+      color:var(--t2);border-bottom:2px solid var(--border);}
+    .wiz-step.active{color:var(--blue);border-bottom-color:var(--blue);}
+    .wiz-step.done{color:var(--green);border-bottom-color:var(--green);}
+
+    .sb-link{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;
+      background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+      color:var(--t0);text-decoration:none;font-size:13px;margin-top:12px;transition:all .15s;}
+    .sb-link:hover{border-color:var(--blue);color:var(--blue);}
+  </style>
 </head>
 <body>
 
-<!-- Header -->
-<header style="background:#161b22;border-bottom:1px solid #30363d;padding:12px 20px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:50;">
-  <div style="font-size:15px;font-weight:700;color:#58a6ff;">@agw/form</div>
-  <div style="font-size:13px;color:#8b949e;">Playground &amp; Tutorial</div>
-  <div style="flex:1;"></div>
-  <a href="https://agnostic-web.github.io/agw-form/" target="_blank" style="font-size:12px;color:#58a6ff;text-decoration:none;">← Docs</a>
+<header class="hdr">
+  <span class="hdr-logo">@agw/form</span>
+  <span class="hdr-tag">Playground &amp; Tutorial</span>
+  <div class="hdr-right">
+    <a class="chip" href="https://www.npmjs.com/package/@agnostic-web/form-core" target="_blank">npm</a>
+    <a class="chip" href="https://github.com/koficodedat/agw-form" target="_blank">GitHub</a>
+  </div>
 </header>
 
-<!-- Framework tabs -->
-<div style="background:#161b22;border-bottom:1px solid #30363d;padding:10px 20px;display:flex;gap:8px;flex-wrap:wrap;">
-  <button class="fw-tab active" onclick="switchFramework('vanilla')" id="tab-vanilla">
-    <span class="fw-dot" style="background:#f7c948;"></span>Vanilla JS
-  </button>
-  <button class="fw-tab" onclick="switchFramework('react')" id="tab-react">
-    <span class="fw-dot" style="background:#61dafb;"></span>React
-  </button>
-  <button class="fw-tab" onclick="switchFramework('svelte')" id="tab-svelte">
-    <span class="fw-dot" style="background:#ff3e00;"></span>Svelte
-  </button>
-  <button class="fw-tab" onclick="switchFramework('vue')" id="tab-vue">
-    <span class="fw-dot" style="background:#42b883;"></span>Vue 3
-  </button>
-  <button class="fw-tab" onclick="switchFramework('solid')" id="tab-solid">
-    <span class="fw-dot" style="background:#2c4f7c;"></span>SolidJS
-  </button>
-  <button class="fw-tab" onclick="switchFramework('angular')" id="tab-angular">
-    <span class="fw-dot" style="background:#dd0031;"></span>Angular
-  </button>
-</div>
+<nav class="fw-tabs" id="fwTabs"></nav>
 
-<!-- Layout -->
-<div style="display:flex;height:calc(100vh - 97px);overflow:hidden;">
-
-  <!-- Sidebar -->
-  <aside id="sidebar" style="width:240px;flex-shrink:0;background:#0d1117;border-right:1px solid #30363d;overflow-y:auto;padding:12px 8px;">
-    <div id="step-list"></div>
-  </aside>
-
-  <!-- Main content -->
-  <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
-    <!-- Content area: split into explanation+code (left) and live demo (right) on vanilla, full width on others -->
-    <div id="content-area" style="flex:1;overflow:hidden;display:flex;gap:0;"></div>
-    <!-- Navigation -->
-    <div style="border-top:1px solid #30363d;padding:12px 20px;display:flex;align-items:center;gap:12px;background:#0d1117;">
-      <button class="btn" onclick="prevStep()" id="btn-prev">← Previous</button>
-      <div id="step-counter" style="font-size:13px;color:#8b949e;flex:1;text-align:center;"></div>
-      <button class="btn btn-primary" onclick="nextStep()" id="btn-next">Next →</button>
+<div class="workspace" id="workspace">
+  <aside class="sidebar" id="sidebar"></aside>
+  <section class="code-panel">
+    <div class="panel-hdr">
+      <span>Code</span>
+      <span class="panel-badge" id="codeLang">javascript</span>
     </div>
-  </div>
-
+    <div class="step-hdr" id="stepHdr">
+      <h2 id="stepTitle"></h2>
+      <p id="stepDesc"></p>
+    </div>
+    <div class="code-scroll">
+      <pre><code id="codeEl" class="language-javascript"></code></pre>
+    </div>
+  </section>
+  <section class="demo-panel">
+    <div class="panel-hdr"><span id="demoLabel">Demo</span></div>
+    <div class="demo-area" id="demoArea"></div>
+  </section>
+  <aside class="perf-panel" id="perfPanel">
+    <div class="panel-hdr">Engine Internals</div>
+    <div id="perfContent"></div>
+  </aside>
 </div>
+
+<footer class="foot">
+  <button class="nav-btn" id="prevBtn">← Prev</button>
+  <span class="step-ctr" id="stepCtr"></span>
+  <button class="nav-btn" id="nextBtn">Next →</button>
+</footer>
 
 <script>
-// ─── ENGINE (plain JS) ───────────────────────────────────────────────────────
+// agwForm global is loaded from form-core.js above
+const { createForm } = agwForm;
 
-function deepClone(val, hash = new WeakMap()) {
-  if (val === null || val === undefined || typeof val !== 'object') return val;
-  if (val instanceof Date) return new Date(val.getTime());
-  if (val instanceof File) return val;
-  if (hash.has(val)) return hash.get(val);
-  if (Array.isArray(val)) {
-    const c = new Array(val.length);
-    hash.set(val, c);
-    for (let i = 0; i < val.length; i++) c[i] = deepClone(val[i], hash);
-    return c;
-  }
-  const c = {};
-  hash.set(val, c);
-  for (const k of Object.keys(val)) c[k] = deepClone(val[k], hash);
-  return c;
+// Dynamic base URL — works on localhost AND GitHub Pages
+const BASE_URL = window.location.origin + (window.location.pathname.includes('/agw-form') ? '/agw-form/' : '/');
+const CORE_URL = BASE_URL + 'form-core.js';
+
+// ─── IFRAME STYLE SHEET (injected into framework iframes) ────────────────────
+const IFRAME_CSS = `
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px;font-size:13px;line-height:1.5;}
+input,select,textarea{width:100%;background:#21262d;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:6px 10px;font-size:13px;outline:none;transition:border-color .15s;font-family:inherit;}
+input:focus,select:focus{border-color:#58a6ff;}
+button{padding:6px 14px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#e6edf3;font-size:12px;cursor:pointer;transition:all .15s;}
+button:hover:not(:disabled){border-color:#58a6ff;color:#58a6ff;}
+button.primary{background:#1f6feb;border-color:#1f6feb;color:#fff;}
+button.primary:hover:not(:disabled){background:#388bfd;}
+button.danger{border-color:#f85149;color:#f85149;}
+.field{margin-bottom:12px;}
+label{display:block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8b949e;margin-bottom:3px;}
+.err{color:#f85149;font-size:11px;margin-top:3px;min-height:15px;}
+.ok{color:#3fb950;font-size:11px;margin-top:3px;}
+.hint{color:#8b949e;font-size:11px;margin-top:3px;}
+.box{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px;font-size:11px;font-family:'SF Mono',Menlo,monospace;white-space:pre;overflow:auto;max-height:180px;line-height:1.6;margin-top:8px;}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+.g{background:rgba(63,185,80,.15);color:#3fb950;}
+.r{background:rgba(248,81,73,.15);color:#f85149;}
+.b{background:rgba(88,166,255,.15);color:#58a6ff;}
+hr{border:none;border-top:1px solid #30363d;margin:12px 0;}
+.spin{width:12px;height:12px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;display:inline-block;animation:sp .6s linear infinite;vertical-align:middle;}
+@keyframes sp{to{transform:rotate(360deg);}}
+.arr{display:flex;align-items:center;gap:6px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:7px 9px;margin-bottom:5px;}
+.arr input{background:#21262d;border:1px solid #30363d;flex:1;}
+`;
+
+// ─── IFRAME BUILDER HELPERS ───────────────────────────────────────────────────
+function makeReactIframe(jsx, extraSetup = '') {
+  return `<!DOCTYPE html><html><head><style>${IFRAME_CSS}<\/style><\/head><body>
+<div id="root"><\/div>
+<script src="https://unpkg.com/@babel/standalone@7.24.4/babel.min.js"><\/script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"><\/script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"><\/script>
+<script src="${CORE_URL}"><\/script>
+<script>
+const { createForm } = agwForm;
+function useForm(form) {
+  const [s, set] = React.useState(() => form.getState());
+  React.useEffect(() => form.subscribe(set), []);
+  return s;
+}
+function useField(form, path) {
+  const [val, setVal] = React.useState(() => form.get(path));
+  const [fs, setFs] = React.useState({});
+  React.useEffect(() => form.subscribeToPath(path, (v, f) => { setVal(v); setFs(f); }), [path]);
+  return [val, fs, v => form.set(path, v, { touch: true, validate: true })];
+}
+${extraSetup}
+<\/script>
+<script type="text/babel" data-presets="react">
+${jsx}
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+<\/script>
+<\/body><\/html>`;
 }
 
-function isDeepEqual(a, b, hash = new WeakMap()) {
-  if (a === b) return true;
-  if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
-  if (typeof a !== 'object' || typeof b !== 'object' || !a || !b) return false;
-  if (hash.has(a) && hash.get(a) === b) return true;
-  hash.set(a, b);
-  const ka = Object.keys(a), kb = new Set(Object.keys(b));
-  if (ka.length !== kb.size) return false;
-  for (const k of ka) { if (!kb.has(k) || !isDeepEqual(a[k], b[k], hash)) return false; }
-  return true;
+function makeVueIframe(setup, template) {
+  return `<!DOCTYPE html><html><head><style>${IFRAME_CSS}<\/style><\/head><body>
+<div id="app"><\/div>
+<script src="https://unpkg.com/vue@3.4.31/dist/vue.global.prod.js"><\/script>
+<script src="${CORE_URL}"><\/script>
+<script>
+const { createForm } = agwForm;
+const { createApp, ref, shallowRef, computed, onUnmounted, readonly } = Vue;
+function useVueForm(form) {
+  const state = shallowRef(form.getState());
+  const unsub = form.subscribe(s => { state.value = Object.assign({}, s); });
+  onUnmounted(unsub);
+  return readonly(state);
+}
+function useVueField(form, path) {
+  const value = ref(form.get(path));
+  const error = ref(undefined);
+  const unsub = form.subscribeToPath(path, (v, fs) => { value.value = v; error.value = fs.error; });
+  onUnmounted(unsub);
+  return { value, error };
+}
+createApp({
+  setup() { ${setup} },
+  template: \`${template}\`
+}).mount('#app');
+<\/script><\/body><\/html>`;
 }
 
-function getNestedValue(obj, path) {
-  return path.split('.').reduce((c, p) => c == null ? undefined : c[p], obj);
+function makeSolidIframe(code) {
+  return `<!DOCTYPE html><html><head><style>${IFRAME_CSS}<\/style><\/head><body>
+<div id="root"><\/div>
+<script type="module">
+import{createSignal,createEffect,onCleanup,For,Show,createMemo}from'https://esm.sh/solid-js@1.8.17';
+import{render}from'https://esm.sh/solid-js@1.8.17/web';
+
+// Load engine via dynamic import of the IIFE script
+await new Promise(res => {
+  const s = document.createElement('script');
+  s.src = '${CORE_URL}';
+  s.onload = res;
+  document.head.appendChild(s);
+});
+const { createForm } = window.agwForm;
+
+function useSolidForm(form) {
+  const [s, set] = createSignal(form.getState(), { equals: false });
+  const unsub = form.subscribe(v => set(Object.assign({}, v)));
+  onCleanup(unsub);
+  return s;
+}
+function useSolidField(form, path) {
+  const [val, setVal] = createSignal(form.get(path));
+  const [fs, setFs] = createSignal({});
+  const unsub = form.subscribeToPath(path, (v, f) => { setVal(v); setFs(Object.assign({}, f)); });
+  onCleanup(unsub);
+  return [val, fs, v => form.set(path, v, { touch: true, validate: true })];
+}
+${code}
+<\/script><\/body><\/html>`;
 }
 
-function setNestedValue(obj, path, value) {
-  const parts = path.split('.');
-  let cur = obj;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const p = parts[i], n = parts[i + 1];
-    if (!(p in cur) || cur[p] === null || typeof cur[p] !== 'object') cur[p] = isNaN(Number(n)) ? {} : [];
-    cur = cur[p];
-  }
-  cur[parts[parts.length - 1]] = value;
-}
+// ─── VANILLA TUTORIAL STEPS ──────────────────────────────────────────────────
+// Each step: { title, desc, code, run(container) }
+// run() builds the live demo in container, returns the form instance (optional)
 
-function createForm(config) {
-  let values = deepClone(config.initialValues);
-  let initialValues = deepClone(config.initialValues);
-  let errors = {}, touched = {}, dirty = {};
-  let isSubmitting = false, isValidating = false;
-  const globalSubs = new Set(), pathSubs = new Map();
-  let batchDepth = 0;
-  const pendingPaths = new Set();
-  let asyncEpoch = 0;
+const VANILLA = [
 
-  const getState = () => ({ values: deepClone(values), errors: {...errors}, touched: {...touched}, dirty: {...dirty}, isSubmitting, isValidating });
+// ── Step 1 ──────────────────────────────────────────────────────────────────
+{
+title: 'Hello createForm',
+desc: 'Create a form, read initial values, write a new value, and read it back. Everything lives in a closure — no classes, no global state.',
+code: `import { createForm } from '@agw/form/core';
 
-  const notifyPaths = (paths) => {
-    paths.forEach(path => {
-      const parts = path.split('.'), cands = ['*'];
-      let acc = '';
-      for (const p of parts) { acc = acc ? `${acc}.${p}` : p; cands.push(acc); }
-      cands.forEach(p => {
-        const ls = pathSubs.get(p); if (!ls) return;
-        const v = p === '*' ? deepClone(values) : deepClone(getNestedValue(values, p));
-        ls.forEach(cb => cb(v, { error: errors[p], touched: touched[p], dirty: dirty[p] }));
-      });
-    });
-  };
-
-  const flush = (paths) => {
-    if (globalSubs.size > 0) { const s = getState(); globalSubs.forEach(fn => fn(s)); }
-    const uniq = [...new Set(paths.filter(p => p !== undefined))];
-    notifyPaths(uniq);
-  };
-
-  const notify = (path) => {
-    if (batchDepth > 0) { pendingPaths.add(path); return; }
-    if (globalSubs.size > 0) globalSubs.forEach(fn => fn(getState()));
-    if (path) notifyPaths([path]);
-  };
-
-  const batch = (fn) => {
-    batchDepth++;
-    try { fn(); } finally {
-      batchDepth--;
-      if (batchDepth === 0 && pendingPaths.size > 0) {
-        const paths = [...pendingPaths]; pendingPaths.clear(); flush(paths);
-      }
-    }
-  };
-
-  const runValidation = async (scopePaths) => {
-    if (!config.validator) return true;
-    isValidating = true;
-    if (globalSubs.size > 0) globalSubs.forEach(fn => fn(getState()));
-    const epoch = ++asyncEpoch;
-    const snap = deepClone(values);
-    try {
-      let result = config.validator(snap, scopePaths);
-      if (result instanceof Promise) {
-        result = await new Promise(resolve => setTimeout(async () => {
-          try { resolve(await result); } catch { resolve({ _global: 'Validation failed.' }); }
-        }, config.asyncDebounceMs ?? 300));
-      }
-      if (epoch === asyncEpoch) {
-        if (scopePaths) {
-          const updated = {...errors};
-          scopePaths.forEach(p => Object.keys(updated).forEach(k => { if (k === p || k.startsWith(p+'.')) delete updated[k]; }));
-          Object.keys(result).forEach(k => { if (scopePaths.some(s => k === s || k.startsWith(s+'.'))) updated[k] = result[k]; });
-          errors = updated;
-        } else { errors = result; }
-      }
-    } finally {
-      isValidating = false;
-      if (globalSubs.size > 0) globalSubs.forEach(fn => fn(getState()));
-      notifyPaths(scopePaths ?? [...pathSubs.keys()].filter(p => p !== '*'));
-    }
-    return Object.keys(errors).length === 0;
-  };
-
-  const setFieldValue = (path, val, opts = {}) => {
-    if (isDeepEqual(getNestedValue(values, path), val)) return;
-    batch(() => {
-      setNestedValue(values, path, val);
-      dirty[path] = !isDeepEqual(getNestedValue(initialValues, path), val);
-      if (!dirty[path]) delete dirty[path];
-      if (opts.touch) touched[path] = true;
-    });
-    notify(path);
-    if (opts.validate !== false) runValidation([path]);
-  };
-
-  return {
-    subscribe: (fn) => { globalSubs.add(fn); fn(getState()); return () => globalSubs.delete(fn); },
-    subscribeToPath: (path, fn) => {
-      if (!pathSubs.has(path)) pathSubs.set(path, new Set());
-      pathSubs.get(path).add(fn);
-      fn(deepClone(path === '*' ? values : getNestedValue(values, path)), { error: errors[path], touched: touched[path], dirty: dirty[path] });
-      return () => { const s = pathSubs.get(path); if (s) { s.delete(fn); if (!s.size) pathSubs.delete(path); } };
-    },
-    get: (path) => deepClone(getNestedValue(values, path)),
-    set: (path, val, opts) => setFieldValue(path, val, opts ?? {}),
-    validate: (paths) => runValidation(paths),
-    getState,
-    batch,
-    reset: (newVals) => {
-      if (newVals) initialValues = deepClone(newVals);
-      values = deepClone(initialValues); errors = {}; touched = {}; dirty = {}; isSubmitting = false; isValidating = false;
-      if (globalSubs.size > 0) globalSubs.forEach(fn => fn(getState()));
-      notifyPaths([...pathSubs.keys()].filter(p => p !== '*'));
-    },
-    handleSubmit: (onSubmit) => async (e) => {
-      if (e?.preventDefault) e.preventDefault();
-      if (isSubmitting) return;
-      isSubmitting = true; notify();
-      try { const ok = await runValidation(); if (ok) { await onSubmit(deepClone(values)); } }
-      catch (err) { console.error(err); }
-      finally { isSubmitting = false; notify(); }
-    },
-    arrayAppend: (path, item) => {
-      const arr = getNestedValue(values, path) ?? [];
-      if (!Array.isArray(arr)) return;
-      setFieldValue(path, [...arr, item]);
-    },
-    arrayRemove: (path, index) => {
-      const arr = getNestedValue(values, path) ?? [];
-      if (!Array.isArray(arr) || index < 0 || index >= arr.length) return;
-      const copy = [...arr]; copy.splice(index, 1);
-      setFieldValue(path, copy);
-    },
-    arrayMove: (path, from, to) => {
-      const arr = getNestedValue(values, path) ?? [];
-      if (!Array.isArray(arr) || from < 0 || from >= arr.length || to < 0 || to >= arr.length) return;
-      const copy = [...arr]; const [item] = copy.splice(from, 1); copy.splice(to, 0, item);
-      setFieldValue(path, copy);
-    },
-    destroy: () => { globalSubs.clear(); pathSubs.clear(); },
-  };
-}
-
-// ─── TUTORIAL DATA ────────────────────────────────────────────────────────────
-
-const TUTORIALS = {
-
-vanilla: [
-  {
-    title: 'Create a Form',
-    desc: `<p>Everything starts with <code>createForm()</code>. Pass <code>initialValues</code> — a plain object describing your form's shape — and you get back a form instance with a rich API.</p>
-    <p style="margin-top:8px">The engine deep-clones your initial values so mutations never leak back to your original object.</p>`,
-    code: `const form = createForm({
+const form = createForm({
   initialValues: {
-    name: 'Ada Lovelace',
+    name: 'Alice',
     email: '',
-    age: 0,
+    age: 25,
   },
 });
 
-// Read the full state snapshot
+// Read a value
+console.log(form.get('name')); // 'Alice'
+
+// Write a value (no validation, no touch)
+form.set('email', 'alice@example.com');
+console.log(form.get('email')); // 'alice@example.com'
+
+// Full snapshot
 const state = form.getState();
-console.log(state.values);
-// → { name: 'Ada Lovelace', email: '', age: 0 }`,
-    run: (el) => {
-      const form = createForm({ initialValues: { name: 'Ada Lovelace', email: '', age: 0 } });
-      const state = form.getState();
-      el.innerHTML = `
-        <div class="live-label">Live Form State</div>
-        <div class="state-box">${JSON.stringify(state, null, 2)}</div>
-        <p style="margin-top:10px;font-size:13px;color:#8b949e;">The engine deep-cloned your initialValues. Mutations to the returned state won't affect the form.</p>
-      `;
-    }
-  },
-  {
-    title: 'Get & Set Values',
-    desc: `<p><code>form.get(path)</code> reads a nested value by dot-path. <code>form.set(path, value)</code> writes it. Both support arbitrarily deep paths like <code>"user.address.city"</code>.</p>
-    <p style="margin-top:8px">Setting a value that is deep-equal to the current value is a no-op — no re-renders, no notifications.</p>`,
-    code: `const form = createForm({
-  initialValues: { user: { name: '', role: 'viewer' } },
-});
+// { values, errors, touched, dirty, isSubmitting, isValidating }`,
 
-form.set('user.name', 'Grace Hopper');
-form.set('user.role', 'admin');
+run(el) {
+  const form = createForm({ initialValues: { name: 'Alice', email: '', age: 25 } });
 
-console.log(form.get('user.name')); // → 'Grace Hopper'
-console.log(form.get('user'));
-// → { name: 'Grace Hopper', role: 'admin' }
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld">
+        <label>name</label>
+        <input id="i-name" value="Alice" />
+      </div>
+      <div class="fld">
+        <label>email</label>
+        <input id="i-email" placeholder="type something…" />
+      </div>
+      <div class="fld">
+        <label>age</label>
+        <input id="i-age" type="number" value="25" />
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="snap-btn">form.getState()</button>
+        <button class="btn" id="reset-btn">reset</button>
+      </div>
+      <hr class="hr" />
+      <div class="sec">State snapshot</div>
+      <div class="box" id="snap-out">(click the button above)</div>
+    </div>`;
 
-// No-op: same value
-form.set('user.role', 'admin'); // silent`,
-    run: (el) => {
-      const form = createForm({ initialValues: { user: { name: '', role: 'viewer' } } });
-      const render = () => {
-        el.innerHTML = `
-          <div class="live-label">Try It</div>
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            <div>
-              <label style="font-size:12px;color:#8b949e;display:block;margin-bottom:4px;">Name (user.name)</label>
-              <input id="v-name" value="${form.get('user.name')}" style="width:100%;" placeholder="Enter name" />
-            </div>
-            <div>
-              <label style="font-size:12px;color:#8b949e;display:block;margin-bottom:4px;">Role (user.role)</label>
-              <select id="v-role" style="width:100%;">
-                <option value="viewer" ${form.get('user.role')==='viewer'?'selected':''}>viewer</option>
-                <option value="editor" ${form.get('user.role')==='editor'?'selected':''}>editor</option>
-                <option value="admin" ${form.get('user.role')==='admin'?'selected':''}>admin</option>
-              </select>
-            </div>
-            <div class="live-label" style="margin-top:6px;">form.getState().values</div>
-            <div class="state-box" id="v-state">${JSON.stringify(form.getState().values, null, 2)}</div>
-          </div>
-        `;
-        el.querySelector('#v-name').oninput = e => { form.set('user.name', e.target.value, { validate: false }); el.querySelector('#v-state').textContent = JSON.stringify(form.getState().values, null, 2); };
-        el.querySelector('#v-role').onchange = e => { form.set('user.role', e.target.value, { validate: false }); el.querySelector('#v-state').textContent = JSON.stringify(form.getState().values, null, 2); };
-      };
-      render();
-    }
-  },
-  {
-    title: 'Subscribe to Changes',
-    desc: `<p><code>form.subscribe(fn)</code> fires your callback with the full state snapshot on every change. It also fires immediately on attach so your UI can initialize.</p>
-    <p style="margin-top:8px">The returned function is an unsubscribe handle. Always call it on component teardown to prevent memory leaks.</p>`,
-    code: `const form = createForm({
-  initialValues: { count: 0 },
-});
+  const snap = () => {
+    document.getElementById('snap-out').textContent =
+      JSON.stringify(form.getState(), null, 2);
+  };
 
+  document.getElementById('i-name').addEventListener('input', e => form.set('name', e.target.value));
+  document.getElementById('i-email').addEventListener('input', e => form.set('email', e.target.value));
+  document.getElementById('i-age').addEventListener('input', e => form.set('age', Number(e.target.value)));
+  document.getElementById('snap-btn').addEventListener('click', snap);
+  document.getElementById('reset-btn').addEventListener('click', () => { form.reset(); snap(); });
+
+  return form;
+}
+},
+
+// ── Step 2 ──────────────────────────────────────────────────────────────────
+{
+title: 'subscribe — Global State',
+desc: 'form.subscribe(fn) fires on every mutation. Returns an unsubscribe cleanup. Great for syncing whole-form state to a UI framework.',
+code: `const form = createForm({ initialValues: { name: '', role: 'user' } });
+
+// Called immediately with current state, then on every change
 const unsub = form.subscribe((state) => {
-  console.log('count changed:', state.values.count);
-  // → fires immediately with 0
-  // → fires again on each set()
+  console.log('dirty fields:', Object.keys(state.dirty));
+  console.log('is valid:', Object.keys(state.errors).length === 0);
 });
 
-form.set('count', 1); // → 'count changed: 1'
-form.set('count', 2); // → 'count changed: 2'
+form.set('name', 'Bob');   // fires subscriber
+form.set('role', 'admin'); // fires subscriber again
 
-// Cleanup
-unsub();
-form.set('count', 3); // → silent (unsubscribed)`,
-    run: (el) => {
-      const form = createForm({ initialValues: { count: 0 } });
-      const log = [];
-      form.subscribe(state => { log.push(`count = ${state.values.count}`); if (log.length > 6) log.shift(); refresh(); });
-      function refresh() {
-        el.innerHTML = `
-          <div class="live-label">Subscription Log</div>
-          <div class="state-box" style="margin-bottom:12px;">${log.join('\n') || '(waiting for changes)'}</div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <button class="btn" id="dec">−</button>
-            <span style="min-width:32px;text-align:center;font-size:18px;font-weight:700;">${form.get('count')}</span>
-            <button class="btn btn-primary" id="inc">+</button>
-            <button class="btn" id="rst" style="margin-left:8px;">Reset to 0</button>
-          </div>
-        `;
-        el.querySelector('#inc').onclick = () => form.set('count', form.get('count') + 1, { validate: false });
-        el.querySelector('#dec').onclick = () => form.set('count', form.get('count') - 1, { validate: false });
-        el.querySelector('#rst').onclick = () => form.reset({ count: 0 });
-      }
-    }
+// Clean up when component unmounts
+unsub();`,
+
+run(el) {
+  const form = createForm({ initialValues: { name: '', role: 'user' } });
+  let fireCount = 0;
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld"><label>name</label><input id="i-name" placeholder="type…" /></div>
+      <div class="fld">
+        <label>role</label>
+        <select id="i-role">
+          <option value="user">user</option>
+          <option value="admin">admin</option>
+          <option value="viewer">viewer</option>
+        </select>
+      </div>
+      <div class="btn-row">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="sec">Subscriber fired</span>
+          <span style="font-size:22px;font-weight:700;color:var(--blue);font-family:monospace" id="cnt">0</span>
+          <span class="sec">times</span>
+        </div>
+      </div>
+      <hr class="hr" />
+      <div class="sec">Latest state</div>
+      <div class="box" id="out"></div>
+    </div>`;
+
+  const unsub = form.subscribe(state => {
+    fireCount++;
+    document.getElementById('cnt').textContent = fireCount;
+    document.getElementById('out').textContent = JSON.stringify({
+      values: state.values,
+      dirty: Object.keys(state.dirty),
+    }, null, 2);
+  });
+
+  document.getElementById('i-name').addEventListener('input', e => form.set('name', e.target.value));
+  document.getElementById('i-role').addEventListener('change', e => form.set('role', e.target.value));
+
+  el._cleanup = unsub;
+  return form;
+}
+},
+
+// ── Step 3 ──────────────────────────────────────────────────────────────────
+{
+title: 'subscribeToPath — Field Isolation',
+desc: 'subscribeToPath(path, fn) only fires when that specific field changes. Essential for preventing unnecessary re-renders in components that own a single field.',
+code: `const form = createForm({
+  initialValues: { email: '', phone: '' },
+});
+
+// Only triggers when 'email' changes — phone updates don't fire this
+const unsubEmail = form.subscribeToPath('email', (value, { error, touched, dirty }) => {
+  emailEl.textContent = value;
+});
+
+// Only triggers when 'phone' changes
+const unsubPhone = form.subscribeToPath('phone', (value) => {
+  phoneEl.textContent = value;
+});
+
+form.set('email', 'x@x.com'); // fires unsubEmail only
+form.set('phone', '555-0100'); // fires unsubPhone only
+
+unsubEmail(); // cleanup`,
+
+run(el) {
+  const form = createForm({ initialValues: { email: '', phone: '' } });
+  let emailFires = 0, phoneFires = 0;
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld">
+        <label>email</label>
+        <input id="i-email" placeholder="type here…" />
+        <div class="fhint">subscriber fires: <strong id="ef">0</strong>×</div>
+      </div>
+      <div class="fld">
+        <label>phone</label>
+        <input id="i-phone" placeholder="type here…" />
+        <div class="fhint">subscriber fires: <strong id="pf">0</strong>×</div>
+      </div>
+      <hr class="hr" />
+      <div class="sec">Key insight</div>
+      <div class="alert info" style="font-size:12px;">
+        Typing in Email doesn't trigger the Phone subscriber and vice-versa.<br/>
+        Global <code>subscribe()</code> would fire on both.
+      </div>
+    </div>`;
+
+  form.subscribeToPath('email', () => {
+    document.getElementById('ef').textContent = ++emailFires;
+  });
+  form.subscribeToPath('phone', () => {
+    document.getElementById('pf').textContent = ++phoneFires;
+  });
+
+  document.getElementById('i-email').addEventListener('input', e => form.set('email', e.target.value));
+  document.getElementById('i-phone').addEventListener('input', e => form.set('phone', e.target.value));
+
+  return form;
+}
+},
+
+// ── Step 4 ──────────────────────────────────────────────────────────────────
+{
+title: 'Nested Objects & Deep Paths',
+desc: 'createForm works with arbitrarily nested shapes. Use dot notation to read/write any path. setNestedValue creates missing intermediate objects automatically.',
+code: `const form = createForm({
+  initialValues: {
+    user: {
+      profile: { firstName: '', lastName: '' },
+      address: { city: '', country: 'US' },
+    },
+    meta: { createdAt: null, tags: [] },
   },
-  {
-    title: 'Path Subscriptions',
-    desc: `<p><code>form.subscribeToPath(path, fn)</code> fires only when a specific path (or any of its ancestors) changes. This is the key to efficient fine-grained updates — a subscriber on <code>"user.email"</code> won't fire when <code>"user.name"</code> changes.</p>
-    <p style="margin-top:8px">The wildcard <code>"*"</code> path receives every notification — useful for debugging or global state mirrors.</p>`,
-    code: `const form = createForm({
-  initialValues: { a: '', b: '' },
 });
 
-// Only fires when 'a' changes
-form.subscribeToPath('a', (value, fieldState) => {
-  console.log('a changed to:', value);
-  console.log('field state:', fieldState);
-  // → { error, touched, dirty }
-});
+// Deep reads
+form.get('user.profile.firstName'); // ''
+form.get('user.address.country');   // 'US'
 
-form.set('a', 'hello'); // fires subscriber
-form.set('b', 'world'); // SILENT — different path`,
-    run: (el) => {
-      const form = createForm({ initialValues: { a: '', b: '' } });
-      const logA = [], logB = [];
-      form.subscribeToPath('a', (v) => { logA.push(`a → "${v}"`); if (logA.length > 4) logA.shift(); render(); });
-      form.subscribeToPath('b', (v) => { logB.push(`b → "${v}"`); if (logB.length > 4) logB.shift(); render(); });
-      function render() {
-        el.innerHTML = `
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            <div>
-              <label style="font-size:12px;color:#8b949e;display:block;margin-bottom:4px;">Field A</label>
-              <input id="pa" value="${form.get('a')}" style="width:100%;" />
-            </div>
-            <div>
-              <label style="font-size:12px;color:#8b949e;display:block;margin-bottom:4px;">Field B</label>
-              <input id="pb" value="${form.get('b')}" style="width:100%;" />
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">
-              <div>
-                <div class="live-label">subscribeToPath('a') log</div>
-                <div class="state-box" style="height:90px;">${logA.join('\n') || '(no changes yet)'}</div>
-              </div>
-              <div>
-                <div class="live-label">subscribeToPath('b') log</div>
-                <div class="state-box" style="height:90px;">${logB.join('\n') || '(no changes yet)'}</div>
-              </div>
-            </div>
-          </div>
-        `;
-        el.querySelector('#pa').oninput = e => form.set('a', e.target.value, { validate: false });
-        el.querySelector('#pb').oninput = e => form.set('b', e.target.value, { validate: false });
-      }
-      render();
-    }
+// Deep writes — creates any missing nodes
+form.set('user.profile.firstName', 'Alice');
+form.set('user.profile.lastName',  'Smith');
+form.set('user.address.city',      'NYC');
+
+// Subscribe to a nested path
+form.subscribeToPath('user.address.city', (city) => {
+  cityEl.textContent = city;
+});`,
+
+run(el) {
+  const form = createForm({
+    initialValues: {
+      user: {
+        profile: { firstName: '', lastName: '' },
+        address: { city: '', country: 'US' },
+      },
+    },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">user.profile</div>
+      <div class="fld"><label>firstName</label><input id="i-fn" /></div>
+      <div class="fld"><label>lastName</label><input id="i-ln" /></div>
+      <div class="sec" style="margin-top:6px;">user.address</div>
+      <div class="fld"><label>city</label><input id="i-city" /></div>
+      <div class="fld">
+        <label>country</label>
+        <select id="i-cty">
+          <option value="US">US</option><option value="UK">UK</option>
+          <option value="CA">CA</option><option value="AU">AU</option>
+        </select>
+      </div>
+      <hr class="hr" />
+      <div class="sec">Values (live)</div>
+      <div class="box" id="out"></div>
+    </div>`;
+
+  const upd = () => {
+    document.getElementById('out').textContent =
+      JSON.stringify(form.getState().values, null, 2);
+  };
+
+  [['i-fn','user.profile.firstName'],['i-ln','user.profile.lastName'],
+   ['i-city','user.address.city'],['i-cty','user.address.country']].forEach(([id, path]) => {
+    document.getElementById(id).addEventListener('input', e => { form.set(path, e.target.value); upd(); });
+  });
+
+  upd();
+  return form;
+}
+},
+
+// ── Step 5 ──────────────────────────────────────────────────────────────────
+{
+title: 'Built-in Validation Rules',
+desc: 'Pass a rules map to createForm. Rules run synchronously on every set(). String rules for simple checks, object rules for parameterized constraints — no external schema library needed.',
+code: `const form = createForm({
+  initialValues: {
+    username: '', email: '', age: '', website: '', bio: '',
   },
-  {
-    title: 'Sync Validation',
-    desc: `<p>Pass a <code>validator</code> function to <code>createForm()</code>. It receives the current values (and an optional scope) and must return a <code>Record&lt;string, string&gt;</code> of path → error message. An empty object means valid.</p>
-    <p style="margin-top:8px">Validation runs automatically on every <code>set()</code>. You can also call <code>form.validate()</code> manually to validate all fields at once (e.g. on submit).</p>`,
-    code: `const form = createForm({
-  initialValues: { email: '', password: '' },
-  validator: (values) => {
+  rules: {
+    username: ['required', { minLength: 3 }, { maxLength: 20 }, 'alphanumeric'],
+    email:    ['required', 'email'],
+    age:      ['required', 'integer', { min: 18 }, { max: 120 }],
+    website:  'url',              // single rule (no array needed)
+    bio:      { maxLength: 200 },
+  },
+});
+
+// All built-in rule strings:
+// 'required' | 'accepted' | 'email' | 'url' | 'numeric' | 'integer'
+// 'positive' | 'nonNegative' | 'alpha' | 'alphanumeric' | 'date' | 'unique'
+
+// Parameterized rules (objects):
+// { minLength } | { maxLength } | { min } | { max }
+// { pattern } | { startsWith } | { endsWith } | { includes }
+// { matches } | { oneOf } | { greaterThan } | { lessThan }
+// { requiredIf } | { requiredUnless } | { after } | { before }
+// { minItems } | { maxItems } — all accept optional \`message\` key`,
+
+run(el) {
+  const form = createForm({
+    initialValues: { username: '', email: '', age: '', website: '', bio: '' },
+    rules: {
+      username: ['required', { minLength: 3 }, { maxLength: 20 }, 'alphanumeric'],
+      email: ['required', 'email'],
+      age: ['required', 'integer', { min: 18 }, { max: 120 }],
+      website: 'url',
+      bio: { maxLength: 200 },
+    },
+  });
+
+  const fields = [
+    { id: 'username', label: 'Username', hint: 'required · 3–20 chars · alphanumeric' },
+    { id: 'email', label: 'Email', hint: 'required · valid email' },
+    { id: 'age', label: 'Age', hint: 'required · integer 18–120' },
+    { id: 'website', label: 'Website', hint: 'url (optional)' },
+    { id: 'bio', label: 'Bio', hint: 'max 200 chars' },
+  ];
+
+  el.innerHTML = `<div class="df">
+    ${fields.map(f => `
+      <div class="fld">
+        <label>${f.label}</label>
+        <input id="i-${f.id}" data-path="${f.id}" />
+        <div class="ferr" id="e-${f.id}"></div>
+        <div class="fhint">${f.hint}</div>
+      </div>`).join('')}
+    <div class="btn-row">
+      <button class="btn primary" id="val-btn">Validate all</button>
+    </div>
+    <div id="summary" class="alert info" style="margin-top:10px;font-size:12px;display:none;"></div>
+  </div>`;
+
+  fields.forEach(f => {
+    document.getElementById('i-' + f.id).addEventListener('input', e => {
+      form.set(f.id, e.target.value, { touch: true, validate: true });
+    });
+    form.subscribeToPath(f.id, (_, fs) => {
+      document.getElementById('e-' + f.id).textContent = fs.touched && fs.error ? fs.error : '';
+    });
+  });
+
+  document.getElementById('val-btn').addEventListener('click', async () => {
+    await form.validate();
+    const state = form.getState();
+    const errCount = Object.keys(state.errors).length;
+    const sum = document.getElementById('summary');
+    sum.className = 'alert ' + (errCount ? 'err' : 'ok');
+    sum.textContent = errCount ? `${errCount} error(s) found` : 'All fields valid ✓';
+    sum.style.display = 'block';
+    // mark all as touched so errors show
+    Object.keys(state.errors).forEach(path => {
+      const el = document.getElementById('e-' + path);
+      if (el) el.textContent = state.errors[path];
+    });
+  });
+
+  return form;
+}
+},
+
+// ── Step 6 ──────────────────────────────────────────────────────────────────
+{
+title: 'Custom Sync Validator',
+desc: 'validator() receives a values snapshot and returns a Record<string, string> of errors. Runs after built-in rules. Return an empty object to signal "valid".',
+code: `const form = createForm({
+  initialValues: { password: '', confirm: '' },
+
+  validator(values) {
     const errors = {};
-    if (!values.email.includes('@'))
-      errors.email = 'Must be a valid email';
-    if (values.password.length < 8)
-      errors.password = 'Min 8 characters';
+
+    // password strength
+    if (values.password && values.password.length < 8) {
+      errors.password = 'Minimum 8 characters';
+    } else if (!/[A-Z]/.test(values.password)) {
+      errors.password = 'Needs at least one uppercase letter';
+    } else if (!/[0-9]/.test(values.password)) {
+      errors.password = 'Needs at least one digit';
+    }
+
+    // confirmation match
+    if (values.confirm && values.confirm !== values.password) {
+      errors.confirm = 'Passwords do not match';
+    }
+
     return errors;
   },
-});
+});`,
 
-// Trigger all errors at once
-await form.validate();
-form.getState().errors;
-// → { email: 'Must be a valid email',
-//     password: 'Min 8 characters' }`,
-    run: (el) => {
-      const form = createForm({
-        initialValues: { email: '', password: '' },
-        validator: (v) => {
-          const e = {};
-          if (!v.email || !v.email.includes('@')) e.email = 'Must be a valid email';
-          if (!v.password || v.password.length < 8) e.password = 'Min 8 characters';
-          return e;
-        },
-      });
-      let state = form.getState();
-      form.subscribe(s => { state = s; render(); });
-      function render() {
-        el.innerHTML = `
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            <div>
-              <label style="font-size:12px;color:#8b949e;display:block;margin-bottom:4px;">Email</label>
-              <input id="sv-email" value="${form.get('email')}" style="width:100%;border-color:${state.errors.email?'#f85149':''};" placeholder="you@example.com" />
-              ${state.errors.email ? `<div class="error-msg">${state.errors.email}</div>` : ''}
-            </div>
-            <div>
-              <label style="font-size:12px;color:#8b949e;display:block;margin-bottom:4px;">Password</label>
-              <input type="password" id="sv-pwd" value="${form.get('password')}" style="width:100%;border-color:${state.errors.password?'#f85149':''};" placeholder="Min 8 characters" />
-              ${state.errors.password ? `<div class="error-msg">${state.errors.password}</div>` : ''}
-            </div>
-            <button class="btn btn-primary" id="sv-submit">Validate all</button>
-            <div>
-              <div class="live-label">errors</div>
-              <div class="state-box">${JSON.stringify(state.errors, null, 2)}</div>
-            </div>
-          </div>
-        `;
-        el.querySelector('#sv-email').oninput = e => form.set('email', e.target.value, { touch: true });
-        el.querySelector('#sv-pwd').oninput = e => form.set('password', e.target.value, { touch: true });
-        el.querySelector('#sv-submit').onclick = () => form.validate();
+run(el) {
+  const form = createForm({
+    initialValues: { password: '', confirm: '' },
+    validator(values) {
+      const errors = {};
+      if (values.password) {
+        if (values.password.length < 8) errors.password = 'At least 8 characters required';
+        else if (!/[A-Z]/.test(values.password)) errors.password = 'Needs an uppercase letter';
+        else if (!/[0-9]/.test(values.password)) errors.password = 'Needs a digit';
       }
-      render();
+      if (values.confirm && values.confirm !== values.password)
+        errors.confirm = 'Passwords do not match';
+      return errors;
+    },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld">
+        <label>Password</label>
+        <input id="i-pw" type="password" placeholder="min 8, upper + digit" />
+        <div class="ferr" id="e-pw"></div>
+      </div>
+      <div class="fld">
+        <label>Confirm password</label>
+        <input id="i-cf" type="password" />
+        <div class="ferr" id="e-cf"></div>
+      </div>
+      <div id="strength" style="font-size:12px;color:var(--t2);margin-top:4px;"></div>
+      <div class="btn-row">
+        <button class="btn primary" id="sub-btn">Set password</button>
+      </div>
+      <div id="msg" class="alert" style="display:none;margin-top:10px;"></div>
+    </div>`;
+
+  const checkStrength = pw => {
+    if (!pw) return '';
+    const score = [pw.length >= 8, /[A-Z]/.test(pw), /[0-9]/.test(pw), /[^A-Za-z0-9]/.test(pw)].filter(Boolean).length;
+    const labels = ['','Weak','Fair','Good','Strong'];
+    const colors = ['','var(--red)','var(--yellow)','var(--blue)','var(--green)'];
+    return `<span style="color:${colors[score]}">Strength: ${labels[score]}</span>`;
+  };
+
+  document.getElementById('i-pw').addEventListener('input', e => {
+    form.set('password', e.target.value, { touch: true, validate: true });
+    document.getElementById('strength').innerHTML = checkStrength(e.target.value);
+  });
+  document.getElementById('i-cf').addEventListener('input', e =>
+    form.set('confirm', e.target.value, { touch: true, validate: true }));
+
+  form.subscribeToPath('password', (_, fs) => {
+    document.getElementById('e-pw').textContent = fs.touched && fs.error ? fs.error : '';
+  });
+  form.subscribeToPath('confirm', (_, fs) => {
+    document.getElementById('e-cf').textContent = fs.touched && fs.error ? fs.error : '';
+  });
+
+  document.getElementById('sub-btn').addEventListener('click', async () => {
+    await form.validate();
+    const errs = form.getState().errors;
+    // mark touched
+    ['password','confirm'].forEach(p => form.set(p, form.get(p), { touch: true }));
+    const msg = document.getElementById('msg');
+    if (Object.keys(errs).length) {
+      msg.className = 'alert err'; msg.textContent = 'Fix errors above';
+    } else {
+      msg.className = 'alert ok'; msg.textContent = 'Password set successfully!';
     }
-  },
-  {
-    title: 'Async Validation',
-    desc: `<p>When the <code>validator</code> returns a <code>Promise</code>, the engine handles debouncing and stale-result discarding automatically via an internal epoch counter.</p>
-    <p style="margin-top:8px">Each validation call increments <code>asyncEpoch</code>. If a newer call starts before an older one resolves, the older result is silently discarded — no race conditions.</p>
-    <p style="margin-top:8px"><code>asyncDebounceMs</code> (default 300ms) delays the <code>await</code> so rapid keystrokes don't flood your server.</p>`,
-    code: `const form = createForm({
+    msg.style.display = 'block';
+  });
+
+  return form;
+}
+},
+
+// ── Step 7 ──────────────────────────────────────────────────────────────────
+{
+title: 'Async Validator + AbortSignal',
+desc: 'Return a Promise from validator(). The engine debounces calls (default 300ms) and passes an AbortSignal so stale in-flight checks can be cancelled when the user keeps typing.',
+code: `const form = createForm({
   initialValues: { username: '' },
   asyncDebounceMs: 400,
-  validator: async (values) => {
-    // Simulate a uniqueness check
-    const taken = ['alice', 'bob', 'carol'];
-    await new Promise(r => setTimeout(r, 600));
-    if (taken.includes(values.username))
-      return { username: 'Username already taken' };
-    return {};
+
+  async validator(values, _paths, signal) {
+    const name = values.username;
+    if (!name || name.length < 3) return {};
+
+    // Simulate an API call — e.g. checking username availability
+    const taken = await checkUsernameTaken(name, signal);
+
+    // If the signal fired, the result is discarded by the engine anyway
+    if (signal.aborted) return {};
+
+    return taken ? { username: \`"\${name}" is already taken\` } : {};
   },
 });
 
-form.set('username', 'alice');
-// → debounce 400ms → async check → error shown`,
-    run: (el) => {
-      const taken = ['alice', 'bob', 'carol'];
-      const form = createForm({
-        initialValues: { username: '' },
-        asyncDebounceMs: 300,
-        validator: async (v) => {
-          await new Promise(r => setTimeout(r, 600));
-          if (taken.includes(v.username)) return { username: `"${v.username}" is already taken` };
-          if (v.username && v.username.length < 3) return { username: 'Min 3 characters' };
-          return {};
-        },
-      });
-      let state = form.getState();
-      form.subscribe(s => { state = s; render(); });
-      function render() {
-        const checking = state.isValidating;
-        el.innerHTML = `
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            <div>
-              <label style="font-size:12px;color:#8b949e;display:block;margin-bottom:4px;">Username <span style="color:#8b949e;">(try: alice, bob, carol)</span></label>
-              <div style="position:relative;">
-                <input id="av-user" value="${form.get('username')}" style="width:100%;border-color:${state.errors.username?'#f85149':state.touched.username&&!state.errors.username&&!checking?'#3fb950':''};" placeholder="Choose a username" />
-                ${checking ? `<span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:12px;color:#8b949e;">checking…</span>` : ''}
-              </div>
-              ${state.errors.username ? `<div class="error-msg">${state.errors.username}</div>` : ''}
-              ${!state.errors.username && state.touched.username && !checking && form.get('username') ? `<div style="color:#3fb950;font-size:12px;margin-top:3px;">✓ Username available</div>` : ''}
-            </div>
-            <div style="display:flex;gap:10px;">
-              <div class="badge ${checking ? 'badge-blue' : 'badge-green'}">${checking ? '⟳ validating' : '✓ idle'}</div>
-            </div>
-            <div>
-              <div class="live-label">taken usernames</div>
-              <div class="state-box">${JSON.stringify(taken)}</div>
-            </div>
+// The engine automatically:
+// • Debounces so we don't call the API on every keystroke
+// • Cancels the previous request via AbortSignal when a new one starts
+// • Discards results from stale epochs if async calls arrive out of order`,
+
+run(el) {
+  // Fake "taken" names for the demo
+  const TAKEN = new Set(['admin', 'alice', 'bob', 'test', 'user', 'root', 'john']);
+
+  const form = createForm({
+    initialValues: { username: '' },
+    asyncDebounceMs: 500,
+    async validator(values, _paths, signal) {
+      const name = (values.username || '').toLowerCase().trim();
+      if (!name || name.length < 3) return {};
+      // Simulate network delay
+      await new Promise(r => setTimeout(r, 600));
+      if (signal.aborted) return {};
+      return TAKEN.has(name) ? { username: `"${name}" is already taken` } : {};
+    },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld">
+        <label>Username</label>
+        <div style="position:relative">
+          <input id="i-un" placeholder="try: alice, bob, admin…" />
+          <div id="spin-wrap" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);display:none;">
+            <div class="spin"></div>
           </div>
-        `;
-        el.querySelector('#av-user').oninput = e => form.set('username', e.target.value, { touch: true });
-      }
-      render();
-    }
-  },
-  {
-    title: 'Array Fields',
-    desc: `<p>The engine ships five array operations that keep <code>errors</code>, <code>touched</code>, and <code>dirty</code> indices in sync automatically:</p>
-    <ul style="margin:8px 0 0 16px;font-size:13px;line-height:1.8;">
-      <li><code>arrayAppend(path, item)</code> — add to end</li>
-      <li><code>arrayInsert(path, index, item)</code> — insert at index</li>
-      <li><code>arrayRemove(path, index)</code> — remove at index</li>
-      <li><code>arrayMove(path, from, to)</code> — reorder</li>
-      <li><code>arraySwap(path, a, b)</code> — swap two items</li>
-    </ul>`,
-    code: `const form = createForm({
-  initialValues: { todos: [] },
-});
+        </div>
+        <div id="e-un" class="ferr"></div>
+        <div id="ok-un" class="fok" style="display:none;">✓ Username available!</div>
+      </div>
+      <hr class="hr" />
+      <div class="sec">Epoch &amp; cancellation</div>
+      <div style="font-size:12px;color:var(--t2);">
+        Epoch <strong id="epoch-val" style="color:var(--blue);">0</strong> —
+        each keystroke after debounce increments the epoch and cancels the previous request.
+      </div>
+      <div class="fhint" style="margin-top:6px;">Taken: admin, alice, bob, test, user, root, john</div>
+    </div>`;
 
-form.arrayAppend('todos', { text: 'Buy milk', done: false });
-form.arrayAppend('todos', { text: 'Ship it', done: false });
+  const inp = document.getElementById('i-un');
+  const spinWrap = document.getElementById('spin-wrap');
+  const errEl = document.getElementById('e-un');
+  const okEl = document.getElementById('ok-un');
 
-form.get('todos');
-// → [{ text: 'Buy milk', done: false },
-//    { text: 'Ship it', done: false }]
+  inp.addEventListener('input', e => form.set('username', e.target.value, { touch: true, validate: true }));
 
-form.arrayMove('todos', 1, 0); // 'Ship it' moves to top
-form.arrayRemove('todos', 1);  // remove 'Buy milk'`,
-    run: (el) => {
-      const form = createForm({ initialValues: { todos: [{ text: 'Ship @agw/form', done: false }] } });
-      form.subscribe(() => render());
-      function render() {
-        const todos = form.get('todos') ?? [];
-        el.innerHTML = `
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            <div style="display:flex;gap:8px;">
-              <input id="todo-input" placeholder="New todo…" style="flex:1;" />
-              <button class="btn btn-primary" id="todo-add">Add</button>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:6px;" id="todo-list">
-              ${todos.length === 0 ? '<div style="color:#8b949e;font-size:13px;text-align:center;padding:12px;">No todos yet</div>' : ''}
-              ${todos.map((t, i) => `
-                <div style="display:flex;align-items:center;gap:8px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 12px;">
-                  <input type="checkbox" data-i="${i}" ${t.done ? 'checked' : ''} />
-                  <span style="flex:1;font-size:13px;${t.done ? 'text-decoration:line-through;color:#8b949e;' : ''}">${t.text}</span>
-                  ${i > 0 ? `<button class="btn" data-up="${i}" style="padding:3px 8px;">↑</button>` : ''}
-                  ${i < todos.length-1 ? `<button class="btn" data-down="${i}" style="padding:3px 8px;">↓</button>` : ''}
-                  <button class="btn btn-danger" data-rm="${i}" style="padding:3px 8px;">✕</button>
-                </div>
-              `).join('')}
-            </div>
-            <div class="live-label" style="margin-top:4px;">todos array (${todos.length} items)</div>
-            <div class="state-box">${JSON.stringify(todos, null, 2)}</div>
-          </div>
-        `;
-        el.querySelector('#todo-add').onclick = () => {
-          const inp = el.querySelector('#todo-input');
-          if (!inp.value.trim()) return;
-          form.arrayAppend('todos', { text: inp.value.trim(), done: false });
-          inp.value = '';
-        };
-        el.querySelector('#todo-input').onkeydown = e => { if (e.key === 'Enter') el.querySelector('#todo-add').click(); };
-        el.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => form.arrayRemove('todos', +b.dataset.rm));
-        el.querySelectorAll('[data-up]').forEach(b => b.onclick = () => form.arrayMove('todos', +b.dataset.up, +b.dataset.up - 1));
-        el.querySelectorAll('[data-down]').forEach(b => b.onclick = () => form.arrayMove('todos', +b.dataset.down, +b.dataset.down + 1));
-        el.querySelectorAll('[data-i]').forEach(b => b.onchange = () => {
-          const todos = form.get('todos');
-          todos[+b.dataset.i].done = b.checked;
-          form.set('todos', todos, { validate: false });
-        });
-      }
-      render();
-    }
-  },
-  {
-    title: 'Dependency Graph',
-    desc: `<p>The <code>dependencies</code> config defines which fields trigger co-validation when they change. The engine pre-computes the full transitive closure at init time so runtime lookup is O(1).</p>
-    <p style="margin-top:8px">Wildcards like <code>"destinations.*.url"</code> work too — the engine substitutes the actual index at validation time.</p>`,
-    code: `const form = createForm({
+  form.subscribe(state => {
+    spinWrap.style.display = state.isValidating ? 'block' : 'none';
+    document.getElementById('epoch-val').textContent = form.perf.epoch;
+    const err = state.errors.username;
+    const touched = state.touched.username;
+    errEl.textContent = touched && err ? err : '';
+    okEl.style.display = (touched && !err && !state.isValidating && form.get('username')) ? 'block' : 'none';
+  });
+
+  return form;
+}
+},
+
+// ── Step 8 ──────────────────────────────────────────────────────────────────
+{
+title: 'Dependency Graph',
+desc: 'The dependencies config creates a cascade: when field A changes, field B is also re-validated. The engine computes the full transitive closure at init so runtime lookup is O(1).',
+code: `const form = createForm({
   initialValues: {
     password: '',
     confirmPassword: '',
     startDate: '',
     endDate: '',
   },
-  // When password changes, confirmPassword is also validated.
-  // When startDate changes, endDate is also validated.
+
+  // When 'password' changes → also validate 'confirmPassword'
+  // When 'startDate' changes → also validate 'endDate'
   dependencies: {
-    password: ['confirmPassword'],
+    password:  ['confirmPassword'],
     startDate: ['endDate'],
   },
-  validator: (v) => {
-    const e = {};
-    if (v.password !== v.confirmPassword)
-      e.confirmPassword = 'Passwords must match';
-    if (v.startDate && v.endDate && v.endDate < v.startDate)
-      e.endDate = 'End must be after start';
-    return e;
-  },
-});`,
-    run: (el) => {
-      const form = createForm({
-        initialValues: { password: '', confirmPassword: '', startDate: '', endDate: '' },
-        dependencies: { password: ['confirmPassword'], startDate: ['endDate'] },
-        validator: (v) => {
-          const e = {};
-          if (v.password && v.confirmPassword && v.password !== v.confirmPassword)
-            e.confirmPassword = 'Passwords must match';
-          if (v.startDate && v.endDate && v.endDate < v.startDate)
-            e.endDate = 'End date must be after start date';
-          return e;
-        },
-      });
-      let state = form.getState();
-      form.subscribe(s => { state = s; render(); });
-      function field(id, label, type = 'text') {
-        const path = id.replace('dg-','');
-        const val = form.get(path) ?? '';
-        const err = state.errors[path];
-        return `
-          <div>
-            <label style="font-size:12px;color:#8b949e;display:block;margin-bottom:4px;">${label}</label>
-            <input type="${type}" id="${id}" value="${val}" style="width:100%;border-color:${err?'#f85149':''};" />
-            ${err ? `<div class="error-msg">${err}</div>` : ''}
-          </div>`;
-      }
-      function render() {
-        el.innerHTML = `
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            ${field('dg-password', 'Password', 'password')}
-            ${field('dg-confirmPassword', 'Confirm Password', 'password')}
-            ${field('dg-startDate', 'Start Date', 'date')}
-            ${field('dg-endDate', 'End Date', 'date')}
-          </div>
-        `;
-        ['password','confirmPassword','startDate','endDate'].forEach(p => {
-          const inp = el.querySelector(`#dg-${p}`);
-          if (inp) inp.oninput = inp.onchange = e => form.set(p, e.target.value, { touch: true });
-        });
-      }
-      render();
-    }
-  },
-  {
-    title: 'Reset',
-    desc: `<p><code>form.reset()</code> restores all values to <code>initialValues</code> and clears errors, touched, and dirty state.</p>
-    <p style="margin-top:8px"><code>form.reset(newValues)</code> re-seeds the baseline — the new values become the new "clean" state that dirty tracking compares against.</p>`,
-    code: `const form = createForm({
-  initialValues: { name: 'Ada', score: 0 },
-});
 
-form.set('name', 'Grace');
-form.set('score', 42);
-console.log(form.getState().dirty);
-// → { name: true, score: true }
-
-form.reset();
-console.log(form.get('name'));   // → 'Ada'
-console.log(form.getState().dirty); // → {}
-
-// Reset with new baseline:
-form.reset({ name: 'Grace', score: 100 });
-form.set('score', 100); // not dirty — matches new baseline
-console.log(form.getState().dirty); // → {}`,
-    run: (el) => {
-      const form = createForm({ initialValues: { name: 'Ada Lovelace', score: 0 } });
-      let state = form.getState();
-      form.subscribe(s => { state = s; render(); });
-      function render() {
-        const dirty = Object.keys(state.dirty).length > 0;
-        el.innerHTML = `
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            <div>
-              <label style="font-size:12px;color:#8b949e;display:block;margin-bottom:4px;">Name</label>
-              <input id="r-name" value="${form.get('name')}" style="width:100%;" />
-            </div>
-            <div>
-              <label style="font-size:12px;color:#8b949e;display:block;margin-bottom:4px;">Score</label>
-              <input type="number" id="r-score" value="${form.get('score')}" style="width:100%;" />
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn" id="r-reset">Reset to initial</button>
-              <button class="btn btn-primary" id="r-reseed">Reset with new values</button>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <div class="badge ${dirty ? 'badge-red' : 'badge-green'}">${dirty ? '⚠ dirty' : '✓ clean'}</div>
-              ${Object.keys(state.dirty).map(k => `<span class="badge badge-red">${k}</span>`).join('')}
-            </div>
-            <div>
-              <div class="live-label">dirty</div>
-              <div class="state-box">${JSON.stringify(state.dirty, null, 2)}</div>
-            </div>
-          </div>
-        `;
-        el.querySelector('#r-name').oninput = e => form.set('name', e.target.value, { validate: false });
-        el.querySelector('#r-score').oninput = e => form.set('score', Number(e.target.value), { validate: false });
-        el.querySelector('#r-reset').onclick = () => form.reset();
-        el.querySelector('#r-reseed').onclick = () => form.reset({ name: 'Grace Hopper', score: 99 });
-      }
-      render();
-    }
-  },
-],
-
-react: [
-  {
-    title: 'Installation',
-    desc: `<p>Install the package and the React adapter. The adapter uses <code>useSyncExternalStore</code> for tearing-free state reads.</p>`,
-    code: `npm install @agw/form
-# or
-pnpm add @agw/form`,
-    lang: 'bash',
-  },
-  {
-    title: 'useForm — Full State',
-    desc: `<p><code>useForm(form)</code> subscribes the component to the entire form state. Use it when you need <code>isSubmitting</code>, <code>errors</code>, or other global state. For individual fields, prefer <code>useFormPath</code> to avoid unnecessary re-renders.</p>`,
-    code: `import { createForm } from '@agw/form/core';
-import { useForm } from '@agw/form/adapters/react';
-
-const form = createForm({
-  initialValues: { email: '', password: '' },
-  validator: (v) => {
-    const e = {};
-    if (!v.email.includes('@')) e.email = 'Invalid email';
-    if (v.password.length < 8)  e.password = 'Min 8 chars';
-    return e;
+  validator(values) {
+    const errors = {};
+    if (values.confirmPassword && values.confirmPassword !== values.password)
+      errors.confirmPassword = 'Must match password';
+    if (values.startDate && values.endDate && values.endDate <= values.startDate)
+      errors.endDate = 'Must be after start date';
+    return errors;
   },
 });
 
-function LoginForm() {
-  const { state, handleSubmit } = useForm(form);
+// Now: changing 'password' automatically re-runs validation
+// for BOTH 'password' and 'confirmPassword' in one pass.`,
 
-  return (
-    <form onSubmit={handleSubmit(async (values) => {
-      await api.login(values);
-    })}>
-      <input
-        value={state.values.email}
-        onChange={e => form.set('email', e.target.value)}
-      />
-      {state.errors.email && <p>{state.errors.email}</p>}
-
-      <button disabled={state.isSubmitting}>
-        {state.isSubmitting ? 'Submitting…' : 'Login'}
-      </button>
-    </form>
-  );
-}`,
-    lang: 'tsx',
-  },
-  {
-    title: 'useFormPath — Field-Level Updates',
-    desc: `<p><code>useFormPath(form, path)</code> subscribes a component to a single field path. Only that component re-renders when the field changes — other fields are unaffected.</p>
-    <p style="margin-top:8px">It returns the current value directly (not wrapped in an object), making it easy to use as a controlled input value.</p>`,
-    code: `import { useFormPath } from '@agw/form/adapters/react';
-
-// This component ONLY re-renders when 'email' changes.
-// Changing 'password' is silent here.
-function EmailField({ form }) {
-  const value = useFormPath(form, 'email');
-  const error = form.getState().errors.email;
-
-  return (
-    <div>
-      <input
-        value={value ?? ''}
-        onChange={e => form.set('email', e.target.value)}
-        aria-invalid={!!error}
-      />
-      {error && <p className="error">{error}</p>}
-    </div>
-  );
-}`,
-    lang: 'tsx',
-  },
-  {
-    title: 'useFormConnect — Zero Re-render Bridge',
-    desc: `<p><code>useFormConnect(form)</code> wires a DOM input directly to the form engine without touching React state at all. No re-renders for this input — the engine updates the DOM directly via event listeners.</p>
-    <p style="margin-top:8px">Equivalent to React Hook Form's <code>register()</code> pattern. Disconnect on unmount is handled automatically via a <code>WeakRef</code> + <code>MutationObserver</code> GC.</p>`,
-    code: `import { useFormConnect } from '@agw/form/adapters/react';
-
-function PhoneField({ form }) {
-  const connect = useFormConnect(form);
-
-  return (
-    <input
-      type="tel"
-      ref={connect('phone', {
-        // Optional: format input as user types
-        format: (val) =>
-          val.replace(/\D/g, '')
-             .replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3'),
-      })}
-      placeholder="(555) 867-5309"
-    />
-  );
-}`,
-    lang: 'tsx',
-  },
-  {
-    title: 'Array Fields in React',
-    desc: `<p>Combine <code>useForm</code> for the array state and <code>form.arrayAppend</code> / <code>form.arrayRemove</code> for mutations. Each item can use <code>useFormPath</code> for field-level isolation.</p>`,
-    code: `function TodoList({ form }) {
-  const { state } = useForm(form);
-  const todos = state.values.todos;
-
-  return (
-    <div>
-      {todos.map((todo, i) => (
-        <div key={i}>
-          <TodoItem form={form} index={i} />
-          <button onClick={() => form.arrayRemove('todos', i)}>
-            Remove
-          </button>
-        </div>
-      ))}
-      <button onClick={() =>
-        form.arrayAppend('todos', { text: '', done: false })
-      }>
-        Add Todo
-      </button>
-    </div>
-  );
-}
-
-function TodoItem({ form, index }) {
-  // Only re-renders when THIS item's text changes
-  const text = useFormPath(form, \`todos.\${index}.text\`);
-  return (
-    <input
-      value={text ?? ''}
-      onChange={e => form.set(\`todos.\${index}.text\`, e.target.value)}
-    />
-  );
-}`,
-    lang: 'tsx',
-  },
-],
-
-svelte: [
-  {
-    title: 'Installation',
-    desc: `<p>Install the package. The Svelte adapter uses <code>svelte/store</code> primitives so it works with Svelte 4 and 5.</p>`,
-    code: `npm install @agw/form`,
-    lang: 'bash',
-  },
-  {
-    title: 'useSvelteForm — Full State Store',
-    desc: `<p><code>useSvelteForm(form)</code> returns an object whose <code>state</code> property is a Svelte <code>readable</code> store. Subscribe with the <code>$</code> prefix in templates. Unsubscription is handled automatically when the component is destroyed.</p>`,
-    code: `<script>
-  import { createForm } from '@agw/form/core';
-  import { useSvelteForm } from '@agw/form/adapters/svelte';
-
+run(el) {
   const form = createForm({
-    initialValues: { name: '', email: '' },
-    validator: (v) => {
-      const e = {};
-      if (!v.email.includes('@')) e.email = 'Invalid email';
-      return e;
+    initialValues: { password: '', confirmPassword: '', startDate: '', endDate: '' },
+    dependencies: { password: ['confirmPassword'], startDate: ['endDate'] },
+    validator(values) {
+      const errors = {};
+      if (values.confirmPassword && values.confirmPassword !== values.password)
+        errors.confirmPassword = 'Must match password';
+      if (values.startDate && values.endDate && values.endDate <= values.startDate)
+        errors.endDate = 'End must be after start';
+      return errors;
     },
   });
 
-  const { state, handleSubmit } = useSvelteForm(form);
-<\/script>
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">Password pair — change password to auto-revalidate confirm</div>
+      <div class="fld"><label>Password</label>
+        <input id="i-pw" type="password" />
+        <div class="ferr" id="e-pw"></div>
+      </div>
+      <div class="fld"><label>Confirm password</label>
+        <input id="i-cf" type="password" />
+        <div class="ferr" id="e-cf"></div>
+      </div>
+      <hr class="hr" />
+      <div class="sec">Date range — change start to auto-revalidate end</div>
+      <div class="fld"><label>Start date</label>
+        <input id="i-sd" type="date" />
+        <div class="ferr" id="e-sd"></div>
+      </div>
+      <div class="fld"><label>End date</label>
+        <input id="i-ed" type="date" />
+        <div class="ferr" id="e-ed"></div>
+      </div>
+    </div>`;
 
-<form on:submit={handleSubmit(async (values) => console.log(values))}>
-  <input
-    bind:value={$state.values.name}
-    on:input={e => form.set('name', e.target.value)}
-  />
+  [['i-pw','password'],['i-cf','confirmPassword'],
+   ['i-sd','startDate'],['i-ed','endDate']].forEach(([id, path]) => {
+    document.getElementById(id).addEventListener('input', e =>
+      form.set(path, e.target.value, { touch: true, validate: true }));
+    form.subscribeToPath(path, (_, fs) => {
+      const errEl = document.getElementById('e-' + id.slice(2));
+      if (errEl) errEl.textContent = fs.touched && fs.error ? fs.error : '';
+    });
+  });
 
-  <input
-    bind:value={$state.values.email}
-    on:input={e => form.set('email', e.target.value)}
-  />
-  {#if $state.errors.email}
-    <p class="error">{$state.errors.email}</p>
-  {/if}
+  // Fix: map field ids to error ids properly
+  const errMap = { 'i-pw': 'e-pw', 'i-cf': 'e-cf', 'i-sd': 'e-sd', 'i-ed': 'e-ed' };
+  const pathMap = { 'i-pw': 'password', 'i-cf': 'confirmPassword', 'i-sd': 'startDate', 'i-ed': 'endDate' };
+  Object.entries(pathMap).forEach(([id, path]) => {
+    form.subscribeToPath(path, (_, fs) => {
+      document.getElementById(errMap[id]).textContent = fs.touched && fs.error ? fs.error : '';
+    });
+  });
 
-  <button disabled={$state.isSubmitting}>Submit</button>
-</form>`,
-    lang: 'svelte',
+  return form;
+}
+},
+
+];  // end VANILLA array (continued in part 3)
+// (continued — push remaining steps into VANILLA array)
+VANILLA.push(
+
+// ── Step 9 ──────────────────────────────────────────────────────────────────
+{
+title: 'Multi-Step Form (Wizard)',
+desc: 'One createForm instance spans the entire wizard. Validate only the current step\'s fields before advancing — errors from other steps stay intact.',
+code: `const form = createForm({
+  initialValues: {
+    // Step 1 — personal
+    firstName: '', lastName: '', email: '',
+    // Step 2 — account
+    username: '', password: '',
+    // Step 3 — preferences
+    plan: 'free', newsletter: false,
   },
-  {
-    title: 'useSvelteFormPath — Reactive Field Store',
-    desc: `<p><code>useSvelteFormPath(form, path)</code> returns a single Svelte <code>readable</code> store for one field. Subscribe with <code>$field.value</code> and <code>$field.fieldState</code>. Only this store updates when the field changes.</p>`,
-    code: `<script>
-  import { useSvelteFormPath } from '@agw/form/adapters/svelte';
-
-  // Only re-evaluates when 'email' changes
-  const emailStore = useSvelteFormPath(form, 'email');
-<\/script>
-
-<div>
-  <input
-    value={$emailStore.value ?? ''}
-    on:input={e => form.set('email', e.target.value)}
-  />
-  {#if $emailStore.fieldState?.error}
-    <p class="error">{$emailStore.fieldState.error}</p>
-  {/if}
-</div>`,
-    lang: 'svelte',
+  rules: {
+    firstName: 'required', lastName: 'required', email: ['required','email'],
+    username:  ['required', { minLength: 3 }],
+    password:  ['required', { minLength: 8 }],
+    plan:      'required',
   },
-  {
-    title: 'Array Fields in Svelte',
-    desc: `<p>Use <code>$state.values.todos</code> to iterate and <code>form.arrayAppend</code> / <code>form.arrayRemove</code> to mutate.</p>`,
-    code: `<script>
-  const { state } = useSvelteForm(form);
-<\/script>
+});
 
-{#each $state.values.todos as todo, i}
-  <div>
-    <input
-      bind:value={todo.text}
-      on:input={e => form.set(\`todos.\${i}.text\`, e.target.value)}
-    />
-    <button on:click={() => form.arrayRemove('todos', i)}>✕</button>
-  </div>
-{/each}
+// Only validate step 1 fields before moving to step 2
+const STEPS = [
+  ['firstName', 'lastName', 'email'],
+  ['username', 'password'],
+  ['plan'],
+];
 
-<button on:click={() =>
-  form.arrayAppend('todos', { text: '', done: false })
-}>
-  Add
-</button>`,
-    lang: 'svelte',
+async function advance(currentStep) {
+  const valid = await form.validate(STEPS[currentStep]);
+  if (valid) setStep(currentStep + 1);
+}`,
+
+run(el) {
+  const form = createForm({
+    initialValues: {
+      firstName:'', lastName:'', email:'',
+      username:'', password:'',
+      plan:'free', newsletter: false,
+    },
+    rules: {
+      firstName:'required', lastName:'required', email:['required','email'],
+      username:['required',{minLength:3}], password:['required',{minLength:8}],
+    },
+  });
+
+  const STEPS = [
+    ['firstName','lastName','email'],
+    ['username','password'],
+    ['plan','newsletter'],
+  ];
+  const LABELS = ['Personal Info','Account','Preferences'];
+  let currentStep = 0;
+
+  function renderStep() {
+    const wizHtml = LABELS.map((l,i) =>
+      `<div class="wiz-step ${i === currentStep ? 'active' : i < currentStep ? 'done' : ''}">${i+1}. ${l}</div>`
+    ).join('');
+
+    const stepsHtml = [
+      `<div class="fld"><label>First name</label><input id="fn" value="${form.get('firstName')||''}" />
+        <div class="ferr" id="e-fn"></div></div>
+       <div class="fld"><label>Last name</label><input id="ln" value="${form.get('lastName')||''}" />
+        <div class="ferr" id="e-ln"></div></div>
+       <div class="fld"><label>Email</label><input id="em" type="email" value="${form.get('email')||''}" />
+        <div class="ferr" id="e-em"></div></div>`,
+      `<div class="fld"><label>Username</label><input id="un" value="${form.get('username')||''}" />
+        <div class="ferr" id="e-un"></div></div>
+       <div class="fld"><label>Password</label><input id="pw" type="password" />
+        <div class="ferr" id="e-pw"></div></div>`,
+      `<div class="fld"><label>Plan</label>
+        <select id="pl">
+          <option value="free" ${form.get('plan')==='free'?'selected':''}>Free</option>
+          <option value="pro" ${form.get('plan')==='pro'?'selected':''}>Pro</option>
+          <option value="team" ${form.get('plan')==='team'?'selected':''}>Team</option>
+        </select></div>
+       <div class="fld" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="nl" style="width:auto;" ${form.get('newsletter')?'checked':''} />
+        <label style="text-transform:none;font-size:13px;color:var(--t0);">Subscribe to newsletter</label>
+       </div>`,
+    ];
+
+    el.innerHTML = `
+      <div class="df">
+        <div class="wiz-steps">${wizHtml}</div>
+        <div id="step-fields">${stepsHtml[currentStep]}</div>
+        <div class="btn-row">
+          ${currentStep > 0 ? '<button class="btn" id="back-btn">← Back</button>' : ''}
+          ${currentStep < 2 ? '<button class="btn primary" id="next-btn">Continue →</button>' : ''}
+          ${currentStep === 2 ? '<button class="btn primary" id="sub-btn">Submit →</button>' : ''}
+        </div>
+        <div id="msg" class="alert" style="display:none;margin-top:10px;"></div>
+      </div>`;
+
+    // Wire inputs
+    const wireText = (id, path) => {
+      const inp = document.getElementById(id);
+      if (!inp) return;
+      inp.addEventListener('input', e => form.set(path, e.target.value, {touch:true, validate:true}));
+    };
+    const wireErr = (id, path) => {
+      form.subscribeToPath(path, (_, fs) => {
+        const el2 = document.getElementById('e-' + id);
+        if (el2) el2.textContent = fs.touched && fs.error ? fs.error : '';
+      });
+    };
+
+    if (currentStep === 0) {
+      wireText('fn','firstName'); wireText('ln','lastName'); wireText('em','email');
+      wireErr('fn','firstName'); wireErr('ln','lastName'); wireErr('em','email');
+    } else if (currentStep === 1) {
+      wireText('un','username'); wireText('pw','password');
+      wireErr('un','username'); wireErr('pw','password');
+    } else {
+      document.getElementById('pl').addEventListener('change', e => form.set('plan', e.target.value));
+      document.getElementById('nl').addEventListener('change', e => form.set('newsletter', e.target.checked));
+    }
+
+    document.getElementById('back-btn')?.addEventListener('click', () => { currentStep--; renderStep(); });
+    document.getElementById('next-btn')?.addEventListener('click', async () => {
+      const ok = await form.validate(STEPS[currentStep]);
+      if (ok) { currentStep++; renderStep(); }
+    });
+    document.getElementById('sub-btn')?.addEventListener('click', () => {
+      const msg = document.getElementById('msg');
+      msg.className = 'alert ok';
+      msg.textContent = 'Submitted! Plan: ' + form.get('plan') + ' · Newsletter: ' + form.get('newsletter');
+      msg.style.display = 'block';
+    });
+  }
+
+  renderStep();
+  return form;
+}
+},
+
+// ── Step 10 ─────────────────────────────────────────────────────────────────
+{
+title: 'Array Operations — Append & Remove',
+desc: 'arrayAppend adds to the end. arrayRemove removes by index and automatically shifts the error/touched/dirty maps for all subsequent items.',
+code: `const form = createForm({
+  initialValues: { items: [] },
+  rules: {
+    // Wildcards match every index: items.0.text, items.1.text, …
+    'items.*.text': ['required', { minLength: 2 }],
   },
-],
+});
 
-vue: [
-  {
-    title: 'Installation',
-    desc: `<p>Install the package. The Vue adapter uses <code>shallowRef</code> and <code>readonly</code> from Vue 3's Composition API.</p>`,
-    code: `npm install @agw/form`,
-    lang: 'bash',
+// Append a new item
+form.arrayAppend('items', { text: '', done: false });
+// items → [{ text: '', done: false }]
+
+// Remove item at index 1 — indices 2, 3, … shift down
+// errors for 'items.2.text' become 'items.1.text', etc.
+form.arrayRemove('items', 1);
+
+// Subscribe to the array itself
+form.subscribeToPath('items', (newArray) => {
+  renderList(newArray);
+});`,
+
+run(el) {
+  const form = createForm({
+    initialValues: { items: [{ text: 'First item', done: false }] },
+  });
+
+  function renderList() {
+    const items = form.get('items') || [];
+    const state = form.getState();
+
+    el.innerHTML = `
+      <div style="max-width:400px;">
+        <div id="list">
+          ${items.map((item, i) => `
+            <div class="arr-item">
+              <input type="checkbox" style="width:auto;flex:0 0 auto;" ${item.done ? 'checked' : ''} id="chk-${i}" />
+              <input id="inp-${i}" value="${(item.text||'').replace(/"/g,'&quot;')}" placeholder="Item text…" style="flex:1;" />
+              <button class="btn sm danger" data-rm="${i}">✕</button>
+            </div>
+            ${state.errors['items.'+i+'.text'] ? `<div class="ferr" style="padding-left:4px;margin-top:-3px;margin-bottom:4px;">${state.errors['items.'+i+'.text']}</div>` : ''}
+          `).join('')}
+        </div>
+        <div class="btn-row">
+          <button class="btn primary sm" id="add-btn">+ Add item</button>
+          <button class="btn sm" id="val-btn">Validate</button>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--t2);">
+          ${items.length} item${items.length !== 1 ? 's' : ''}
+        </div>
+      </div>`;
+
+    // Wire inputs
+    items.forEach((_, i) => {
+      document.getElementById('inp-' + i).addEventListener('input', e => {
+        form.set('items.' + i + '.text', e.target.value, { touch: true });
+        renderList();
+      });
+      document.getElementById('chk-' + i).addEventListener('change', e => {
+        form.set('items.' + i + '.done', e.target.checked);
+      });
+    });
+
+    el.querySelectorAll('[data-rm]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        form.arrayRemove('items', parseInt(btn.dataset.rm));
+        renderList();
+      });
+    });
+
+    document.getElementById('add-btn').addEventListener('click', () => {
+      form.arrayAppend('items', { text: '', done: false });
+      renderList();
+    });
+
+    document.getElementById('val-btn').addEventListener('click', async () => {
+      await form.validate();
+      renderList();
+    });
+  }
+
+  renderList();
+  return form;
+}
+},
+
+// ── Step 11 ─────────────────────────────────────────────────────────────────
+{
+title: 'Array Move & Swap',
+desc: 'arrayMove(path, from, to) moves an item, remapping all field state in the affected window. arraySwap(path, i, j) exchanges two items with their state intact.',
+code: `const form = createForm({
+  initialValues: {
+    playlist: [
+      { title: 'Track A', artist: 'Band 1' },
+      { title: 'Track B', artist: 'Band 2' },
+      { title: 'Track C', artist: 'Band 3' },
+    ],
   },
-  {
-    title: 'useVueForm — Full State Ref',
-    desc: `<p><code>useVueForm(form)</code> returns a <code>readonly(shallowRef)</code> of the full state. The ref is updated on every form change. Cleanup (unsubscribe) happens automatically via <code>onUnmounted</code>.</p>`,
-    code: `<script setup>
-import { createForm } from '@agw/form/core';
-import { useVueForm } from '@agw/form/adapters/vue';
+});
+
+// Move item from index 0 to index 2 (A → end)
+// State for tracks 0, 1, 2 is automatically remapped
+form.arrayMove('playlist', 0, 2);
+
+// Swap items at indices 0 and 1 — field state swaps too
+form.arraySwap('playlist', 0, 1);
+
+// arrayInsert — inserts at index, shifts subsequent items
+form.arrayInsert('playlist', 1, { title: 'New Track', artist: '' });`,
+
+run(el) {
+  const form = createForm({
+    initialValues: {
+      playlist: [
+        { title: 'Track Alpha', artist: 'Artist 1' },
+        { title: 'Track Beta',  artist: 'Artist 2' },
+        { title: 'Track Gamma', artist: 'Artist 3' },
+        { title: 'Track Delta', artist: 'Artist 4' },
+      ],
+    },
+  });
+
+  function renderPlaylist() {
+    const items = form.get('playlist') || [];
+    el.innerHTML = `
+      <div style="max-width:420px;">
+        <div class="sec">Playlist (${items.length} tracks)</div>
+        <div id="list" style="margin-bottom:10px;">
+          ${items.map((track, i) => `
+            <div class="arr-item" style="flex-direction:column;align-items:stretch;gap:4px;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:11px;font-family:monospace;color:var(--t2);min-width:20px;">${i+1}.</span>
+                <strong style="flex:1;font-size:13px;">${track.title}</strong>
+                <span style="font-size:11px;color:var(--t2);">${track.artist}</span>
+              </div>
+              <div style="display:flex;gap:4px;">
+                ${i > 0 ? `<button class="btn sm" data-up="${i}">↑</button>` : '<span style="width:40px;"></span>'}
+                ${i < items.length-1 ? `<button class="btn sm" data-dn="${i}">↓</button>` : '<span style="width:40px;"></span>'}
+                ${i < items.length-1 ? `<button class="btn sm" data-sw="${i}">⇄ ${i+2}</button>` : ''}
+                <button class="btn sm danger" data-rm="${i}">✕</button>
+              </div>
+            </div>`).join('')}
+        </div>
+        <div class="btn-row">
+          <button class="btn sm primary" id="add-btn">+ Add track</button>
+        </div>
+      </div>`;
+
+    el.querySelectorAll('[data-up]').forEach(b =>
+      b.addEventListener('click', () => { form.arrayMove('playlist', +b.dataset.up, +b.dataset.up - 1); renderPlaylist(); }));
+    el.querySelectorAll('[data-dn]').forEach(b =>
+      b.addEventListener('click', () => { form.arrayMove('playlist', +b.dataset.dn, +b.dataset.dn + 1); renderPlaylist(); }));
+    el.querySelectorAll('[data-sw]').forEach(b =>
+      b.addEventListener('click', () => { form.arraySwap('playlist', +b.dataset.sw, +b.dataset.sw + 1); renderPlaylist(); }));
+    el.querySelectorAll('[data-rm]').forEach(b =>
+      b.addEventListener('click', () => { form.arrayRemove('playlist', +b.dataset.rm); renderPlaylist(); }));
+    document.getElementById('add-btn').addEventListener('click', () => {
+      form.arrayAppend('playlist', { title: 'New Track', artist: 'Unknown' });
+      renderPlaylist();
+    });
+  }
+
+  renderPlaylist();
+  return form;
+}
+},
+
+// ── Step 12 ─────────────────────────────────────────────────────────────────
+{
+title: 'Batch Updates',
+desc: 'batch(fn) defers all notifications until fn() returns. Multiple set() calls inside a batch appear as a single update to all subscribers — critical for performance.',
+code: `const form = createForm({
+  initialValues: { a: '', b: '', c: '', d: '' },
+});
+
+let notifyCount = 0;
+form.subscribe(() => notifyCount++);
+
+// Without batch — 4 separate notifications
+form.set('a', '1');  // notify 1
+form.set('b', '2');  // notify 2
+form.set('c', '3');  // notify 3
+form.set('d', '4');  // notify 4
+// notifyCount === 4
+
+form.reset();
+notifyCount = 0;
+
+// With batch — 1 notification for all 4 changes
+form.batch(() => {
+  form.set('a', '1');
+  form.set('b', '2');
+  form.set('c', '3');
+  form.set('d', '4');
+});
+// notifyCount === 1`,
+
+run(el) {
+  const form = createForm({ initialValues: { a:'', b:'', c:'', d:'', e:'' } });
+  let notifyCount = 0;
+
+  form.subscribe(() => { notifyCount++; });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">Notification counter</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <span style="font-size:36px;font-weight:700;font-family:monospace;color:var(--blue);" id="cnt">1</span>
+        <span style="font-size:12px;color:var(--t2);">global subscriber calls<br/>(initial call on subscribe = 1)</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="nobatch-btn">Set 5 fields (unbatched)</button>
+        <button class="btn primary" id="batch-btn">Set 5 fields (batched)</button>
+        <button class="btn sm" id="reset-btn">Reset counter</button>
+      </div>
+      <div id="msg" class="alert info" style="margin-top:10px;font-size:12px;display:none;"></div>
+      <hr class="hr" />
+      <div class="sec">Current values</div>
+      <div class="box" id="vals">${JSON.stringify(form.getState().values, null, 2)}</div>
+    </div>`;
+
+  const upd = () => {
+    document.getElementById('cnt').textContent = notifyCount;
+    document.getElementById('vals').textContent = JSON.stringify(form.getState().values, null, 2);
+  };
+
+  form.subscribe(upd);
+
+  document.getElementById('nobatch-btn').addEventListener('click', () => {
+    const before = notifyCount;
+    ['a','b','c','d','e'].forEach((k,i) => form.set(k, String(i+1)));
+    const after = notifyCount;
+    const msg = document.getElementById('msg');
+    msg.className = 'alert err'; msg.textContent = `Unbatched: ${after - before} notifications fired for 5 set() calls`;
+    msg.style.display = 'block';
+  });
+
+  document.getElementById('batch-btn').addEventListener('click', () => {
+    const before = notifyCount;
+    form.batch(() => { ['a','b','c','d','e'].forEach((k,i) => form.set(k, String(i+1))); });
+    const after = notifyCount;
+    const msg = document.getElementById('msg');
+    msg.className = 'alert ok'; msg.textContent = `Batched: ${after - before} notification for 5 set() calls`;
+    msg.style.display = 'block';
+    upd();
+  });
+
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    notifyCount = 0; form.reset();
+    document.getElementById('cnt').textContent = notifyCount;
+    document.getElementById('msg').style.display = 'none';
+    upd();
+  });
+
+  return form;
+}
+},
+
+// ── Step 13 ─────────────────────────────────────────────────────────────────
+{
+title: 'Reset & Re-seed',
+desc: 'form.reset() reverts to initialValues. form.reset(newValues) re-seeds the form — the new values become both the current value AND the new dirty-tracking baseline.',
+code: `const form = createForm({
+  initialValues: { name: '', email: '', role: 'user' },
+});
+
+form.set('name', 'Alice');
+form.set('email', 'alice@test.com');
+
+// Reset to original initialValues — clears errors, touched, dirty
+form.reset();
+form.get('name'); // ''
+
+// Re-seed with new values — these become the new "clean" baseline
+form.reset({ name: 'Bob', email: 'bob@test.com', role: 'admin' });
+form.get('name'); // 'Bob'
+
+// dirty is empty — 'Bob' is now the clean starting point
+Object.keys(form.getState().dirty); // []
+
+// Change a field — now it's dirty relative to Bob
+form.set('name', 'Bobby');
+Object.keys(form.getState().dirty); // ['name']`,
+
+run(el) {
+  const PROFILES = {
+    empty: { name: '', email: '', role: 'user', bio: '' },
+    alice: { name: 'Alice Smith', email: 'alice@example.com', role: 'admin', bio: 'Product designer' },
+    bob:   { name: 'Bob Jones',   email: 'bob@example.com',  role: 'user',  bio: 'Developer' },
+  };
+
+  const form = createForm({ initialValues: { ...PROFILES.empty } });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld"><label>Name</label><input id="i-name" /></div>
+      <div class="fld"><label>Email</label><input id="i-email" /></div>
+      <div class="fld"><label>Role</label>
+        <select id="i-role">
+          <option value="user">user</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+      <div class="fld"><label>Bio</label><input id="i-bio" /></div>
+      <div class="btn-row">
+        <button class="btn sm" id="r-empty">Reset to blank</button>
+        <button class="btn sm" id="r-alice">Load Alice</button>
+        <button class="btn sm" id="r-bob">Load Bob</button>
+      </div>
+      <hr class="hr" />
+      <div class="sec">State (dirty, touched, errors)</div>
+      <div class="box" id="out"></div>
+    </div>`;
+
+  const upd = () => {
+    const s = form.getState();
+    const inp = id => document.getElementById(id);
+    inp('i-name').value = s.values.name || '';
+    inp('i-email').value = s.values.email || '';
+    inp('i-role').value = s.values.role || 'user';
+    inp('i-bio').value = s.values.bio || '';
+    document.getElementById('out').textContent = JSON.stringify({
+      dirty: Object.keys(s.dirty),
+      touched: Object.keys(s.touched),
+      errors: s.errors,
+    }, null, 2);
+  };
+
+  form.subscribe(upd);
+
+  ['name','email','role','bio'].forEach(path => {
+    const inp = document.getElementById('i-' + path);
+    inp.addEventListener('input', e => form.set(path, e.target.value, {touch:true}));
+  });
+
+  document.getElementById('r-empty').addEventListener('click', () => form.reset());
+  document.getElementById('r-alice').addEventListener('click', () => form.reset({ ...PROFILES.alice }));
+  document.getElementById('r-bob').addEventListener('click', () => form.reset({ ...PROFILES.bob }));
+
+  return form;
+}
+},
+
+// ── Step 14 ─────────────────────────────────────────────────────────────────
+{
+title: 'submit & handleSubmit',
+desc: 'submit(onValid) validates the whole form, sets isSubmitting=true, calls onValid on success. handleSubmit wraps submit as an event handler that calls preventDefault automatically.',
+code: `const form = createForm({
+  initialValues: { title: '', body: '', tags: '' },
+  rules: {
+    title: ['required', { minLength: 5 }],
+    body:  ['required', { minLength: 20 }],
+  },
+});
+
+// Direct API — useful when you control the trigger
+const ok = await form.submit(async (values) => {
+  await api.createPost(values);
+  router.push('/posts');
+});
+// returns true if valid & onValid ran, false if validation failed
+
+// Event handler API — attach to <form onsubmit>
+formEl.addEventListener('submit', form.handleSubmit(
+  async (values) => { await api.createPost(values); },
+  (errors) => { console.log('invalid:', errors); }
+));`,
+
+run(el) {
+  const form = createForm({
+    initialValues: { title: '', body: '', tags: '' },
+    rules: {
+      title: ['required', { minLength: 5 }],
+      body: ['required', { minLength: 20 }],
+    },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <form id="the-form">
+        <div class="fld"><label>Title</label>
+          <input id="i-title" placeholder="at least 5 chars" />
+          <div class="ferr" id="e-title"></div>
+        </div>
+        <div class="fld"><label>Body</label>
+          <textarea id="i-body" rows="3" placeholder="at least 20 chars"></textarea>
+          <div class="ferr" id="e-body"></div>
+        </div>
+        <div class="fld"><label>Tags (optional)</label>
+          <input id="i-tags" placeholder="comma-separated" />
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn primary" id="sub-btn">Post</button>
+        </div>
+        <div id="spin-row" style="display:none;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--t2);">
+          <div class="spin"></div> Submitting…
+        </div>
+      </form>
+      <div id="msg" class="alert" style="display:none;margin-top:10px;"></div>
+    </div>`;
+
+  [['i-title','title'],['i-body','body'],['i-tags','tags']].forEach(([id,path]) => {
+    document.getElementById(id).addEventListener('input', e =>
+      form.set(path, e.target.value, {touch:true, validate:true}));
+  });
+  ['title','body'].forEach(path => {
+    form.subscribeToPath(path, (_, fs) => {
+      document.getElementById('e-' + path).textContent = fs.touched && fs.error ? fs.error : '';
+    });
+  });
+
+  form.subscribe(s => {
+    document.getElementById('sub-btn').disabled = s.isSubmitting;
+    document.getElementById('spin-row').style.display = s.isSubmitting ? 'flex' : 'none';
+  });
+
+  document.getElementById('the-form').addEventListener('submit', form.handleSubmit(
+    async values => {
+      await new Promise(r => setTimeout(r, 1200));
+      const msg = document.getElementById('msg');
+      msg.className = 'alert ok';
+      msg.textContent = 'Posted! Title: "' + values.title + '"';
+      msg.style.display = 'block';
+    },
+    errors => {
+      const msg = document.getElementById('msg');
+      msg.className = 'alert err';
+      msg.textContent = 'Validation failed: ' + Object.keys(errors).join(', ');
+      msg.style.display = 'block';
+    }
+  ));
+
+  return form;
+}
+},
+
+// ── Step 15 ─────────────────────────────────────────────────────────────────
+{
+title: 'DOM Connect Bridge',
+desc: 'form.connect(path, element) links an input to a form path — syncing value, touch, and validation automatically. Supports format() for masking (phone, card number, etc).',
+code: `const form = createForm({
+  initialValues: { name: '', phone: '', country: 'US' },
+  rules: { name: 'required', phone: ['required', { minLength: 14 }] },
+});
+
+// Connect inputs — returns a cleanup function
+const disconnectName = form.connect('name', document.getElementById('name-input'));
+
+// With a format function — applies masking on input, preserves cursor
+const disconnectPhone = form.connect('phone', document.getElementById('phone-input'), {
+  format(raw) {
+    const digits = raw.replace(/\\D/g, '').slice(0, 10);
+    if (digits.length < 4)  return digits;
+    if (digits.length < 7)  return \`(\${digits.slice(0,3)}) \${digits.slice(3)}\`;
+    return \`(\${digits.slice(0,3)}) \${digits.slice(3,6)}-\${digits.slice(6)}\`;
+  },
+});
+
+// Clean up (e.g. on component unmount)
+disconnectName();
+disconnectPhone();`,
+
+run(el) {
+  const form = createForm({
+    initialValues: { name: '', phone: '', country: 'US', terms: false },
+    rules: {
+      name: 'required',
+      phone: ['required', { minLength: 14, message: 'Enter a full 10-digit number' }],
+      terms: 'accepted',
+    },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld">
+        <label>Full name</label>
+        <input id="c-name" placeholder="Required" />
+        <div class="ferr" id="ce-name"></div>
+      </div>
+      <div class="fld">
+        <label>Phone (auto-formatted)</label>
+        <input id="c-phone" placeholder="(___) ___-____" />
+        <div class="ferr" id="ce-phone"></div>
+      </div>
+      <div class="fld">
+        <label>Country</label>
+        <select id="c-country">
+          <option value="US">United States</option>
+          <option value="CA">Canada</option>
+          <option value="UK">United Kingdom</option>
+        </select>
+      </div>
+      <div class="fld" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="c-terms" style="width:auto;" />
+        <label style="text-transform:none;font-size:13px;color:var(--t0);">I accept the terms</label>
+        <div class="ferr" id="ce-terms"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="con-val-btn">Validate all</button>
+      </div>
+      <hr class="hr" />
+      <div class="sec">Live payload (connect-aware)</div>
+      <div class="box" id="payload-out"></div>
+    </div>`;
+
+  const phoneFormat = raw => {
+    const d = raw.replace(/\D/g, '').slice(0, 10);
+    if (d.length < 4) return d;
+    if (d.length < 7) return `(${d.slice(0,3)}) ${d.slice(3)}`;
+    return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+  };
+
+  const cleanups = [
+    form.connect('name', document.getElementById('c-name')),
+    form.connect('phone', document.getElementById('c-phone'), { format: phoneFormat }),
+    form.connect('country', document.getElementById('c-country')),
+    form.connect('terms', document.getElementById('c-terms')),
+  ];
+
+  ['name','phone','terms'].forEach(path => {
+    form.subscribeToPath(path, (_, fs) => {
+      const errEl = document.getElementById('ce-' + path);
+      if (errEl) errEl.textContent = fs.touched && fs.error ? fs.error : '';
+    });
+  });
+
+  form.subscribe(() => {
+    document.getElementById('payload-out').textContent =
+      JSON.stringify(form.getState().values, null, 2);
+  });
+
+  document.getElementById('con-val-btn').addEventListener('click', async () => {
+    await form.validate();
+    const errs = form.getState().errors;
+    ['name','phone','terms'].forEach(p => {
+      const errEl = document.getElementById('ce-' + p);
+      if (errEl) errEl.textContent = errs[p] || '';
+    });
+  });
+
+  el._cleanup = () => cleanups.forEach(fn => fn());
+  return form;
+}
+},
+
+// ── Step 16 ─────────────────────────────────────────────────────────────────
+{
+title: 'Performance Lab',
+desc: 'Stress-test the engine. Add 50 subscribers, batch 100 field mutations, run async validation — then inspect the perf metrics: notification count, validation time, epoch, and subscriber map.',
+code: `// Create a form with 10 fields
+const form = createForm({
+  initialValues: Object.fromEntries(
+    Array.from({ length: 10 }, (_, i) => ['field' + i, ''])
+  ),
+  async validator(values, _paths, signal) {
+    await delay(100); // simulate async check
+    if (signal.aborted) return {};
+    return Object.fromEntries(
+      Object.entries(values)
+        .filter(([_, v]) => v === 'bad')
+        .map(([k]) => [k, 'Value cannot be "bad"'])
+    );
+  },
+});
+
+// Subscribe 20 global listeners and 10 path listeners
+for (let i = 0; i < 20; i++) form.subscribe(() => {});
+for (let i = 0; i < 10; i++) form.subscribeToPath('field' + i, () => {});
+
+// Batch-mutate all 10 fields → 1 notification
+form.batch(() => {
+  for (let i = 0; i < 10; i++) form.set('field' + i, String(i));
+});
+
+// Read perf metrics
+const { notifications, lastValidationMs, epoch, subscriberCount } = form.perf;`,
+
+run(el) {
+  const FIELD_COUNT = 10;
+  const fields = Object.fromEntries(Array.from({ length: FIELD_COUNT }, (_, i) => ['field' + i, '']));
+  const form = createForm({
+    initialValues: fields,
+    asyncDebounceMs: 50,
+    async validator(values, _paths, signal) {
+      await new Promise(r => setTimeout(r, 80));
+      if (signal.aborted) return {};
+      return Object.fromEntries(
+        Object.entries(values).filter(([,v]) => v === 'bad').map(([k]) => [k, 'bad value'])
+      );
+    },
+  });
+
+  const globalUnsubs = [];
+  const pathUnsubs = [];
+
+  el.innerHTML = `
+    <div style="max-width:400px;">
+      <div class="btn-row" style="margin-bottom:14px;">
+        <button class="btn" id="add-subs">Add 10 subscribers</button>
+        <button class="btn primary" id="run-batch">Batch 10 mutations</button>
+        <button class="btn" id="run-async">Run async validate</button>
+        <button class="btn sm" id="rm-subs">Remove subs</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:2px;">Notifications</div>
+          <div style="font-size:28px;font-weight:700;font-family:monospace;color:var(--blue);" id="p-n">—</div>
+        </div>
+        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:2px;">Last Validation</div>
+          <div style="font-size:28px;font-weight:700;font-family:monospace;color:var(--green);" id="p-v">—</div>
+          <div style="font-size:10px;color:var(--t2);">milliseconds</div>
+        </div>
+        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:2px;">Async Epoch</div>
+          <div style="font-size:28px;font-weight:700;font-family:monospace;color:var(--yellow);" id="p-e">0</div>
+        </div>
+        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:2px;">Subscribers</div>
+          <div style="font-size:28px;font-weight:700;font-family:monospace;color:var(--purple);" id="p-s">1</div>
+        </div>
+      </div>
+      <div class="sec">Path subscriber map</div>
+      <div class="box" id="p-paths" style="max-height:120px;"></div>
+    </div>`;
+
+  const refresh = () => {
+    const p = form.perf;
+    document.getElementById('p-n').textContent = p.notifications;
+    document.getElementById('p-v').textContent = p.lastValidationMs !== null ? p.lastValidationMs.toFixed(1) : '—';
+    document.getElementById('p-e').textContent = p.epoch;
+    document.getElementById('p-s').textContent = p.subscriberCount;
+    document.getElementById('p-paths').textContent = JSON.stringify(p.pathMap, null, 2) || '(none)';
+  };
+
+  form.subscribe(refresh);
+  setInterval(refresh, 200);
+
+  document.getElementById('add-subs').addEventListener('click', () => {
+    for (let i = 0; i < 5; i++) globalUnsubs.push(form.subscribe(() => {}));
+    for (let i = 0; i < FIELD_COUNT; i++) pathUnsubs.push(form.subscribeToPath('field' + i, () => {}));
+    refresh();
+  });
+
+  document.getElementById('run-batch').addEventListener('click', () => {
+    form.batch(() => {
+      for (let i = 0; i < FIELD_COUNT; i++) form.set('field' + i, String(Math.random().toFixed(4)));
+    });
+    refresh();
+  });
+
+  document.getElementById('run-async').addEventListener('click', () => {
+    form.validate();
+    refresh();
+  });
+
+  document.getElementById('rm-subs').addEventListener('click', () => {
+    globalUnsubs.forEach(u => u()); globalUnsubs.length = 0;
+    pathUnsubs.forEach(u => u()); pathUnsubs.length = 0;
+    refresh();
+  });
+
+  return form;
+}
+},
+
+);  // end VANILLA.push()
+// ─── REACT TUTORIALS ─────────────────────────────────────────────────────────
+const REACT = [
+{
+title: 'useForm — Full State',
+desc: 'A minimal useForm hook subscribes to the form and returns the full state. Re-renders the component on every form change.',
+code: `import { createForm } from '@agw/form/core';
+import { useEffect, useState } from 'react';
+
+function useForm(form) {
+  const [state, setState] = useState(() => form.getState());
+  useEffect(() => form.subscribe(setState), []);
+  return state;
+}
+
+// ── Usage ────────────────────────────────────────────────
 
 const form = createForm({
   initialValues: { name: '', email: '' },
-  validator: (v) => {
-    const e = {};
-    if (!v.email.includes('@')) e.email = 'Invalid email';
-    return e;
-  },
+  rules: { name: 'required', email: ['required', 'email'] },
 });
 
-const { state, handleSubmit } = useVueForm(form);
-
-const onSubmit = handleSubmit(async (values) => {
-  await api.save(values);
-});
-<\/script>
-
-<template>
-  <form @submit="onSubmit">
-    <input :value="state.values.name"
-           @input="form.set('name', $event.target.value)" />
-
-    <input :value="state.values.email"
-           @input="form.set('email', $event.target.value)"
-           :aria-invalid="!!state.errors.email" />
-    <p v-if="state.errors.email">{{ state.errors.email }}</p>
-
-    <button :disabled="state.isSubmitting">
-      {{ state.isSubmitting ? 'Saving…' : 'Save' }}
-    </button>
-  </form>
-</template>`,
-    lang: 'vue',
-  },
-  {
-    title: 'useVueFormPath — Reactive Path',
-    desc: `<p><code>useVueFormPath(form, path)</code> accepts a plain string or a <code>MaybeRef&lt;string&gt;</code>, making it reactive inside <code>v-for</code>. Returns <code>{ value, fieldState }</code> as readonly refs.</p>`,
-    code: `<script setup>
-import { useVueFormPath } from '@agw/form/adapters/vue';
-
-const { value, fieldState } = useVueFormPath(form, 'email');
-//   or: useVueFormPath(form, computed(() => \`items.\${idx}.name\`))
-<\/script>
-
-<template>
-  <div>
-    <input :value="value"
-           @input="form.set('email', $event.target.value)" />
-    <p v-if="fieldState?.error" class="error">
-      {{ fieldState.error }}
-    </p>
-  </div>
-</template>`,
-    lang: 'vue',
-  },
-  {
-    title: 'Array Fields in Vue',
-    desc: `<p>Iterate over <code>state.values.todos</code> in a <code>v-for</code>. Use a <code>computed</code> ref for the index to feed into <code>useVueFormPath</code>.</p>`,
-    code: `<script setup>
-const { state } = useVueForm(form);
-<\/script>
-
-<template>
-  <div v-for="(todo, i) in state.values.todos" :key="i">
-    <input
-      :value="todo.text"
-      @input="form.set(\`todos.\${i}.text\`, $event.target.value)"
-    />
-    <button @click="form.arrayRemove('todos', i)">✕</button>
-  </div>
-
-  <button @click="form.arrayAppend('todos', { text: '', done: false })">
-    Add
-  </button>
-</template>`,
-    lang: 'vue',
-  },
-],
-
-solid: [
-  {
-    title: 'Installation',
-    desc: `<p>Install the package. The SolidJS adapter uses <code>createStore</code> and <code>reconcile</code> for fine-grained reactivity that tracks individual field changes.</p>`,
-    code: `npm install @agw/form`,
-    lang: 'bash',
-  },
-  {
-    title: 'useSolidForm — Fine-Grained Store',
-    desc: `<p><code>useSolidForm(form)</code> returns a <code>[state, actions]</code> tuple. The state is a SolidJS store updated via <code>reconcile</code>, so only the changed keys trigger reactive updates. Cleanup happens via <code>onCleanup</code>.</p>`,
-    code: `import { createForm } from '@agw/form/core';
-import { useSolidForm } from '@agw/form/adapters/solid';
-
-const form = createForm({
-  initialValues: { name: '', email: '' },
-});
-
-function LoginForm() {
-  const [state, { handleSubmit }] = useSolidForm(form);
+function ContactForm() {
+  const { values, errors, touched, isSubmitting } = useForm(form);
 
   return (
-    <form onSubmit={handleSubmit(async (v) => console.log(v))}>
-      <input
-        value={state.values.name}
-        onInput={e => form.set('name', e.target.value)}
-      />
-      <input
-        value={state.values.email}
-        onInput={e => form.set('email', e.target.value)}
-      />
-      <Show when={state.errors.email}>
-        <p>{state.errors.email}</p>
-      </Show>
-      <button disabled={state.isSubmitting}>Submit</button>
+    <form onSubmit={form.handleSubmit(save)}>
+      <input value={values.name}
+        onChange={e => form.set('name', e.target.value, { touch: true, validate: true })} />
+      {touched.name && errors.name && <p className="err">{errors.name}</p>}
+
+      <button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? 'Saving…' : 'Save'}
+      </button>
     </form>
   );
 }`,
-    lang: 'tsx',
-  },
-  {
-    title: 'useSolidFormPath — Signal Pair',
-    desc: `<p><code>useSolidFormPath(form, () => path)</code> returns <code>{ value, fieldState }</code> as Solid signals. Only this component re-evaluates when the path changes. Note: the path is evaluated once at call time — use <code>createMemo</code> for truly dynamic paths.</p>`,
-    code: `import { useSolidFormPath } from '@agw/form/adapters/solid';
+iframeHtml: makeReactIframe(`
+const form = createForm({
+  initialValues: { name: '', email: '' },
+  rules: { name: 'required', email: ['required', 'email'] },
+});
 
-function EmailField(props) {
-  const { value, fieldState } = useSolidFormPath(
-    form,
-    () => 'email'
+function App() {
+  const { values, errors, touched, isSubmitting } = useForm(form);
+
+  return (
+    <div style={{maxWidth:340}}>
+      <div className="field">
+        <label>Name</label>
+        <input value={values.name || ''}
+          onChange={e => form.set('name', e.target.value, { touch: true, validate: true })} />
+        <div className="err">{touched.name && errors.name}</div>
+      </div>
+      <div className="field">
+        <label>Email</label>
+        <input type="email" value={values.email || ''}
+          onChange={e => form.set('email', e.target.value, { touch: true, validate: true })} />
+        <div className="err">{touched.email && errors.email}</div>
+      </div>
+      <div className="row">
+        <button className="primary" disabled={isSubmitting}
+          onClick={() => form.submit(async v => { await new Promise(r=>setTimeout(r,900)); alert('Saved: '+JSON.stringify(v)); })}>
+          {isSubmitting ? <><span className="spin"/> Saving…</> : 'Save'}
+        </button>
+        <button onClick={() => form.reset()}>Reset</button>
+      </div>
+      <div className="box" style={{marginTop:10}}>
+        {JSON.stringify({values, errors: Object.keys(errors), touched: Object.keys(touched)}, null, 2)}
+      </div>
+    </div>
   );
+}`)
+},
+{
+title: 'useField — Field Isolation',
+desc: 'A per-field hook using subscribeToPath means only the component owning that field re-renders when its value changes. Other fields are unaffected.',
+code: `function useField(form, path) {
+  const [value, setValue] = useState(() => form.get(path));
+  const [fieldState, setFieldState] = useState({});
+  useEffect(() => {
+    return form.subscribeToPath(path, (val, fs) => {
+      setValue(val);
+      setFieldState(fs);
+    });
+  }, [path]);
+  const set = (v) => form.set(path, v, { touch: true, validate: true });
+  return [value, fieldState, set];
+}
+
+// Now each input only re-renders when its own path changes
+function EmailField({ form }) {
+  const [value, { error, touched }, set] = useField(form, 'email');
+  return (
+    <>
+      <input value={value} onChange={e => set(e.target.value)} />
+      {touched && error && <span className="err">{error}</span>}
+    </>
+  );
+}`,
+iframeHtml: makeReactIframe(`
+const form = createForm({
+  initialValues: { firstName: '', lastName: '', email: '', age: '' },
+  rules: {
+    firstName: 'required',
+    lastName: 'required',
+    email: ['required', 'email'],
+    age: ['required', 'integer', { min: 18 }],
+  },
+});
+
+function Field({ form, path, label, type='text' }) {
+  const [value, { error, touched }, set] = useField(form, path);
+  const renders = React.useRef(0);
+  renders.current++;
+  return (
+    <div className="field">
+      <label>{label} <span style={{color:'#58a6ff',fontWeight:'normal',textTransform:'none',fontSize:10}}>renders: {renders.current}</span></label>
+      <input type={type} value={value ?? ''} onChange={e => set(e.target.value)} />
+      {touched && error && <div className="err">{error}</div>}
+    </div>
+  );
+}
+
+function App() {
+  const renders = React.useRef(0);
+  renders.current++;
+  const [sub, setSub] = React.useState(0);
+  React.useEffect(() => form.subscribe(() => setSub(n => n+1)), []);
+  return (
+    <div style={{maxWidth:340}}>
+      <div style={{fontSize:11,color:'#8b949e',marginBottom:10}}>
+        App renders: <strong style={{color:'#f85149'}}>{renders.current}</strong> — each Field renders independently
+      </div>
+      <Field form={form} path="firstName" label="First Name" />
+      <Field form={form} path="lastName"  label="Last Name" />
+      <Field form={form} path="email"     label="Email" type="email" />
+      <Field form={form} path="age"       label="Age"   type="number" />
+      <button className="primary" onClick={() => form.validate()}>Validate</button>
+    </div>
+  );
+}`)
+},
+{
+title: 'Array Fields',
+desc: 'Dynamic arrays with per-item fields. arrayAppend and arrayRemove keep field state in sync across indices automatically.',
+code: `function App() {
+  const { values, errors } = useForm(form);
+  const items = values.items ?? [];
 
   return (
     <div>
-      <input
-        value={value() ?? ''}
-        onInput={e => form.set('email', e.target.value)}
-      />
-      <Show when={fieldState()?.error}>
-        <p class="error">{fieldState().error}</p>
+      {items.map((item, i) => (
+        <div key={i} style={{display:'flex',gap:8}}>
+          <input value={item.text}
+            onChange={e => form.set(\`items.\${i}.text\`, e.target.value, {validate:true})} />
+          {errors[\`items.\${i}.text\`] && <span>{errors[\`items.\${i}.text\`]}</span>}
+          <button onClick={() => form.arrayRemove('items', i)}>✕</button>
+        </div>
+      ))}
+      <button onClick={() => form.arrayAppend('items', { text: '' })}>+ Add</button>
+    </div>
+  );
+}`,
+iframeHtml: makeReactIframe(`
+const form = createForm({
+  initialValues: { items: [{ text: 'First task', done: false }] },
+});
+
+function App() {
+  const { values, errors } = useForm(form);
+  const items = values.items ?? [];
+  return (
+    <div style={{maxWidth:360}}>
+      {items.map((item, i) => (
+        <div key={i} className="arr">
+          <input type="checkbox" style={{width:'auto',flex:'none'}}
+            checked={!!item.done}
+            onChange={e => form.set('items.'+i+'.done', e.target.checked)} />
+          <input value={item.text ?? ''}
+            style={{flex:1, textDecoration: item.done ? 'line-through' : 'none'}}
+            onChange={e => form.set('items.'+i+'.text', e.target.value)} />
+          <button className="danger" onClick={() => form.arrayRemove('items', i)}>✕</button>
+        </div>
+      ))}
+      <div className="row">
+        <button className="primary"
+          onClick={() => form.arrayAppend('items', {text:'',done:false})}>+ Add task</button>
+        <button onClick={() => form.reset()}>Clear all</button>
+      </div>
+      <div style={{fontSize:11,color:'#8b949e',marginTop:8}}>
+        {items.filter(x=>x.done).length}/{items.length} done
+      </div>
+    </div>
+  );
+}`)
+},
+{
+title: 'Async Validation in React',
+desc: 'The engine handles debounce and AbortSignal. The React component only subscribes to isValidating and errors — no useEffect timers needed.',
+code: `const form = createForm({
+  initialValues: { username: '' },
+  asyncDebounceMs: 400,
+
+  async validator({ username }, _paths, signal) {
+    if (!username || username.length < 3) return {};
+    const taken = await api.checkUsername(username, signal);
+    return taken ? { username: username + ' is already taken' } : {};
+  },
+});
+
+function UsernameField() {
+  const { errors, touched, isValidating } = useForm(form);
+  const [value, , set] = useField(form, 'username');
+
+  return (
+    <div>
+      <input value={value} onChange={e => set(e.target.value)} />
+      {isValidating && <span className="spin" />}
+      {touched.username && errors.username && (
+        <span className="err">{errors.username}</span>
+      )}
+    </div>
+  );
+}`,
+iframeHtml: makeReactIframe(`
+const TAKEN = new Set(['admin','alice','bob','test','user','root']);
+
+const form = createForm({
+  initialValues: { username: '' },
+  asyncDebounceMs: 450,
+  async validator({ username }, _paths, signal) {
+    if (!username || username.length < 3) return {};
+    await new Promise(r => setTimeout(r, 700));
+    if (signal.aborted) return {};
+    return TAKEN.has(username.toLowerCase())
+      ? { username: '"'+username+'" is already taken' }
+      : {};
+  },
+});
+
+function App() {
+  const { errors, touched, isValidating } = useForm(form);
+  const [value, , set] = useField(form, 'username');
+  const hasError = touched.username && errors.username;
+  const isOk = touched.username && !errors.username && !isValidating && value && value.length >= 3;
+
+  return (
+    <div style={{maxWidth:340}}>
+      <div className="field">
+        <label>Username</label>
+        <div style={{position:'relative'}}>
+          <input value={value ?? ''} onChange={e => set(e.target.value)}
+            placeholder="try: alice, bob, admin…" />
+          {isValidating && <span className="spin" style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)'}} />}
+        </div>
+        {hasError && <div className="err">{errors.username}</div>}
+        {isOk && <div className="ok">✓ Username available!</div>}
+      </div>
+      <div style={{fontSize:11,color:'#8b949e',marginTop:4}}>
+        Taken: admin, alice, bob, test, user, root
+      </div>
+      <div className="box" style={{marginTop:10}}>
+        epoch: {form.perf.epoch}{"\\n"}
+        isValidating: {String(isValidating)}{"\\n"}
+        error: {errors.username || '(none)'}
+      </div>
+    </div>
+  );
+}`)
+},
+];
+
+// ─── VUE TUTORIALS ───────────────────────────────────────────────────────────
+const VUE = [
+{
+title: 'useVueForm — Composition API',
+desc: 'A shallowRef-based useVueForm composable wraps the form\'s subscribe. Returns readonly reactive state that Vue\'s template system tracks automatically.',
+code: `import { createForm } from '@agw/form/core';
+import { shallowRef, readonly, onUnmounted } from 'vue';
+
+function useVueForm(form) {
+  const state = shallowRef(form.getState());
+  const unsub = form.subscribe(s => { state.value = { ...s }; });
+  onUnmounted(unsub);
+  return readonly(state);
+}
+
+// ── Usage in a component ────────────────────────────────
+const form = createForm({
+  initialValues: { name: '', email: '' },
+  rules: { name: 'required', email: ['required', 'email'] },
+});
+
+// In <script setup>
+const state = useVueForm(form);
+const set = (path, val) => form.set(path, val, { touch: true, validate: true });`,
+iframeHtml: makeVueIframe(`
+  const form = createForm({
+    initialValues: { name: '', email: '', role: 'user' },
+    rules: { name: 'required', email: ['required','email'] },
+  });
+  const state = useVueForm(form);
+  const set = (path, val) => form.set(path, val, { touch: true, validate: true });
+  const submit = () => form.submit(async v => {
+    await new Promise(r => setTimeout(r, 800));
+    alert('Submitted: ' + JSON.stringify(v));
+  });
+  return { state, set, submit };
+`, `
+  <div style="max-width:340px">
+    <div class="field">
+      <label>Name</label>
+      <input :value="state.values.name" @input="set('name', $event.target.value)" />
+      <div class="err">{{ state.touched.name && state.errors.name }}</div>
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" :value="state.values.email" @input="set('email', $event.target.value)" />
+      <div class="err">{{ state.touched.email && state.errors.email }}</div>
+    </div>
+    <div class="field">
+      <label>Role</label>
+      <select :value="state.values.role" @change="set('role', $event.target.value)">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="row">
+      <button class="primary" :disabled="state.isSubmitting" @click="submit">
+        {{ state.isSubmitting ? 'Saving…' : 'Save' }}
+      </button>
+      <button @click="form.reset()">Reset</button>
+    </div>
+    <div class="box">{{ JSON.stringify({values: state.values, dirty: Object.keys(state.dirty)}, null, 2) }}</div>
+  </div>
+`)
+},
+{
+title: 'useVueField — Per-Field Reactivity',
+desc: 'useVueField uses subscribeToPath so only the specific input re-renders when its value changes — avoiding full-form rerenders on every keystroke.',
+code: `function useVueField(form, path) {
+  const value = ref(form.get(path));
+  const error = ref(undefined);
+  const touched = ref(false);
+
+  const unsub = form.subscribeToPath(path, (val, fs) => {
+    value.value = val;
+    error.value = fs.error;
+    touched.value = !!fs.touched;
+  });
+  onUnmounted(unsub);
+
+  const set = (v) => form.set(path, v, { touch: true, validate: true });
+  return { value, error, touched, set };
+}`,
+iframeHtml: makeVueIframe(`
+  const form = createForm({
+    initialValues: { firstName:'', lastName:'', email:'', bio:'' },
+    rules: { firstName:'required', lastName:'required', email:['required','email'] },
+  });
+
+  const firstField  = useVueField(form, 'firstName');
+  const lastField   = useVueField(form, 'lastName');
+  const emailField  = useVueField(form, 'email');
+  const bioField    = useVueField(form, 'bio');
+
+  const validate = () => form.validate();
+  return { firstField, lastField, emailField, bioField, validate };
+`, `
+  <div style="max-width:340px">
+    <div class="field">
+      <label>First Name</label>
+      <input :value="firstField.value.value" @input="firstField.set($event.target.value)" />
+      <div class="err">{{ firstField.touched.value && firstField.error.value }}</div>
+    </div>
+    <div class="field">
+      <label>Last Name</label>
+      <input :value="lastField.value.value" @input="lastField.set($event.target.value)" />
+      <div class="err">{{ lastField.touched.value && lastField.error.value }}</div>
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input :value="emailField.value.value" @input="emailField.set($event.target.value)" />
+      <div class="err">{{ emailField.touched.value && emailField.error.value }}</div>
+    </div>
+    <div class="field">
+      <label>Bio (optional)</label>
+      <textarea :value="bioField.value.value" @input="bioField.set($event.target.value)"></textarea>
+    </div>
+    <button class="primary" @click="validate">Validate all</button>
+  </div>
+`)
+},
+{
+title: 'v-for Array Fields',
+desc: 'Use Vue\'s v-for over form.get(\'items\') to render dynamic arrays. arrayAppend/arrayRemove automatically maintain correct errors and touched state.',
+code: `// In <script setup>
+const state = useVueForm(form);
+const items = computed(() => state.value.values.items ?? []);
+
+function addItem()  { form.arrayAppend('items', { text: '', done: false }); }
+function removeItem(i) { form.arrayRemove('items', i); }
+function setItem(i, key, val) {
+  form.set(\`items.\${i}.\${key}\`, val, { touch: true });
+}`,
+iframeHtml: makeVueIframe(`
+  const form = createForm({
+    initialValues: { items: [{ text: 'Buy groceries', done: false }] },
+  });
+  const state = useVueForm(form);
+  const items = computed(() => state.value.values.items || []);
+  const add    = () => form.arrayAppend('items', { text: '', done: false });
+  const remove = (i) => form.arrayRemove('items', i);
+  const setText = (i, v) => form.set('items.' + i + '.text', v);
+  const setDone = (i, v) => form.set('items.' + i + '.done', v);
+  return { items, add, remove, setText, setDone };
+`, `
+  <div style="max-width:360px">
+    <div v-for="(item, i) in items" :key="i" class="arr">
+      <input type="checkbox" style="width:auto;flex:none"
+        :checked="item.done" @change="setDone(i, $event.target.checked)" />
+      <input :value="item.text"
+        :style="{ flex: 1, textDecoration: item.done ? 'line-through' : 'none' }"
+        @input="setText(i, $event.target.value)" />
+      <button class="danger" @click="remove(i)">✕</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="primary" @click="add">+ Add</button>
+    </div>
+    <div style="font-size:11px;color:#8b949e;margin-top:8px">
+      {{ items.filter(x=>x.done).length }}/{{ items.length }} done
+    </div>
+  </div>
+`)
+},
+{
+title: 'Submit with Validation',
+desc: 'handleSubmit validates everything, sets isSubmitting, and fires the onValid callback. isValidating shows loading state during async checks.',
+code: `const form = createForm({
+  initialValues: { email: '', password: '' },
+  rules: { email: ['required','email'], password: ['required',{minLength:8}] },
+  async validator({ email }, _paths, signal) {
+    // check if account exists
+    const exists = await api.checkEmail(email, signal);
+    return exists ? {} : { email: 'No account found for this email' };
+  },
+});
+
+const onSubmit = form.handleSubmit(
+  async (values) => {
+    await auth.login(values);
+    router.push('/dashboard');
+  },
+  (errors) => {
+    toast.error('Please fix the errors above');
+  }
+);`,
+iframeHtml: makeVueIframe(`
+  const VALID_EMAIL = 'demo@example.com';
+  const form = createForm({
+    initialValues: { email: '', password: '' },
+    rules: { email: ['required','email'], password: ['required', { minLength: 8 }] },
+    asyncDebounceMs: 300,
+    async validator({ email }, _paths, signal) {
+      if (!email || !/^[^@]+@[^@]+\\.[^@]+$/.test(email)) return {};
+      await new Promise(r => setTimeout(r, 500));
+      if (signal.aborted) return {};
+      return email !== VALID_EMAIL ? { email: 'No account found (try: demo@example.com)' } : {};
+    },
+  });
+  const state = useVueForm(form);
+  const set = (p, v) => form.set(p, v, { touch: true, validate: true });
+  const successMsg = ref('');
+  const onSubmit = (e) => {
+    e.preventDefault();
+    form.handleSubmit(
+      async (v) => { await new Promise(r => setTimeout(r, 800)); successMsg.value = 'Logged in as '+v.email; },
+      () => {}
+    )(e);
+  };
+  return { state, set, successMsg, onSubmit };
+`, `
+  <div style="max-width:340px">
+    <form @submit="onSubmit">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" :value="state.values.email" @input="set('email', $event.target.value)" />
+        <div v-if="state.isValidating" class="hint"><span class="spin"/> checking…</div>
+        <div class="err">{{ state.touched.email && state.errors.email }}</div>
+        <div class="hint" style="font-size:10px">Try: demo@example.com</div>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" :value="state.values.password" @input="set('password', $event.target.value)" />
+        <div class="err">{{ state.touched.password && state.errors.password }}</div>
+      </div>
+      <button type="submit" class="primary" :disabled="state.isSubmitting">
+        {{ state.isSubmitting ? 'Logging in…' : 'Log in' }}
+      </button>
+      <div v-if="successMsg" class="box" style="margin-top:10px;color:#3fb950">{{ successMsg }}</div>
+    </form>
+  </div>
+`)
+},
+];
+
+// ─── SOLIDJS TUTORIALS ────────────────────────────────────────────────────────
+const SOLID = [
+{
+title: 'useSolidForm — Signals',
+desc: 'SolidJS\'s fine-grained reactivity pairs perfectly with form subscriptions. A createSignal per field means only the right DOM nodes update — no virtual DOM overhead.',
+code: `import { createSignal, createEffect, onCleanup } from 'solid-js';
+import { render } from 'solid-js/web';
+import { createForm } from '@agw/form/core';
+
+function useSolidForm(form) {
+  const [state, setState] = createSignal(form.getState(), { equals: false });
+  const unsub = form.subscribe(s => setState({ ...s }));
+  onCleanup(unsub);
+  return state;
+}
+
+function useSolidField(form, path) {
+  const [value, setValue] = createSignal(form.get(path));
+  const [fieldState, setFieldState] = createSignal({});
+  const unsub = form.subscribeToPath(path, (v, fs) => {
+    setValue(v);
+    setFieldState({ ...fs });
+  });
+  onCleanup(unsub);
+  const set = (v) => form.set(path, v, { touch: true, validate: true });
+  return [value, fieldState, set];
+}`,
+iframeHtml: makeSolidIframe(`
+const form = createForm({
+  initialValues: { name: '', email: '', plan: 'free' },
+  rules: { name: 'required', email: ['required','email'] },
+});
+
+function App() {
+  const state = useSolidForm(form);
+  const set = (p, v) => form.set(p, v, { touch: true, validate: true });
+
+  return html\`
+    <div style="max-width:340px">
+      <div class="field">
+        <label>Name</label>
+        <input value=\${() => state().values.name || ''}
+          onInput=\${e => set('name', e.target.value)} />
+        <div class="err">\${() => state().touched.name && state().errors.name}</div>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" value=\${() => state().values.email || ''}
+          onInput=\${e => set('email', e.target.value)} />
+        <div class="err">\${() => state().touched.email && state().errors.email}</div>
+      </div>
+      <div class="field">
+        <label>Plan</label>
+        <select value=\${() => state().values.plan}
+          onChange=\${e => set('plan', e.target.value)}>
+          <option value="free">Free</option>
+          <option value="pro">Pro</option>
+        </select>
+      </div>
+      <div class="row">
+        <button class="primary"
+          onClick=\${() => form.submit(async v => { await new Promise(r=>setTimeout(r,600)); alert('Saved! Plan: '+v.plan); })}>
+          \${() => state().isSubmitting ? 'Saving…' : 'Save'}
+        </button>
+        <button onClick=\${() => form.reset()}>Reset</button>
+      </div>
+      <div class="box">\${() => JSON.stringify(state().values, null, 2)}</div>
+    </div>\`;
+}
+
+render(() => html\`<\${App}/>\`, document.getElementById('root'));
+`)
+},
+{
+title: 'Fine-grained Field Updates',
+desc: 'With useSolidField, each input subscribes only to its own path. SolidJS updates only the exact DOM nodes that depend on the changed signal — no reconciliation needed.',
+code: `// Each Field component owns exactly one signal
+function Field({ form, path, label, type = 'text' }) {
+  const [value, fieldState, set] = useSolidField(form, path);
+  let renderCount = 0;
+
+  return (
+    <div class="field">
+      <label>{label} <small>renders: {++renderCount}</small></label>
+      <input type={type} value={value()} onInput={e => set(e.target.value)} />
+      <Show when={fieldState().touched && fieldState().error}>
+        <div class="err">{fieldState().error}</div>
       </Show>
     </div>
   );
 }`,
-    lang: 'tsx',
-  },
-  {
-    title: 'Array Fields in SolidJS',
-    desc: `<p>Use <code>&lt;For&gt;</code> to iterate the array store and <code>form.arrayAppend</code> / <code>form.arrayRemove</code> to mutate. Solid's fine-grained reactivity means only changed items re-render.</p>`,
-    code: `import { For } from 'solid-js';
+iframeHtml: makeSolidIframe(`
+import html from 'https://esm.sh/solid-js@1.8.17/html';
+import { Show } from 'https://esm.sh/solid-js@1.8.17';
 
-function TodoList() {
-  const [state] = useSolidForm(form);
+const form = createForm({
+  initialValues: { first: '', last: '', email: '', age: '' },
+  rules: {
+    first: 'required', last: 'required',
+    email: ['required','email'],
+    age: ['required','integer',{min:18}],
+  },
+});
+
+function Field({ path, label, type }) {
+  const [value, fs, set] = useSolidField(form, path);
+  return html\`<div class="field">
+    <label>\${label}</label>
+    <input type=\${type||'text'} value=\${value}
+      onInput=\${e => set(e.target.value)} />
+    <div class="err">\${() => fs().touched && fs().error}</div>
+  </div>\`;
+}
+
+function App() {
+  return html\`<div style="max-width:340px">
+    <\${Field} path="first" label="First name" />
+    <\${Field} path="last"  label="Last name" />
+    <\${Field} path="email" label="Email" type="email" />
+    <\${Field} path="age"   label="Age" type="number" />
+    <button class="primary" onClick=\${() => form.validate()}>Validate all</button>
+  </div>\`;
+}
+
+render(() => html\`<\${App}/>\`, document.getElementById('root'));
+`)
+},
+{
+title: 'Async Validation + For Loop',
+desc: 'The For component from solid-js provides keyed list rendering. Combined with async validation and signal-based state, the list updates surgically with no diffing.',
+code: `import { For } from 'solid-js';
+
+function TodoApp() {
+  const state = useSolidForm(form);
+  const items = () => state().values.items ?? [];
 
   return (
     <div>
-      <For each={state.values.todos}>
-        {(todo, i) => (
-          <div>
-            <input
-              value={todo.text}
-              onInput={e =>
-                form.set(\`todos.\${i()}.text\`, e.target.value)
-              }
-            />
-            <button
-              onClick={() => form.arrayRemove('todos', i())}
-            >✕</button>
+      <For each={items()}>
+        {(item, index) => (
+          <div style="display:flex;gap:8">
+            <input value={item.text}
+              onInput={e => form.set(\`items.\${index()}.text\`, e.target.value)} />
+            <button onClick={() => form.arrayRemove('items', index())}>✕</button>
           </div>
         )}
       </For>
-      <button onClick={() =>
-        form.arrayAppend('todos', { text: '', done: false })
-      }>Add</button>
+      <button onClick={() => form.arrayAppend('items', { text: '' })}>+ Add</button>
     </div>
   );
 }`,
-    lang: 'tsx',
-  },
-],
+iframeHtml: makeSolidIframe(`
+import html from 'https://esm.sh/solid-js@1.8.17/html';
+import { For, Show, createMemo } from 'https://esm.sh/solid-js@1.8.17';
 
-angular: [
-  {
-    title: 'Installation',
-    desc: `<p>Install the package. The Angular adapter uses Angular's <code>signal()</code> API (Angular 16+) and <code>DestroyRef</code> for automatic cleanup.</p>`,
-    code: `npm install @agw/form`,
-    lang: 'bash',
-  },
-  {
-    title: 'useAngularForm — Signal-Based State',
-    desc: `<p><code>useAngularForm(form)</code> must be called inside an injection context (component constructor or <code>inject()</code> call). Returns a <code>readonly Signal</code> of the full state. Cleanup is wired to the component's <code>DestroyRef</code> automatically.</p>`,
-    code: `import { Component } from '@angular/core';
-import { createForm } from '@agw/form/core';
-import { useAngularForm } from '@agw/form/adapters/angular';
+const TAKEN = new Set(['admin','alice','bob','test']);
 
 const form = createForm({
-  initialValues: { name: '', email: '' },
-  validator: (v) => {
-    const e: Record<string, string> = {};
-    if (!v.email.includes('@')) e['email'] = 'Invalid email';
-    return e;
-  },
+  initialValues: { items: [{ text:'Buy milk',done:false },{ text:'Walk dog',done:false }] },
 });
 
-@Component({
-  template: \`
-    <form (ngSubmit)="submit()">
-      <input [value]="state().values.name"
-             (input)="form.set('name', $event.target.value)" />
+function App() {
+  const state = useSolidForm(form);
+  const items = createMemo(() => state().values.items || []);
+  const done  = createMemo(() => items().filter(x=>x.done).length);
 
-      <input [value]="state().values.email"
-             (input)="form.set('email', $event.target.value)" />
-      @if (state().errors['email']) {
-        <p class="error">{{ state().errors['email'] }}</p>
+  return html\`<div style="max-width:360px">
+    <\${For} each=\${items}>\${(item, i) => html\`
+      <div class="arr">
+        <input type="checkbox" style="width:auto;flex:none"
+          checked=\${() => item.done}
+          onChange=\${e => form.set('items.'+i()+'.done', e.target.checked)} />
+        <input value=\${() => item.text}
+          style=\${() => ({flex:1, textDecoration: item.done ? 'line-through':'none'})}
+          onInput=\${e => form.set('items.'+i()+'.text', e.target.value)} />
+        <button class="danger" onClick=\${() => form.arrayRemove('items', i())}>✕</button>
+      </div>
+    \`}<\/\${For}>
+    <div class="row">
+      <button class="primary"
+        onClick=\${() => form.arrayAppend('items', {text:'',done:false})}>+ Add</button>
+      <button onClick=\${() => form.arraySwap('items', 0, items().length-1)}
+        disabled=\${() => items().length < 2}>Swap first/last</button>
+    </div>
+    <div style="font-size:11px;color:#8b949e;margin-top:6px">
+      \${done}/\${() => items().length} done
+    </div>
+  </div>\`;
+}
+
+render(() => html\`<\${App}/>\`, document.getElementById('root'));
+`)
+},
+];
+
+// ─── SVELTE TUTORIALS (code-only) ────────────────────────────────────────────
+const SVELTE = [
+{
+title: 'Svelte Store Integration',
+desc: 'Wrap the form in a Svelte readable() store. The engine\'s subscribe interface matches Svelte\'s store contract exactly — components auto-subscribe with $state syntax.',
+code: `<!-- FormStore.js -->
+import { readable } from 'svelte/store';
+import { createForm } from '@agw/form/core';
+
+export function createFormStore(config) {
+  const form = createForm(config);
+
+  const store = readable(form.getState(), (set) => {
+    const unsub = form.subscribe(set);
+    return unsub; // Svelte calls this on store cleanup
+  });
+
+  return { ...form, subscribe: store.subscribe };
+}
+
+<!-- ContactForm.svelte -->
+<script>
+  import { createFormStore } from './FormStore.js';
+
+  const form = createFormStore({
+    initialValues: { name: '', email: '' },
+    rules: { name: 'required', email: ['required', 'email'] },
+  });
+  // $form auto-subscribes — no manual subscribe/cleanup
+<\/script>
+
+<input bind:value={$form.values.name}
+  on:input={e => form.set('name', e.target.value, { touch: true, validate: true })} />
+{#if $form.touched.name && $form.errors.name}
+  <p class="error">{$form.errors.name}</p>
+{/if}
+
+<button on:click={() => form.submit(save)} disabled={$form.isSubmitting}>
+  {$form.isSubmitting ? 'Saving…' : 'Save'}
+</button>`,
+stackblitzUrl: 'https://stackblitz.com/edit/vitejs-vite-svelte-agw-form?file=src/App.svelte',
+},
+{
+title: 'Per-Field Rune ($state)',
+desc: 'In Svelte 5 with runes, use $state + $effect to create a reactive field that only updates when its own path changes.',
+code: `<!-- EmailField.svelte (Svelte 5 runes) -->
+<script>
+  import { createForm } from '@agw/form/core';
+
+  let { form, path } = $props();
+
+  let value = $state(form.get(path));
+  let error = $state(undefined);
+  let touched = $state(false);
+
+  $effect(() => {
+    return form.subscribeToPath(path, (val, fs) => {
+      value = val;
+      error = fs.error;
+      touched = !!fs.touched;
+    });
+  });
+
+  function set(v) {
+    form.set(path, v, { touch: true, validate: true });
+  }
+<\/script>
+
+<div>
+  <input {value} oninput={e => set(e.target.value)} />
+  {#if touched && error}
+    <span class="error">{error}<\/span>
+  {/if}
+<\/div>`,
+stackblitzUrl: 'https://stackblitz.com/edit/vitejs-vite-svelte5-agw-form?file=src/lib/Field.svelte',
+},
+];
+
+// ─── ANGULAR TUTORIALS (code-only) ───────────────────────────────────────────
+const ANGULAR = [
+{
+title: 'Signal-Based Form',
+desc: 'Angular 16+ signals pair cleanly with the form engine. Wrap subscribe() in a toSignal()-compatible stream, or use an effect() for automatic cleanup.',
+code: `// form.service.ts
+import { Injectable, signal, effect } from '@angular/core';
+import { createForm } from '@agw/form/core';
+
+@Injectable({ providedIn: 'root' })
+export class ContactFormService {
+  readonly form = createForm({
+    initialValues: { name: '', email: '', message: '' },
+    rules: {
+      name:    'required',
+      email:   ['required', 'email'],
+      message: ['required', { minLength: 20 }],
+    },
+  });
+
+  readonly state = signal(this.form.getState());
+
+  constructor() {
+    // Subscribe and push into Angular signal
+    this.form.subscribe(s => this.state.set(s));
+  }
+
+  set(path: string, value: unknown) {
+    this.form.set(path, value, { touch: true, validate: true });
+  }
+
+  submit(onValid: (v: any) => Promise<void>) {
+    return this.form.submit(onValid);
+  }
+}`,
+stackblitzUrl: 'https://stackblitz.com/edit/angular-17-agw-form?file=src/app/contact-form/contact-form.service.ts',
+},
+{
+title: 'Component Binding',
+desc: 'The service\'s signal feeds template expressions directly. async pipe or the signal syntax keeps the template reactive with zero boilerplate.',
+code: `<!-- contact-form.component.ts -->
+import { Component, inject } from '@angular/core';
+import { ContactFormService } from './contact-form.service';
+
+@Component({
+  selector: 'app-contact-form',
+  standalone: true,
+  template: \`
+    <form (ngSubmit)="svc.submit(save)">
+      <input [value]="svc.state().values.name"
+             (input)="svc.set('name', $event.target.value)" />
+      @if (svc.state().touched['name'] && svc.state().errors['name']) {
+        <span class="error">{{ svc.state().errors['name'] }}</span>
       }
-      <button [disabled]="state().isSubmitting">Submit</button>
+
+      <button type="submit" [disabled]="svc.state().isSubmitting">
+        {{ svc.state().isSubmitting ? 'Saving…' : 'Submit' }}
+      </button>
     </form>
   \`,
 })
-export class LoginForm {
-  protected form = form;
-  protected state = useAngularForm(form).state;
-  protected submit = form.handleSubmit(async (v) => console.log(v));
-}`,
-    lang: 'typescript',
-  },
-  {
-    title: 'useAngularFormPath — Per-Field Signals',
-    desc: `<p><code>useAngularFormPath(form, path)</code> returns <code>{ value, fieldState }</code> as readonly Angular signals. Subscribe only the fields that need reactivity. <code>DestroyRef.onDestroy</code> cleans up the subscription automatically.</p>`,
-    code: `import { Component } from '@angular/core';
-import { useAngularFormPath } from '@agw/form/adapters/angular';
+export class ContactFormComponent {
+  svc = inject(ContactFormService);
 
-@Component({
-  selector: 'app-email-field',
-  template: \`
-    <div>
-      <input [value]="value()"
-             (input)="form.set('email', $event.target.value)" />
-      @if (fieldState()?.error) {
-        <p class="error">{{ fieldState()!.error }}</p>
-      }
+  async save(values: any) {
+    await fetch('/api/contact', { method: 'POST', body: JSON.stringify(values) });
+  }
+}`,
+stackblitzUrl: 'https://stackblitz.com/edit/angular-17-agw-form?file=src/app/contact-form/contact-form.component.ts',
+},
+];
+// ─── APP STATE ────────────────────────────────────────────────────────────────
+
+const FRAMEWORKS = [
+  { key: 'vanilla', label: 'Vanilla JS', steps: VANILLA },
+  { key: 'react',   label: 'React 18',   steps: REACT },
+  { key: 'vue',     label: 'Vue 3',      steps: VUE },
+  { key: 'solid',   label: 'SolidJS',    steps: SOLID },
+  { key: 'svelte',  label: 'Svelte 5',   steps: SVELTE },
+  { key: 'angular', label: 'Angular 16', steps: ANGULAR },
+];
+
+let currentFw = 'vanilla';
+let currentIdx = 0;
+let activeForm = null;
+let perfInterval = null;
+
+// ─── PERF PANEL ──────────────────────────────────────────────────────────────
+
+function renderPerfPanel(form) {
+  const pc = document.getElementById('perfContent');
+  if (!form || !form.perf) { pc.innerHTML = ''; return; }
+  const p = form.perf;
+  const pathMap = p.pathMap || {};
+
+  pc.innerHTML = `
+    <div class="perf-row">
+      <div class="perf-lbl">Notifications</div>
+      <div class="perf-val" id="pn">${p.notifications}</div>
+      <div class="perf-sub">total subscriber calls</div>
     </div>
-  \`,
-})
-export class EmailFieldComponent {
-  protected form = form;
-  protected { value, fieldState } = useAngularFormPath(form, 'email');
-}`,
-    lang: 'typescript',
-  },
-  {
-    title: 'Array Fields in Angular',
-    desc: `<p>Use <code>@for</code> (Angular 17+ control flow) to iterate the array from the form signal, and <code>form.arrayAppend</code> / <code>form.arrayRemove</code> to mutate.</p>`,
-    code: `@Component({
-  template: \`
-    @for (todo of state().values.todos; track $index) {
-      <div>
-        <input [value]="todo.text"
-               (input)="form.set('todos.' + $index + '.text',
-                                 $event.target.value)" />
-        <button (click)="form.arrayRemove('todos', $index)">✕</button>
+    <div class="perf-row">
+      <div class="perf-lbl">Last Validation</div>
+      <div class="perf-val" id="pv">${p.lastValidationMs !== null ? p.lastValidationMs.toFixed(1) + 'ms' : '—'}</div>
+      <div class="perf-sub">includes async debounce</div>
+    </div>
+    <div class="perf-row">
+      <div class="perf-lbl">Async Epoch</div>
+      <div class="perf-val" id="pe">${p.epoch}</div>
+      <div class="perf-sub">increments per validation run</div>
+    </div>
+    <div class="perf-row">
+      <div class="perf-lbl">Subscribers</div>
+      <div class="perf-val" id="ps">${p.subscriberCount}</div>
+      <div class="perf-sub">global + path listeners</div>
+    </div>
+    <div class="perf-row">
+      <div class="perf-lbl">Batch Active</div>
+      <div class="perf-val sm" id="pb" style="color:${p.batchActive ? 'var(--yellow)' : 'var(--green)'}">
+        ${p.batchActive ? 'YES' : 'no'}
       </div>
-    }
-    <button (click)="form.arrayAppend('todos', { text: '', done: false })">
-      Add
-    </button>
-  \`,
-})
-export class TodoListComponent {
-  protected form = form;
-  protected state = useAngularForm(form).state;
-}`,
-    lang: 'typescript',
-  },
-],
-
-};
-
-// ─── APP ─────────────────────────────────────────────────────────────────────
-
-let fw = 'vanilla';
-let step = 0;
-let activeDemo = null;
-
-function switchFramework(name) {
-  fw = name;
-  step = 0;
-  document.querySelectorAll('.fw-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById(`tab-${name}`).classList.add('active');
-  render();
+    </div>
+    <div style="padding:10px 12px;border-bottom:1px solid var(--border);">
+      <div class="perf-lbl" style="margin-bottom:6px;">Path Subscribers</div>
+      ${Object.keys(pathMap).length === 0 ? '<div style="font-size:11px;color:var(--t2);">(none yet)</div>' :
+        Object.entries(pathMap).map(([path, count]) =>
+          `<div class="perf-path-item"><span style="font-family:monospace;font-size:10px;color:var(--t1);">${path}</span><em>${count}</em></div>`
+        ).join('')
+      }
+    </div>`;
 }
 
-function prevStep() { if (step > 0) { step--; render(); } }
-function nextStep() { const steps = TUTORIALS[fw]; if (step < steps.length - 1) { step++; render(); } }
+function startPerfPolling(form) {
+  stopPerfPolling();
+  if (!form || !form.perf) return;
+  perfInterval = setInterval(() => {
+    const p = form.perf;
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('pn', p.notifications);
+    set('pv', p.lastValidationMs !== null ? p.lastValidationMs.toFixed(1) + 'ms' : '—');
+    set('pe', p.epoch);
+    set('ps', p.subscriberCount);
+    const pb = document.getElementById('pb');
+    if (pb) {
+      pb.textContent = p.batchActive ? 'YES' : 'no';
+      pb.style.color = p.batchActive ? 'var(--yellow)' : 'var(--green)';
+    }
+  }, 150);
+}
 
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function stopPerfPolling() {
+  if (perfInterval) { clearInterval(perfInterval); perfInterval = null; }
+}
 
-function render() {
-  const steps = TUTORIALS[fw];
-  const current = steps[step];
+// ─── SIDEBAR ─────────────────────────────────────────────────────────────────
 
-  // Sidebar
-  const list = document.getElementById('step-list');
-  list.innerHTML = `<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#8b949e;padding:0 12px 8px;">${fw === 'vanilla' ? 'Vanilla JS Tutorial' : fw.charAt(0).toUpperCase()+fw.slice(1)+' Guide'}</div>` +
-    steps.map((s, i) => `
-      <button class="step-item ${i === step ? 'active' : i < step ? 'done' : ''}" onclick="step=${i};render();">
-        <span class="step-num">${i < step ? '✓' : i+1}</span>
-        <span style="font-size:13px;line-height:1.4;">${s.title}</span>
-      </button>
-    `).join('');
-
-  // Counter
-  document.getElementById('step-counter').textContent = `${step + 1} / ${steps.length}`;
-  document.getElementById('btn-prev').disabled = step === 0;
-  document.getElementById('btn-next').disabled = step === steps.length - 1;
-
-  // Content
-  const area = document.getElementById('content-area');
-  const isVanilla = fw === 'vanilla';
-  const lang = current.lang ?? (fw === 'vanilla' ? 'javascript' : fw === 'svelte' ? 'html' : fw === 'vue' ? 'html' : 'typescript');
-
-  const codeHtml = `
-    <div style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px;${isVanilla?'max-width:50%;border-right:1px solid #30363d;':''}">
-      <div>
-        <span class="badge badge-blue" style="margin-bottom:8px;display:inline-block;">Step ${step+1}</span>
-        <h2 style="font-size:18px;font-weight:700;margin-bottom:10px;">${current.title}</h2>
-        <div style="font-size:13px;color:#8b949e;line-height:1.7;">${current.desc}</div>
-      </div>
-      <div>
-        <div class="live-label" style="margin-bottom:6px;">code</div>
-        <pre><code class="language-${lang}">${esc(current.code)}</code></pre>
-      </div>
-    </div>
-  `;
-
-  if (isVanilla) {
-    area.innerHTML = codeHtml + `<div id="demo-panel" style="flex:1;overflow-y:auto;padding:20px;"></div>`;
-    const demoEl = document.getElementById('demo-panel');
-    demoEl.innerHTML = `<div class="live-label" style="margin-bottom:12px;">Live Demo</div>`;
-    const container = document.createElement('div');
-    demoEl.appendChild(container);
-    if (current.run) current.run(container);
-  } else {
-    area.innerHTML = `<div style="flex:1;overflow-y:auto;">${codeHtml.replace(/max-width.*?border-right.*?;/,'')}</div>`;
-  }
-
-  // Highlight
-  document.querySelectorAll('pre code').forEach(el => {
-    el.removeAttribute('data-highlighted');
-    hljs.highlightElement(el);
+function renderSidebar() {
+  const fw = FRAMEWORKS.find(f => f.key === currentFw);
+  const sb = document.getElementById('sidebar');
+  sb.innerHTML = `<div class="sidebar-label">${fw.label}</div>` +
+    fw.steps.map((step, i) =>
+      `<div class="step-item ${i === currentIdx ? 'active' : ''}" data-idx="${i}">
+        <span class="step-num">${i + 1}</span>
+        <span>${step.title}</span>
+       </div>`
+    ).join('');
+  sb.querySelectorAll('.step-item').forEach(el => {
+    el.addEventListener('click', () => navigate(currentFw, parseInt(el.dataset.idx)));
   });
 }
 
-render();
+// ─── CODE PANEL ──────────────────────────────────────────────────────────────
+
+function renderCode(step) {
+  document.getElementById('stepTitle').textContent = step.title;
+  document.getElementById('stepDesc').textContent = step.desc;
+  const codeEl = document.getElementById('codeEl');
+  codeEl.textContent = step.code;
+  delete codeEl.dataset.highlighted;
+  hljs.highlightElement(codeEl);
+}
+
+// ─── DEMO AREA ───────────────────────────────────────────────────────────────
+
+function renderDemo(step) {
+  // Clean up previous
+  if (activeForm && activeForm.destroy) activeForm.destroy();
+  const demoArea = document.getElementById('demoArea');
+  if (demoArea._cleanup) { demoArea._cleanup(); demoArea._cleanup = null; }
+  demoArea.innerHTML = '';
+  stopPerfPolling();
+
+  const isVanilla = currentFw === 'vanilla';
+  const hasSb = step.stackblitzUrl;
+
+  if (isVanilla && step.run) {
+    // Vanilla — run the demo directly
+    document.getElementById('demoLabel').textContent = 'Demo';
+    const perfPanel = document.getElementById('perfPanel');
+    perfPanel.style.display = 'flex';
+    document.getElementById('workspace').style.gridTemplateColumns =
+      'var(--side) 1fr 1fr var(--perf)';
+
+    try {
+      activeForm = step.run(demoArea);
+      renderPerfPanel(activeForm);
+      startPerfPolling(activeForm);
+    } catch (err) {
+      demoArea.innerHTML = `<div class="alert err">Error: ${err.message}</div>`;
+    }
+  } else if (step.iframeHtml) {
+    // Framework — render in iframe
+    document.getElementById('demoLabel').textContent = 'Live Demo';
+    hidePerfPanel();
+
+    const iframe = document.createElement('iframe');
+    iframe.className = 'demo-iframe';
+    iframe.style.flex = '1';
+    iframe.srcdoc = step.iframeHtml;
+    iframe.sandbox = 'allow-scripts allow-same-origin';
+    demoArea.style.padding = '0';
+    demoArea.style.display = 'flex';
+    demoArea.style.flexDirection = 'column';
+    demoArea.appendChild(iframe);
+  } else if (hasSb) {
+    // Code-only with StackBlitz link
+    document.getElementById('demoLabel').textContent = 'Run It';
+    hidePerfPanel();
+
+    demoArea.innerHTML = `
+      <div style="max-width:360px;">
+        <div class="alert info" style="font-size:13px;line-height:1.6;">
+          This framework requires a compile step. The code on the left is correct and production-ready.
+          Open it in StackBlitz for a live, interactive demo.
+        </div>
+        <a class="sb-link" href="${step.stackblitzUrl}" target="_blank">
+          ↗ Open in StackBlitz
+        </a>
+      </div>`;
+  }
+}
+
+function hidePerfPanel() {
+  const pp = document.getElementById('perfPanel');
+  pp.style.display = 'none';
+  document.getElementById('workspace').style.gridTemplateColumns = 'var(--side) 1fr 1fr';
+}
+
+// ─── FRAMEWORK TABS ──────────────────────────────────────────────────────────
+
+function renderFwTabs() {
+  const tabs = document.getElementById('fwTabs');
+  tabs.innerHTML = FRAMEWORKS.map(fw =>
+    `<button class="fw-tab ${fw.key === currentFw ? 'active' : ''}" data-fw="${fw.key}">
+      ${fw.label}
+     </button>`
+  ).join('');
+  tabs.querySelectorAll('.fw-tab').forEach(btn => {
+    btn.addEventListener('click', () => navigate(btn.dataset.fw, 0));
+  });
+}
+
+// ─── NAV FOOTER ──────────────────────────────────────────────────────────────
+
+function renderNav() {
+  const fw = FRAMEWORKS.find(f => f.key === currentFw);
+  const total = fw.steps.length;
+  document.getElementById('stepCtr').textContent = `${currentIdx + 1} / ${total}`;
+  document.getElementById('prevBtn').disabled = currentIdx === 0;
+  document.getElementById('nextBtn').disabled = currentIdx === total - 1;
+}
+
+// ─── ROUTER ──────────────────────────────────────────────────────────────────
+
+function navigate(fw, idx) {
+  currentFw = fw;
+  currentIdx = idx;
+  const step = FRAMEWORKS.find(f => f.key === fw).steps[idx];
+
+  renderFwTabs();
+  renderSidebar();
+  renderCode(step);
+  renderDemo(step);
+  renderNav();
+
+  const lang = (fw === 'svelte' || fw === 'angular') ? fw : 'javascript';
+  document.getElementById('codeLang').textContent = lang;
+}
+
+// ─── EVENT BINDINGS ──────────────────────────────────────────────────────────
+
+document.getElementById('prevBtn').addEventListener('click', () => {
+  if (currentIdx > 0) navigate(currentFw, currentIdx - 1);
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  const fw = FRAMEWORKS.find(f => f.key === currentFw);
+  if (currentIdx < fw.steps.length - 1) navigate(currentFw, currentIdx + 1);
+});
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') document.getElementById('nextBtn').click();
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   document.getElementById('prevBtn').click();
+});
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+navigate('vanilla', 0);
 </script>
 </body>
 </html>

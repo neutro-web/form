@@ -16,7 +16,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean"
+    "build": "tsup src/index.ts --format esm,cjs,iife --global-name agwForm --dts --clean"
   },
   "devDependencies": {
     "tsup": "^8.0.0"
