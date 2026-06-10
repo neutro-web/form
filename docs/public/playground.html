@@ -365,7 +365,7 @@ function withPerf(form) {
 }
 
 // ─── SVELTE IN-BROWSER COMPILER ──────────────────────────────────────────────
-// Use JSON encoding so </script> inside the source can't close the srcdoc script block.
+// JSON-encode source so script-end-tags inside it can't close the srcdoc block.
 // Rewrite svelte/* bare specifiers in the compiled output to absolute esm.sh URLs
 // so dynamic blob-URL imports can resolve them (importmaps don't apply to blob URLs).
 function makeSvelteIframe(svelteSource) {
