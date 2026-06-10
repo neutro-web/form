@@ -365,14 +365,13 @@ function withPerf(form) {
 }
 
 // ─── SVELTE IN-BROWSER COMPILER ──────────────────────────────────────────────
+// Use JSON encoding so </script> inside the source can't close the srcdoc script block.
+// Rewrite svelte/* bare specifiers in the compiled output to absolute esm.sh URLs
+// so dynamic blob-URL imports can resolve them (importmaps don't apply to blob URLs).
 function makeSvelteIframe(svelteSource) {
-  const escaped = svelteSource
-    .replace(/\\/g, '\\\\')
-    .replace(/`/g, '\\`')
-    .replace(/\$\{/g, '\\${');
+  const jsonSrc = JSON.stringify(svelteSource).replace(/<\//g, '<\\/');
   return `<!DOCTYPE html><html>
 <head>
-<script type="importmap">{"imports":{"svelte/internal":"https://esm.sh/svelte@4.2.19/internal","svelte/store":"https://esm.sh/svelte@4.2.19/store","svelte":"https://esm.sh/svelte@4.2.19"}}<\/script>
 <style>${IFRAME_CSS}<\/style>
 <\/head><body>
 <div id="root"><\/div>
@@ -380,16 +379,40 @@ function makeSvelteIframe(svelteSource) {
 import { compile } from 'https://esm.sh/svelte@4.2.19/compiler';
 await new Promise(res => { const s = document.createElement('script'); s.src='${CORE_URL}'; s.onload=res; document.head.appendChild(s); });
 window.createForm = agwForm.createForm;
-const src = \`${escaped}\`;
+const src = ${jsonSrc};
 try {
   const { js } = compile(src, { filename:'Demo.svelte', generate:'dom', format:'esm', dev:false });
-  const blob = new Blob([js.code], { type:'text/javascript' });
+  const code = js.code.replace(/from ['"]svelte(\\/[a-z_/]+)?['"]/g, function(m, sub) {
+    return "from 'https://esm.sh/svelte@4.2.19" + (sub || '') + "'";
+  });
+  const blob = new Blob([code], { type:'text/javascript' });
   const { default: Component } = await import(URL.createObjectURL(blob));
   new Component({ target: document.getElementById('root') });
 } catch(e) {
   document.getElementById('root').innerHTML = '<pre style="color:#f85149;font-size:11px;">' + e.message + '<\/pre>';
 }
 <\/script><\/body><\/html>`;
+}
+
+// ─── STACKBLITZ POST HELPER ───────────────────────────────────────────────────
+function openStackBlitz(project) {
+  const form = document.createElement('form');
+  form.method = 'post';
+  form.action = 'https://stackblitz.com/run';
+  form.target = '_blank';
+  form.style.display = 'none';
+  const add = function(name, value) {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = name; inp.value = value;
+    form.appendChild(inp);
+  };
+  add('project[title]', project.title);
+  add('project[description]', project.description || '');
+  add('project[template]', project.template);
+  Object.keys(project.files).forEach(function(path) { add('project[files][' + path + ']', project.files[path]); });
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
 }
 
 function makeSolidIframe(code) {
@@ -2770,18 +2793,130 @@ iframeHtml: makeSvelteIframe(`<script>
 },
 ];
 
-// ─── ANGULAR TUTORIALS (code-only) ───────────────────────────────────────────
+// ─── ANGULAR TUTORIALS ───────────────────────────────────────────────────────
+// Shared StackBlitz project — both steps open the same complete app.
+// form-core is loaded via JSDelivr CDN so no npm publish is required.
+const ANGULAR_SB_PROJECT = {
+  title: 'AGW Form — Angular 17 Demo',
+  description: 'Signal-based form service + standalone component (agnostic-web/form-core)',
+  template: 'angular-cli',
+  files: {
+    'src/index.html': `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AGW Form Angular Demo</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script src="https://cdn.jsdelivr.net/gh/agnostic-web/agw-form@main/docs/public/form-core.js"><\/script>
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>`,
+    'src/main.ts': `import { bootstrapApplication } from '@angular/platform-browser';
+import { AppComponent } from './app/app.component';
+bootstrapApplication(AppComponent).catch(err => console.error(err));`,
+    'src/app/form.service.ts': `import { Injectable, signal } from '@angular/core';
+
+declare const agwForm: any;
+
+@Injectable({ providedIn: 'root' })
+export class FormService {
+  private form = agwForm.createForm({
+    initialValues: { name: '', email: '', message: '' },
+    rules: {
+      name: 'required',
+      email: ['required', 'email'],
+      message: ['required', { minLength: 20 }],
+    },
+  });
+  state = signal(this.form.getState());
+  constructor() { this.form.subscribe((s: any) => this.state.set(s)); }
+  set(path: string, value: unknown) { this.form.set(path, value, { touch: true, validate: true }); }
+  submit(onValid: (v: any) => Promise<void>) { return this.form.submit(onValid); }
+  reset() { this.form.reset(); }
+}`,
+    'src/app/app.component.ts': `import { Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormService } from './form.service';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [CommonModule],
+  styles: [\`
+    body { font-family: system-ui, sans-serif; }
+    main { max-width: 480px; margin: 2rem auto; padding: 1rem; }
+    h2 { font-size: 1.2rem; margin-bottom: 1.5rem; }
+    .field { margin-bottom: 1rem; }
+    label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 4px;
+            text-transform: uppercase; letter-spacing: 0.05em; color: #555; }
+    input, textarea { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db;
+                      border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+    input:focus, textarea:focus { outline: 2px solid #4F46E5; outline-offset: 1px; }
+    .error { color: #dc2626; font-size: 0.8rem; margin: 4px 0 0; }
+    .btn-row { display: flex; gap: 8px; margin-top: 16px; }
+    button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; }
+    .primary { background: #4F46E5; color: white; }
+    .secondary { background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+  \`],
+  template: \`
+    <main>
+      <h2>Angular 17 + AGW Form</h2>
+      <div class="field">
+        <label>Name</label>
+        <input [value]="svc.state().values.name"
+               (input)="svc.set('name', $any($event).target.value)" />
+        @if (svc.state().touched['name'] && svc.state().errors['name']) {
+          <p class="error">{{ svc.state().errors['name'] }}</p>
+        }
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input [value]="svc.state().values.email"
+               (input)="svc.set('email', $any($event).target.value)" />
+        @if (svc.state().touched['email'] && svc.state().errors['email']) {
+          <p class="error">{{ svc.state().errors['email'] }}</p>
+        }
+      </div>
+      <div class="field">
+        <label>Message (min 20 chars)</label>
+        <textarea rows="4" [value]="svc.state().values.message"
+                  (input)="svc.set('message', $any($event).target.value)"></textarea>
+        @if (svc.state().touched['message'] && svc.state().errors['message']) {
+          <p class="error">{{ svc.state().errors['message'] }}</p>
+        }
+      </div>
+      <div class="btn-row">
+        <button class="primary" (click)="submit()" [disabled]="svc.state().isSubmitting">
+          {{ svc.state().isSubmitting ? 'Saving...' : 'Submit' }}
+        </button>
+        <button class="secondary" (click)="svc.reset()">Reset</button>
+      </div>
+    </main>
+  \`,
+})
+export class AppComponent {
+  svc = inject(FormService);
+  submit() { this.svc.submit(async v => console.log('Submitted:', v)); }
+}`,
+  },
+};
+
 const ANGULAR = [
 {
 title: 'Signal-Based Form',
-desc: 'Angular 16+ signals pair cleanly with the form engine. Wrap subscribe() in a toSignal()-compatible stream, or use an effect() for automatic cleanup.',
+desc: 'Angular 17 signals pair cleanly with the form engine. subscribe() pushes into an Angular signal — the template stays reactive with zero boilerplate.',
 code: `// form.service.ts
-import { Injectable, signal, effect } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { createForm } from '@agw/form/core';
 
 @Injectable({ providedIn: 'root' })
-export class ContactFormService {
-  readonly form = createForm({
+export class FormService {
+  private form = createForm({
     initialValues: { name: '', email: '', message: '' },
     rules: {
       name:    'required',
@@ -2790,10 +2925,9 @@ export class ContactFormService {
     },
   });
 
-  readonly state = signal(this.form.getState());
+  state = signal(this.form.getState());
 
   constructor() {
-    // Subscribe and push into Angular signal
     this.form.subscribe(s => this.state.set(s));
   }
 
@@ -2804,41 +2938,55 @@ export class ContactFormService {
   submit(onValid: (v: any) => Promise<void>) {
     return this.form.submit(onValid);
   }
+
+  reset() { this.form.reset(); }
 }`,
-cliOnly: true,
+stackblitzProject: ANGULAR_SB_PROJECT,
 },
 {
 title: 'Component Binding',
-desc: 'The service\'s signal feeds template expressions directly. async pipe or the signal syntax keeps the template reactive with zero boilerplate.',
-code: `<!-- contact-form.component.ts -->
+desc: 'The service signal feeds [value] bindings and @if control flow. No async pipe, no manual subscription management in the component.',
+code: `// app.component.ts
 import { Component, inject } from '@angular/core';
-import { ContactFormService } from './contact-form.service';
+import { CommonModule } from '@angular/common';
+import { FormService } from './form.service';
 
 @Component({
-  selector: 'app-contact-form',
+  selector: 'app-root',
   standalone: true,
+  imports: [CommonModule],
   template: \`
-    <form (ngSubmit)="svc.submit(save)">
-      <input [value]="svc.state().values.name"
-             (input)="svc.set('name', $event.target.value)" />
-      @if (svc.state().touched['name'] && svc.state().errors['name']) {
-        <span class="error">{{ svc.state().errors['name'] }}</span>
-      }
-
-      <button type="submit" [disabled]="svc.state().isSubmitting">
-        {{ svc.state().isSubmitting ? 'Saving…' : 'Submit' }}
-      </button>
-    </form>
+    <main>
+      <div class="field">
+        <label>Name</label>
+        <input [value]="svc.state().values.name"
+               (input)="svc.set('name', $any($event).target.value)" />
+        @if (svc.state().touched['name'] && svc.state().errors['name']) {
+          <p class="error">{{ svc.state().errors['name'] }}</p>
+        }
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input [value]="svc.state().values.email"
+               (input)="svc.set('email', $any($event).target.value)" />
+        @if (svc.state().touched['email'] && svc.state().errors['email']) {
+          <p class="error">{{ svc.state().errors['email'] }}</p>
+        }
+      </div>
+      <div class="btn-row">
+        <button class="primary" (click)="submit()" [disabled]="svc.state().isSubmitting">
+          {{ svc.state().isSubmitting ? 'Saving...' : 'Submit' }}
+        </button>
+        <button class="secondary" (click)="svc.reset()">Reset</button>
+      </div>
+    </main>
   \`,
 })
-export class ContactFormComponent {
-  svc = inject(ContactFormService);
-
-  async save(values: any) {
-    await fetch('/api/contact', { method: 'POST', body: JSON.stringify(values) });
-  }
+export class AppComponent {
+  svc = inject(FormService);
+  submit() { this.svc.submit(async v => console.log('Submitted:', v)); }
 }`,
-cliOnly: true,
+stackblitzProject: ANGULAR_SB_PROJECT,
 },
 ];
 // ─── APP STATE ────────────────────────────────────────────────────────────────
@@ -2848,7 +2996,7 @@ const FRAMEWORKS = [
   { key: 'react',   label: 'React 18',   steps: REACT },
   { key: 'vue',     label: 'Vue 3',      steps: VUE },
   { key: 'solid',   label: 'SolidJS',    steps: SOLID },
-  { key: 'svelte',  label: 'Svelte 5',   steps: SVELTE },
+  { key: 'svelte',  label: 'Svelte 4',   steps: SVELTE },
   { key: 'angular', label: 'Angular 16', steps: ANGULAR },
 ];
 
@@ -2965,6 +3113,7 @@ function renderDemo(step) {
   const isVanilla = currentFw === 'vanilla';
   const hasSb = step.stackblitzUrl;
   const isCliOnly = step.cliOnly;
+  const hasSbProject = !!step.stackblitzProject;
 
   if (isVanilla && step.run) {
     // Vanilla — run the demo directly
@@ -2995,24 +3144,31 @@ function renderDemo(step) {
     demoArea.style.display = 'flex';
     demoArea.style.flexDirection = 'column';
     demoArea.appendChild(iframe);
+  } else if (hasSbProject) {
+    // StackBlitz POST-based live demo
+    document.getElementById('demoLabel').textContent = 'Run It';
+    hidePerfPanel();
+    demoArea.innerHTML = `
+      <div style="max-width:380px;">
+        <div class="alert info" style="font-size:13px;line-height:1.6;">
+          This framework requires a build step. Click below to open a ready-to-run project in StackBlitz
+          — all files are pre-configured, no setup needed.
+        </div>
+        <button id="sbLaunchBtn" class="sb-link" style="cursor:pointer;border:none;display:inline-block;margin-top:12px;">
+          ↗ Open in StackBlitz
+        </button>
+      </div>`;
+    document.getElementById('sbLaunchBtn').addEventListener('click', function() {
+      openStackBlitz(step.stackblitzProject);
+    });
   } else if (isCliOnly) {
-    // CLI-only framework — no live demo possible
+    // Fallback — no live demo and no StackBlitz project defined
     document.getElementById('demoLabel').textContent = 'About';
     hidePerfPanel();
-
     demoArea.innerHTML = `
       <div style="max-width:420px;">
         <div class="alert info" style="font-size:13px;line-height:1.7;">
-          <strong>Angular requires a build step</strong> — TypeScript compilation, decorators, and the
-          Angular CLI mean it can't run in a browser sandbox. The code on the left is correct and
-          production-ready. To try it, scaffold a project with <code>ng new</code> and drop in the
-          service and component shown.
-        </div>
-        <div class="box" style="margin-top:12px;font-size:12px;color:var(--t2);">
-          <div style="margin-bottom:4px;font-weight:600;color:var(--t1);">Quick start</div>
-          <code>ng new my-app --standalone</code><br>
-          <code>npm install @agw/form</code><br>
-          <code># paste the code from the left panel</code>
+          This framework requires a compile step. The code on the left is correct and production-ready.
         </div>
       </div>`;
   } else if (hasSb) {
