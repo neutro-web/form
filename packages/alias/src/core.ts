@@ -1,1 +1,1 @@
-export * from '@agw/form-core';
+export * from '@neutro/form-core';

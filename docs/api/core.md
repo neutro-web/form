@@ -1,7 +1,7 @@
 # Core API — `createForm`
 
 ```ts
-import { createForm } from '@agw/form/core'
+import { createForm } from '@neutro/form/core'
 ```
 
 ## `FormConfig<T>`

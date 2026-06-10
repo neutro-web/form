@@ -1,5 +1,5 @@
 import { useSyncExternalStore, useCallback, useRef } from 'react';
-import type { FormInstance, FormState, Path, GetPathValue } from '@agw/form-core';
+import type { FormInstance, FormState, Path, GetPathValue } from '@neutro/form-core';
 
 export function useForm<T extends object>(form: FormInstance<T>): FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState'> {
   const state = useSyncExternalStore(form.subscribe, form.getState, form.getState);

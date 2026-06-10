@@ -15,22 +15,22 @@
     "declaration": true,
     "baseUrl": ".",
     "paths": {
-      "@agw/form/core": [
+      "@neutro/form/core": [
         "packages/core/src/index.ts"
       ],
-      "@agw/form/adapters/react": [
+      "@neutro/form/adapters/react": [
         "packages/adapters/react/src/index.ts"
       ],
-      "@agw/form/adapters/svelte": [
+      "@neutro/form/adapters/svelte": [
         "packages/adapters/svelte/src/index.ts"
       ],
-      "@agw/form/adapters/vue": [
+      "@neutro/form/adapters/vue": [
         "packages/adapters/vue/src/index.ts"
       ],
-      "@agw/form/adapters/solid": [
+      "@neutro/form/adapters/solid": [
         "packages/adapters/solid/src/index.ts"
       ],
-      "@agw/form/adapters/angular": [
+      "@neutro/form/adapters/angular": [
         "packages/adapters/angular/src/index.ts"
       ]
     }

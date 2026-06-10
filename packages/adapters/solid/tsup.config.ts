@@ -5,5 +5,5 @@ export default defineConfig({
   format: ['esm', 'cjs'],
   dts: true,
   clean: true,
-  external: ['solid-js', 'solid-js/store', '@agw/form-core'],
+  external: ['solid-js', 'solid-js/store', '@neutro/form-core'],
 });

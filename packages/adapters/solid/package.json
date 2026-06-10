@@ -1,5 +1,5 @@
 {
-  "name": "@agw/form-solid",
+  "name": "@neutro/form-solid",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -22,9 +22,10 @@
     "solid-js": "^1.0.0"
   },
   "dependencies": {
-    "@agw/form-core": "workspace:*"
+    "@neutro/form-core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.0.0"
-  }
+  },
+  "private": true
 }

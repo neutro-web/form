@@ -116,7 +116,7 @@ submitButton.addEventListener('click', async () => {
 The React adapter's `useFormConnect` hook wires up `connect` inside a `useEffect`, giving you an uncontrolled field that never causes a React re-render:
 
 ```tsx
-import { useFormConnect } from '@agw/form/adapters/react'
+import { useFormConnect } from '@neutro/form/adapters/react'
 
 function PhoneField({ form }: { form: ReturnType<typeof createForm> }) {
   const ref = useFormConnect(form, 'phone', {

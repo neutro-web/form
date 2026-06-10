@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
-  title: '@agw/form',
+  title: '@neutro/form',
   description: 'Zero-dependency reactive form engine for every framework.',
   base: '/agw-form/',
 

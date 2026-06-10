@@ -1,5 +1,5 @@
 {
-  "name": "@agw/form-vue",
+  "name": "@neutro/form-vue",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -22,9 +22,10 @@
     "vue": "^3.0.0"
   },
   "dependencies": {
-    "@agw/form-core": "workspace:*"
+    "@neutro/form-core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.0.0"
-  }
+  },
+  "private": true
 }

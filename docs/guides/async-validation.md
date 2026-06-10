@@ -1,6 +1,6 @@
 # Async Validation
 
-`@agw/form` has first-class support for async validation built into the core engine. This page explains the three mechanisms that prevent stale results, race conditions, and redundant network requests.
+`@neutro/form` has first-class support for async validation built into the core engine. This page explains the three mechanisms that prevent stale results, race conditions, and redundant network requests.
 
 ---
 
@@ -50,7 +50,7 @@ Each validation scope gets its own `AbortController`. When a field is re-validat
 Pass the `signal` argument to `fetch` (or any abort-aware API) to benefit from this:
 
 ```ts
-import { createForm } from '@agw/form/core'
+import { createForm } from '@neutro/form/core'
 
 const form = createForm({
   initialValues: { username: '' },

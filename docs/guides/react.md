@@ -1,9 +1,9 @@
 # React Guide
 
 ```sh
-npm install @agw/form
-# pnpm add @agw/form
-# yarn add @agw/form
+npm install @neutro/form
+# pnpm add @neutro/form
+# yarn add @neutro/form
 ```
 
 ## Hook Overview
@@ -21,8 +21,8 @@ npm install @agw/form
 `useForm` creates (or receives) a form instance and subscribes to the full `FormState<T>`. The component re-renders whenever any field changes.
 
 ```tsx
-import { createForm } from '@agw/form/core'
-import { useForm } from '@agw/form/adapters/react'
+import { createForm } from '@neutro/form/core'
+import { useForm } from '@neutro/form/adapters/react'
 
 type LoginValues = {
   email: string
@@ -79,7 +79,7 @@ export function LoginForm() {
 `useFormPath` subscribes to a single field path and returns the value at that path with its TypeScript type inferred automatically. The component re-renders only when that field's value changes — not when unrelated fields update.
 
 ```tsx
-import { useForm, useFormPath } from '@agw/form/adapters/react'
+import { useForm, useFormPath } from '@neutro/form/adapters/react'
 
 function EmailField({ form }: { form: typeof loginForm }) {
   const email = useFormPath(form, 'email')   // inferred as string
@@ -108,7 +108,7 @@ function EmailField({ form }: { form: typeof loginForm }) {
 `useFormConnect` takes the form instance and returns a curried ref-callback factory. Call it with a path (and optional `ConnectOptions`) to get a React ref callback — attach that to any DOM element for zero-rerender integration with the form. Ideal for high-frequency inputs like masked phone fields.
 
 ```tsx
-import { useFormConnect } from '@agw/form/adapters/react'
+import { useFormConnect } from '@neutro/form/adapters/react'
 
 function PhoneField({ form }: { form: typeof myForm }) {
   const register = useFormConnect(form)
@@ -137,9 +137,9 @@ The element is disconnected automatically when the component unmounts. You can c
 ## Full TypeScript Example
 
 ```tsx
-import { createForm } from '@agw/form/core'
-import { useForm, useFormPath } from '@agw/form/adapters/react'
-import { zodAdapter } from '@agw/form/core'
+import { createForm } from '@neutro/form/core'
+import { useForm, useFormPath } from '@neutro/form/adapters/react'
+import { zodAdapter } from '@neutro/form/core'
 import { z } from 'zod'
 
 const schema = z.object({

@@ -1,9 +1,9 @@
 # Svelte 5 Guide
 
 ```sh
-npm install @agw/form
-# pnpm add @agw/form
-# yarn add @agw/form
+npm install @neutro/form
+# pnpm add @neutro/form
+# yarn add @neutro/form
 ```
 
 ## Hook Overview
@@ -21,8 +21,8 @@ npm install @agw/form
 
 ```svelte
 <script lang="ts">
-  import { createForm } from '@agw/form/core'
-  import { useSvelteForm } from '@agw/form/adapters/svelte'
+  import { createForm } from '@neutro/form/core'
+  import { useSvelteForm } from '@neutro/form/adapters/svelte'
 
   type LoginValues = { email: string; password: string }
 
@@ -77,8 +77,8 @@ npm install @agw/form
 
 ```svelte
 <script lang="ts">
-  import { createForm } from '@agw/form/core'
-  import { useSvelteFormPath } from '@agw/form/adapters/svelte'
+  import { createForm } from '@neutro/form/core'
+  import { useSvelteFormPath } from '@neutro/form/adapters/svelte'
 
   export let form: ReturnType<typeof createForm>
   export let path: string
@@ -108,9 +108,9 @@ npm install @agw/form
 
 ```svelte
 <script lang="ts">
-  import { createForm } from '@agw/form/core'
-  import { zodAdapter } from '@agw/form/core'
-  import { useSvelteForm, useSvelteFormPath } from '@agw/form/adapters/svelte'
+  import { createForm } from '@neutro/form/core'
+  import { zodAdapter } from '@neutro/form/core'
+  import { useSvelteForm, useSvelteFormPath } from '@neutro/form/adapters/svelte'
   import { z } from 'zod'
 
   const schema = z.object({

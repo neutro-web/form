@@ -98,7 +98,7 @@ form.arraySwap('destinations', 0, 2)
 ## Full Example
 
 ```ts
-import { createForm } from '@agw/form/core'
+import { createForm } from '@neutro/form/core'
 
 type Destination = { city: string; country: string }
 type TripValues = { destinations: Destination[] }

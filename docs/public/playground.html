@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>@agw/form — Playground</title>
+  <title>@neutro/form — Playground</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script src="form-core.js"></script>
@@ -184,7 +184,7 @@
 <body>
 
 <header class="hdr">
-  <span class="hdr-logo">@agw/form</span>
+  <span class="hdr-logo">@neutro/form</span>
   <span class="hdr-tag">Playground &amp; Tutorial</span>
   <div class="hdr-right">
     <a class="chip" href="https://www.npmjs.com/package/@agnostic-web/form-core" target="_blank">npm</a>
@@ -459,7 +459,7 @@ const VANILLA = [
 {
 title: 'Hello createForm',
 desc: 'Create a form, read initial values, write a new value, and read it back. Everything lives in a closure — no classes, no global state.',
-code: `import { createForm } from '@agw/form/core';
+code: `import { createForm } from '@neutro/form/core';
 
 const form = createForm({
   initialValues: {
@@ -1902,7 +1902,7 @@ const REACT = [
 {
 title: 'useForm — Full State',
 desc: 'A minimal useForm hook subscribes to the form and returns the full state. Re-renders the component on every form change.',
-code: `import { createForm } from '@agw/form/core';
+code: `import { createForm } from '@neutro/form/core';
 import { useEffect, useState } from 'react';
 
 function useForm(form) {
@@ -2173,7 +2173,7 @@ const VUE = [
 {
 title: 'useVueForm — Composition API',
 desc: 'A shallowRef-based useVueForm composable wraps the form\'s subscribe. Returns readonly reactive state that Vue\'s template system tracks automatically.',
-code: `import { createForm } from '@agw/form/core';
+code: `import { createForm } from '@neutro/form/core';
 import { shallowRef, readonly, onUnmounted } from 'vue';
 
 function useVueForm(form) {
@@ -2409,7 +2409,7 @@ title: 'useSolidForm — Signals',
 desc: 'SolidJS\'s fine-grained reactivity pairs perfectly with form subscriptions. A createSignal per field means only the right DOM nodes update — no virtual DOM overhead.',
 code: `import { createSignal, createEffect, onCleanup } from 'solid-js';
 import { render } from 'solid-js/web';
-import { createForm } from '@agw/form/core';
+import { createForm } from '@neutro/form/core';
 
 function useSolidForm(form) {
   const [state, setState] = createSignal(form.getState(), { equals: false });
@@ -2599,7 +2599,7 @@ desc: 'Wrap the form in a Svelte readable() store. The engine\'s subscribe inter
 code: `<!-- ContactForm.svelte (Svelte 4) -->
 <script>
   import { readable } from 'svelte/store';
-  // In a real project: import { createForm } from '@agw/form/core';
+  // In a real project: import { createForm } from '@neutro/form/core';
   const { createForm } = window.agwForm;
 
   function createFormStore(config) {
@@ -2699,7 +2699,7 @@ code: `<!-- ContactForm.svelte (Svelte 4) -->
 <script>
   import { writable } from 'svelte/store';
   import { onDestroy } from 'svelte';
-  // In a real project: import { createForm } from '@agw/form/core';
+  // In a real project: import { createForm } from '@neutro/form/core';
   const { createForm } = window.agwForm;
 
   function useField(form, path) {
@@ -2912,7 +2912,7 @@ title: 'Signal-Based Form',
 desc: 'Angular 17 signals pair cleanly with the form engine. subscribe() pushes into an Angular signal — the template stays reactive with zero boilerplate.',
 code: `// form.service.ts
 import { Injectable, signal } from '@angular/core';
-import { createForm } from '@agw/form/core';
+import { createForm } from '@neutro/form/core';
 
 @Injectable({ providedIn: 'root' })
 export class FormService {

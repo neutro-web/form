@@ -1,5 +1,5 @@
 /**
- * @agw/form-core
+ * @neutro/form-core
  * High-Performance, Zero-Dependency, Framework-Agnostic Reactive Form Engine.
  */
 

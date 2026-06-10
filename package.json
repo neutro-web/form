@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm --filter \"@agw/*\" run build",
+    "build": "pnpm --filter \"@neutro/*\" run build",
     "test": "vitest run",
     "docs:dev": "vitepress dev docs",
-    "docs:build": "pnpm --filter @agw/form-core run build && cp packages/core/dist/index.global.js docs/public/form-core.js && node -e \"const fs=require('fs'),f='docs/public/form-core.js';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace(/\\/\\/#\\s*sourceMappingURL=.*\\n?/g,''))\" && vitepress build docs",
+    "docs:build": "pnpm --filter @neutro/form-core run build && cp packages/core/dist/index.global.js docs/public/form-core.js && node -e \"const fs=require('fs'),f='docs/public/form-core.js';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace(/\\/\\/#\\s*sourceMappingURL=.*\\n?/g,''))\" && vitepress build docs",
     "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {

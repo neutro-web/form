@@ -1,5 +1,5 @@
 {
-  "name": "@agw/form",
+  "name": "@neutro/form",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -37,15 +37,29 @@
   "scripts": {
     "build": "tsup"
   },
-  "dependencies": {
-    "@agw/form-core": "workspace:*",
-    "@agw/form-react": "workspace:*",
-    "@agw/form-svelte": "workspace:*",
-    "@agw/form-vue": "workspace:*",
-    "@agw/form-solid": "workspace:*",
-    "@agw/form-angular": "workspace:*"
+  "peerDependencies": {
+    "react": ">=17",
+    "react-dom": ">=17",
+    "svelte": ">=4",
+    "vue": ">=3",
+    "solid-js": ">=1",
+    "@angular/core": ">=16"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "react-dom": { "optional": true },
+    "svelte": { "optional": true },
+    "vue": { "optional": true },
+    "solid-js": { "optional": true },
+    "@angular/core": { "optional": true }
   },
   "devDependencies": {
+    "@neutro/form-core": "workspace:*",
+    "@neutro/form-react": "workspace:*",
+    "@neutro/form-svelte": "workspace:*",
+    "@neutro/form-vue": "workspace:*",
+    "@neutro/form-solid": "workspace:*",
+    "@neutro/form-angular": "workspace:*",
     "tsup": "^8.0.0"
   }
 }

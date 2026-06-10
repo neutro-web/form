@@ -3,26 +3,26 @@
 ## Installation
 
 ```sh
-npm install @agw/form
-# pnpm add @agw/form
-# yarn add @agw/form
+npm install @neutro/form
+# pnpm add @neutro/form
+# yarn add @neutro/form
 ```
 
 One package. The exports map routes each adapter subpath:
 
 | Import path | What you get |
 |---|---|
-| `@agw/form/core` | `createForm`, validation adapters, types |
-| `@agw/form/adapters/react` | `useForm`, `useFormPath`, `useFormConnect` |
-| `@agw/form/adapters/svelte` | `useSvelteForm` |
-| `@agw/form/adapters/vue` | `useVueForm` |
-| `@agw/form/adapters/solid` | `useSolidForm` |
-| `@agw/form/adapters/angular` | `AngularFormService` |
+| `@neutro/form/core` | `createForm`, validation adapters, types |
+| `@neutro/form/adapters/react` | `useForm`, `useFormPath`, `useFormConnect` |
+| `@neutro/form/adapters/svelte` | `useSvelteForm` |
+| `@neutro/form/adapters/vue` | `useVueForm` |
+| `@neutro/form/adapters/solid` | `useSolidForm` |
+| `@neutro/form/adapters/angular` | `AngularFormService` |
 
 ## Quick Example
 
 ```ts
-import { createForm } from '@agw/form/core'
+import { createForm } from '@neutro/form/core'
 
 const form = createForm({
   initialValues: {
@@ -83,7 +83,7 @@ For common validation you don't need an external schema library. The `rules` con
 rule names or option objects per field path:
 
 ```ts
-import { createForm } from '@agw/form/core'
+import { createForm } from '@neutro/form/core'
 
 const form = createForm({
   initialValues: {
@@ -212,7 +212,7 @@ When built-in rules aren't enough, pass a `validator` function that returns
 `Record<string, string>` (or a `Promise` of one):
 
 ```ts
-import { createForm } from '@agw/form/core'
+import { createForm } from '@neutro/form/core'
 
 type SignUpValues = {
   email: string
@@ -251,7 +251,7 @@ Validators can return a `Promise`. Each invocation gets an `AbortSignal` — pas
 `fetch` so in-flight requests are cancelled when the field changes before the response arrives.
 
 ```ts
-import { createForm } from '@agw/form/core'
+import { createForm } from '@neutro/form/core'
 
 const form = createForm({
   initialValues: { username: '' },

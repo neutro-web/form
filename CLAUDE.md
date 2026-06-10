@@ -48,9 +48,9 @@ This is a pnpm monorepo. The published packages live under `packages/`. Two root
 | Vue 3 adapter | `@agnostic-web/form-vue` | `packages/adapters/vue/src/index.ts` |
 | SolidJS adapter | `@agnostic-web/form-solid` | `packages/adapters/solid/src/index.ts` |
 | Angular 16+ adapter | `@agnostic-web/form-angular` | `packages/adapters/angular/src/index.ts` |
-| Alias wrapper | `@agw/form` | `packages/alias/package.json` |
+| Alias wrapper | `@neutro/form` | `packages/alias/package.json` |
 
-The alias package is a zero-code shell: its `package.json` `exports` map re-routes `@agw/form/core`, `@agw/form/adapters/react`, etc. to the scoped packages. The `tsconfig.json` at the root also maps these paths directly to source for local development.
+The alias package is a zero-code shell: its `package.json` `exports` map re-routes `@neutro/form/core`, `@neutro/form/adapters/react`, etc. to the scoped packages. The `tsconfig.json` at the root also maps these paths directly to source for local development.
 
 ### Core Engine Design (`createForm<T>`)
 

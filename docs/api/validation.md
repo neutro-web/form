@@ -23,7 +23,7 @@ Return an empty object `{}` to indicate the form is valid.
 ## `zodAdapter(schema)`
 
 ```ts
-import { zodAdapter } from '@agw/form/core'
+import { zodAdapter } from '@neutro/form/core'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -44,7 +44,7 @@ const form = createForm({
 ## `valibotAdapter(schema)`
 
 ```ts
-import { valibotAdapter } from '@agw/form/core'
+import { valibotAdapter } from '@neutro/form/core'
 import * as v from 'valibot'
 
 const schema = v.object({
@@ -65,7 +65,7 @@ const form = createForm({
 ## `yupAdapter(schema)`
 
 ```ts
-import { yupAdapter } from '@agw/form/core'
+import { yupAdapter } from '@neutro/form/core'
 import * as yup from 'yup'
 
 const schema = yup.object({
@@ -86,7 +86,7 @@ const form = createForm({
 ## `classValidatorAdapter(cls, validate)`
 
 ```ts
-import { classValidatorAdapter } from '@agw/form/core'
+import { classValidatorAdapter } from '@neutro/form/core'
 import { IsEmail, MinLength } from 'class-validator'
 import { validate } from 'class-validator'
 
@@ -113,7 +113,7 @@ const form = createForm({
 Adapters return a plain validator function, so you can compose them with additional checks:
 
 ```ts
-import { zodAdapter } from '@agw/form/core'
+import { zodAdapter } from '@neutro/form/core'
 
 const baseValidator = zodAdapter(myZodSchema)
 

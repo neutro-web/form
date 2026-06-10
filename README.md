@@ -7,13 +7,13 @@ High-performance, zero-dependency, framework-agnostic reactive form engine.
 ## Install
 
 ```bash
-npm install @agw/form
+npm install @neutro/form
 ```
 
 ## Quick start
 
 ```ts
-import { createForm } from '@agw/form/core';
+import { createForm } from '@neutro/form/core';
 
 const form = createForm({
   initialValues: { email: '', password: '' },
@@ -34,7 +34,7 @@ form.handleSubmit(async (payload) => {
 ### React
 
 ```tsx
-import { useForm, useFormPath } from '@agw/form/adapters/react';
+import { useForm, useFormPath } from '@neutro/form/adapters/react';
 
 function LoginForm() {
   const { handleSubmit } = useForm(form);

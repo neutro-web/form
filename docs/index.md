@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: '@agw/form'
+  name: '@neutro/form'
   tagline: Zero-dependency reactive form engine for every framework.
   actions:
     - theme: brand
@@ -32,14 +32,14 @@ features:
     details: connect() links any HTMLElement to a form field path. getPayload() returns only values for currently-connected or persisted paths — perfect for multi-step wizards that unmount fields.
 ---
 
-## Why @agw/form?
+## Why @neutro/form?
 
-Most form libraries are coupled to a single framework or require a large runtime. `@agw/form` ships a single closure factory — `createForm<T>` — that manages all form state internally. Framework adapters are thin reactive wrappers around the same engine, so you get identical validation behaviour, array operations, and DOM bridge semantics regardless of which UI framework you use.
+Most form libraries are coupled to a single framework or require a large runtime. `@neutro/form` ships a single closure factory — `createForm<T>` — that manages all form state internally. Framework adapters are thin reactive wrappers around the same engine, so you get identical validation behaviour, array operations, and DOM bridge semantics regardless of which UI framework you use.
 
 ```ts
-import { createForm } from '@agw/form/core'
+import { createForm } from '@neutro/form/core'
 // or
-import { createForm } from '@agw/form/core'
+import { createForm } from '@neutro/form/core'
 
 const form = createForm({
   initialValues: { email: '', password: '' },
