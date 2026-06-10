@@ -11,7 +11,7 @@ export default defineConfig({
       { text: 'Getting Started', link: '/getting-started' },
       { text: 'API', link: '/api/' },
       { text: 'Guides', link: '/guides/react' },
-      { text: 'Playground', link: '/playground.html' },
+      { text: 'Playground', link: '/playground.html', target: '_self' },
     ],
 
     sidebar: {
