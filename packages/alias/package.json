@@ -1,0 +1,51 @@
+{
+  "name": "@agw/form",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js",
+      "require": "./dist/core.cjs"
+    },
+    "./adapters/react": {
+      "types": "./dist/adapters/react.d.ts",
+      "import": "./dist/adapters/react.js",
+      "require": "./dist/adapters/react.cjs"
+    },
+    "./adapters/svelte": {
+      "types": "./dist/adapters/svelte.d.ts",
+      "import": "./dist/adapters/svelte.js",
+      "require": "./dist/adapters/svelte.cjs"
+    },
+    "./adapters/vue": {
+      "types": "./dist/adapters/vue.d.ts",
+      "import": "./dist/adapters/vue.js",
+      "require": "./dist/adapters/vue.cjs"
+    },
+    "./adapters/solid": {
+      "types": "./dist/adapters/solid.d.ts",
+      "import": "./dist/adapters/solid.js",
+      "require": "./dist/adapters/solid.cjs"
+    },
+    "./adapters/angular": {
+      "types": "./dist/adapters/angular.d.ts",
+      "import": "./dist/adapters/angular.js",
+      "require": "./dist/adapters/angular.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@agnostic-web/form-core": "workspace:*",
+    "@agnostic-web/form-react": "workspace:*",
+    "@agnostic-web/form-svelte": "workspace:*",
+    "@agnostic-web/form-vue": "workspace:*",
+    "@agnostic-web/form-solid": "workspace:*",
+    "@agnostic-web/form-angular": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0"
+  }
+}
