@@ -1019,10 +1019,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
   };
 
-  const handleSubmit = (onSubmitCallback: (payload: Partial<T>) => void | Promise<void>) => {
+  const handleSubmit = (
+    onSubmitCallback: (payload: Partial<T>) => void | Promise<void>,
+    onInvalidCallback?: (errors: Record<string, string>) => void
+  ) => {
     return async (e?: Event) => {
       if (e && typeof e.preventDefault === 'function') e.preventDefault();
-      await submit(onSubmitCallback);
+      const isValid = await submit(onSubmitCallback);
+      if (!isValid && onInvalidCallback) {
+        onInvalidCallback({ ...errors });
+      }
     };
   };
 

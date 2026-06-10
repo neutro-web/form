@@ -7,6 +7,9 @@ import {
   zodAdapter,
   valibotAdapter,
   yupAdapter,
+  getNestedValue,
+  setNestedValue,
+  extractAllPaths,
 } from '../src/index';
 
 // ---------------------------------------------------------------------------
@@ -2067,5 +2070,542 @@ describe('built-in rules — integration with form lifecycle', () => {
     });
     const valid = await form.validate();
     expect(valid).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// submit
+// ---------------------------------------------------------------------------
+
+describe('submit', () => {
+  it('calls callback and returns true when form is valid (no validator)', async () => {
+    const form = createForm({ initialValues: { name: 'Alice' } });
+    const cb = vi.fn();
+    const result = await form.submit(cb);
+    expect(result).toBe(true);
+    expect(cb).toHaveBeenCalledOnce();
+  });
+
+  it('returns false and does NOT call callback when validation fails', async () => {
+    const form = createForm({
+      initialValues: { name: '' },
+      validator: (v: any) => (v.name ? {} : { name: 'Required' }),
+    });
+    const cb = vi.fn();
+    const result = await form.submit(cb);
+    expect(result).toBe(false);
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('returns false when built-in rules fail', async () => {
+    const form = createForm({ initialValues: { email: '' }, rules: { email: 'required' } });
+    const result = await form.submit(vi.fn());
+    expect(result).toBe(false);
+  });
+
+  it('sets isSubmitting=true while callback runs, false after', async () => {
+    vi.useFakeTimers();
+    const form = createForm({ initialValues: { x: 1 } });
+
+    const promise = form.submit(async () => {
+      await new Promise<void>(r => setTimeout(r, 50));
+    });
+
+    // isSubmitting is true synchronously after submit() starts (before any await)
+    expect(form.getState().isSubmitting).toBe(true);
+
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(form.getState().isSubmitting).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('subscriber sees isSubmitting toggle', async () => {
+    const submittingValues: boolean[] = [];
+    const form = createForm({ initialValues: { x: 1 } });
+    form.subscribe((s) => submittingValues.push(s.isSubmitting));
+    submittingValues.length = 0;
+
+    await form.submit(async () => {});
+    // Should have seen: true (start), false (end)
+    expect(submittingValues).toContain(true);
+    expect(submittingValues[submittingValues.length - 1]).toBe(false);
+  });
+
+  it('returns false (no callback) when called concurrently while already submitting', async () => {
+    const form = createForm({ initialValues: { x: 1 } });
+    let resolveFirst!: () => void;
+    const first = form.submit(() => new Promise<void>(r => { resolveFirst = r; }));
+
+    // While first is running, second should bail immediately
+    const second = form.submit(vi.fn());
+    expect(await second).toBe(false);
+
+    resolveFirst();
+    expect(await first).toBe(true);
+  });
+
+  it('callback receives the getPayload result (empty when no DOM connections)', async () => {
+    const form = createForm({ initialValues: { a: 1, b: 2 } });
+    let receivedPayload: any;
+    await form.submit((p) => { receivedPayload = p; });
+    // No connected elements → payload is empty object
+    expect(receivedPayload).toEqual({});
+  });
+
+  it('returns false and calls catch path when callback throws', async () => {
+    const form = createForm({ initialValues: { x: 1 } });
+    const result = await form.submit(() => { throw new Error('oops'); });
+    expect(result).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// handleSubmit
+// ---------------------------------------------------------------------------
+
+describe('handleSubmit', () => {
+  it('calls e.preventDefault() when passed an event', async () => {
+    const form = createForm({ initialValues: { x: 1 } });
+    const handler = form.handleSubmit(vi.fn());
+    const fakeEvent = { preventDefault: vi.fn() };
+    await handler(fakeEvent as any);
+    expect(fakeEvent.preventDefault).toHaveBeenCalledOnce();
+  });
+
+  it('works without an event argument', async () => {
+    const form = createForm({ initialValues: { x: 1 } });
+    const cb = vi.fn();
+    const handler = form.handleSubmit(cb);
+    await expect(handler()).resolves.toBeUndefined();
+    expect(cb).toHaveBeenCalledOnce();
+  });
+
+  it('calls onInvalid callback when validation fails', async () => {
+    const form = createForm({
+      initialValues: { name: '' },
+      validator: (v: any) => (v.name ? {} : { name: 'Required' }),
+    });
+    const onValid = vi.fn();
+    const onInvalid = vi.fn();
+    const handler = form.handleSubmit(onValid, onInvalid);
+    await handler();
+    expect(onValid).not.toHaveBeenCalled();
+    expect(onInvalid).toHaveBeenCalledOnce();
+    expect(onInvalid.mock.calls[0][0]).toMatchObject({ name: 'Required' });
+  });
+
+  it('does NOT call onInvalid when form is valid', async () => {
+    const form = createForm({ initialValues: { name: 'Alice' } });
+    const onInvalid = vi.fn();
+    const handler = form.handleSubmit(vi.fn(), onInvalid);
+    await handler();
+    expect(onInvalid).not.toHaveBeenCalled();
+  });
+
+  it('handleSubmit without onInvalid is safe when form is invalid', async () => {
+    const form = createForm({
+      initialValues: { x: '' },
+      validator: () => ({ x: 'err' }),
+    });
+    const handler = form.handleSubmit(vi.fn());
+    await expect(handler()).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deepClone utility
+// ---------------------------------------------------------------------------
+
+describe('deepClone', () => {
+  it('primitives pass through unchanged', () => {
+    expect(deepClone(42)).toBe(42);
+    expect(deepClone('hello')).toBe('hello');
+    expect(deepClone(null)).toBe(null);
+    expect(deepClone(undefined)).toBe(undefined);
+    expect(deepClone(true)).toBe(true);
+  });
+
+  it('arrays are cloned — no reference shared', () => {
+    const arr = [1, 2, 3];
+    const clone = deepClone(arr);
+    expect(clone).toEqual([1, 2, 3]);
+    clone.push(4);
+    expect(arr).toHaveLength(3);
+  });
+
+  it('nested objects are deeply cloned', () => {
+    const obj = { a: { b: { c: 42 } } };
+    const clone = deepClone(obj);
+    clone.a.b.c = 99;
+    expect(obj.a.b.c).toBe(42);
+  });
+
+  it('Date is cloned to a new Date instance', () => {
+    const d = new Date('2024-01-01');
+    const clone = deepClone(d);
+    expect(clone).toEqual(d);
+    expect(clone).not.toBe(d);
+  });
+
+  it('RegExp is cloned to a new RegExp instance', () => {
+    const re = /hello/gi;
+    const clone = deepClone(re);
+    expect(clone.source).toBe(re.source);
+    expect(clone.flags).toBe(re.flags);
+    expect(clone).not.toBe(re);
+  });
+
+  it('handles circular references without throwing', () => {
+    const obj: any = { x: 1 };
+    obj.self = obj;
+    expect(() => deepClone(obj)).not.toThrow();
+    const clone = deepClone(obj);
+    expect(clone.self).toBe(clone); // circular structure preserved
+  });
+
+  it('Set members are cloned', () => {
+    const set = new Set([1, 2, 3]);
+    const clone = deepClone(set);
+    expect(clone).toEqual(set);
+    expect(clone).not.toBe(set);
+  });
+
+  it('Map entries are cloned', () => {
+    const map = new Map([['a', 1], ['b', 2]]);
+    const clone = deepClone(map);
+    expect(clone).toEqual(map);
+    expect(clone).not.toBe(map);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getNestedValue utility
+// ---------------------------------------------------------------------------
+
+describe('getNestedValue', () => {
+  it('reads a top-level key', () => {
+    expect(getNestedValue({ name: 'Alice' }, 'name')).toBe('Alice');
+  });
+
+  it('reads a deeply nested key', () => {
+    expect(getNestedValue({ a: { b: { c: 42 } } }, 'a.b.c')).toBe(42);
+  });
+
+  it('reads an array element by numeric index', () => {
+    expect(getNestedValue({ items: ['x', 'y', 'z'] }, 'items.1')).toBe('y');
+  });
+
+  it('returns undefined for a missing path', () => {
+    expect(getNestedValue({ a: 1 }, 'b.c')).toBeUndefined();
+  });
+
+  it('returns undefined when traversing through null', () => {
+    expect(getNestedValue({ a: null }, 'a.b')).toBeUndefined();
+  });
+
+  it('reads nested array of objects', () => {
+    const obj = { users: [{ name: 'Alice' }, { name: 'Bob' }] };
+    expect(getNestedValue(obj, 'users.1.name')).toBe('Bob');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setNestedValue utility
+// ---------------------------------------------------------------------------
+
+describe('setNestedValue', () => {
+  it('sets a top-level key', () => {
+    const obj: any = { x: 0 };
+    setNestedValue(obj, 'x', 42);
+    expect(obj.x).toBe(42);
+  });
+
+  it('sets a deeply nested key', () => {
+    const obj: any = { a: { b: { c: 0 } } };
+    setNestedValue(obj, 'a.b.c', 99);
+    expect(obj.a.b.c).toBe(99);
+  });
+
+  it('creates intermediate objects for missing path segments', () => {
+    const obj: any = {};
+    setNestedValue(obj, 'a.b.c', 'hello');
+    expect(obj.a.b.c).toBe('hello');
+  });
+
+  it('creates intermediate array for numeric path segment', () => {
+    const obj: any = {};
+    setNestedValue(obj, 'items.0', 'first');
+    expect(Array.isArray(obj.items)).toBe(true);
+    expect(obj.items[0]).toBe('first');
+  });
+
+  it('overwrites an existing value at a path', () => {
+    const obj: any = { user: { name: 'Alice' } };
+    setNestedValue(obj, 'user.name', 'Bob');
+    expect(obj.user.name).toBe('Bob');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractAllPaths utility
+// ---------------------------------------------------------------------------
+
+describe('extractAllPaths', () => {
+  it('extracts top-level keys from a flat object', () => {
+    const paths = extractAllPaths({ a: 1, b: 2 });
+    expect(paths).toContain('a');
+    expect(paths).toContain('b');
+  });
+
+  it('extracts nested paths with dot notation', () => {
+    const paths = extractAllPaths({ user: { name: 'Alice', age: 30 } });
+    expect(paths).toContain('user');
+    expect(paths).toContain('user.name');
+    expect(paths).toContain('user.age');
+  });
+
+  it('extracts array index paths', () => {
+    const paths = extractAllPaths({ items: ['a', 'b'] });
+    expect(paths).toContain('items');
+    expect(paths).toContain('items.0');
+    expect(paths).toContain('items.1');
+  });
+
+  it('extracts paths for array of objects', () => {
+    const paths = extractAllPaths({ users: [{ name: 'Alice' }] });
+    expect(paths).toContain('users.0');
+    expect(paths).toContain('users.0.name');
+  });
+
+  it('returns empty array for null / non-object / Date', () => {
+    expect(extractAllPaths(null)).toEqual([]);
+    expect(extractAllPaths(42 as any)).toEqual([]);
+    const d = new Date();
+    expect(extractAllPaths(d)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Array path notation (string[] path form)
+// ---------------------------------------------------------------------------
+
+describe('Array path notation', () => {
+  it('form.get accepts array of path segments', () => {
+    const form = createForm({ initialValues: { a: { b: { c: 7 } } } });
+    expect(form.get(['a', 'b', 'c'])).toBe(7);
+  });
+
+  it('form.set accepts array of path segments', () => {
+    const form = createForm({ initialValues: { a: { b: 0 } } });
+    form.set(['a', 'b'], 99);
+    expect(form.get('a.b')).toBe(99);
+  });
+
+  it('form.arrayAppend accepts array of path segments', () => {
+    const form = createForm({ initialValues: { list: { items: [] as string[] } } });
+    form.arrayAppend(['list', 'items'], 'x');
+    expect(form.get('list.items')).toEqual(['x']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isValidating lifecycle
+// ---------------------------------------------------------------------------
+
+describe('isValidating lifecycle', () => {
+  it('is false initially', () => {
+    const form = createForm({ initialValues: { x: '' } });
+    expect(form.getState().isValidating).toBe(false);
+  });
+
+  it('is true while async validation is in flight', async () => {
+    vi.useFakeTimers();
+    let resolveValidator!: (v: Record<string, string>) => void;
+    const form = createForm({
+      initialValues: { x: '' },
+      asyncDebounceMs: 0,
+      validator: () => new Promise<Record<string, string>>(r => { resolveValidator = r; }),
+    });
+    const p = form.validate();
+    expect(form.getState().isValidating).toBe(true);
+    await vi.runAllTimersAsync();
+    resolveValidator({});
+    await p;
+    expect(form.getState().isValidating).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('is false after sync validation completes', async () => {
+    const form = createForm({
+      initialValues: { x: '' },
+      rules: { x: 'required' },
+    });
+    await form.validate();
+    expect(form.getState().isValidating).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// subscribeToPath — cleanup and nested paths
+// ---------------------------------------------------------------------------
+
+describe('subscribeToPath — cleanup and nested paths', () => {
+  it('unsubscribing stops path notifications', () => {
+    const cb = vi.fn();
+    const form = createForm({ initialValues: { x: 0 } });
+    const unsub = form.subscribeToPath('x', cb);
+    cb.mockClear();
+    unsub();
+    form.set('x', 99, { validate: false });
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('fires on nested path change', () => {
+    const cb = vi.fn();
+    const form = createForm({ initialValues: { user: { name: 'Alice' } } });
+    form.subscribeToPath('user.name', cb);
+    cb.mockClear();
+    form.set('user.name', 'Bob', { validate: false });
+    expect(cb).toHaveBeenCalledOnce();
+    expect(cb.mock.calls[0][0]).toBe('Bob');
+  });
+
+  it('does NOT fire for sibling path changes', () => {
+    const aCb = vi.fn();
+    const form = createForm({ initialValues: { a: 0, b: 0 } });
+    form.subscribeToPath('a', aCb);
+    aCb.mockClear();
+    form.set('b', 99, { validate: false });
+    expect(aCb).not.toHaveBeenCalled();
+  });
+
+  it('wildcard subscriber receives full values snapshot as first argument', () => {
+    const cb = vi.fn();
+    const form = createForm({ initialValues: { a: 0, b: 0 } });
+    form.subscribeToPath('*', cb);
+    cb.mockClear();
+    form.set('a', 5, { touch: true, validate: false });
+    expect(cb).toHaveBeenCalled();
+    // wildcard gets deepClone(values) as the first arg, not a single field value
+    const firstArg = cb.mock.calls[0][0];
+    expect(firstArg).toMatchObject({ a: 5, b: 0 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getConnectedCount
+// ---------------------------------------------------------------------------
+
+describe('getConnectedCount', () => {
+  it('returns 0 when nothing is connected', () => {
+    const form = createForm({ initialValues: { x: 0 } });
+    expect(form.getConnectedCount()).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Validate return value — edge cases
+// ---------------------------------------------------------------------------
+
+describe('validate return value', () => {
+  it('returns true with no validator and no rules', async () => {
+    const form = createForm({ initialValues: { x: 1 } });
+    expect(await form.validate()).toBe(true);
+  });
+
+  it('returns true for valid sync validator', async () => {
+    const form = createForm({
+      initialValues: { x: 'hello' },
+      validator: () => ({}),
+    });
+    expect(await form.validate()).toBe(true);
+  });
+
+  it('returns false for invalid sync validator', async () => {
+    const form = createForm({
+      initialValues: { x: '' },
+      validator: () => ({ x: 'Required' }),
+    });
+    expect(await form.validate()).toBe(false);
+  });
+
+  it('scoped validate returns true when scoped field is valid', async () => {
+    const form = createForm({
+      initialValues: { a: 'ok', b: '' },
+      validator: (v: any) => {
+        const e: Record<string, string> = {};
+        if (!v.b) e.b = 'Required';
+        return e;
+      },
+    });
+    // Scoped to 'a' only — 'a' is valid, so result is true
+    const result = await form.validate(['a']);
+    expect(result).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Error message customization
+// ---------------------------------------------------------------------------
+
+describe('built-in rules — custom messages', () => {
+  it('custom message overrides default for required', async () => {
+    const form = createForm({
+      initialValues: { name: '' },
+      rules: { name: { minLength: 3, message: 'Too short!' } },
+    });
+    form.set('name', 'ab', { validate: false });
+    await form.validate();
+    expect(form.getState().errors.name).toBe('Too short!');
+  });
+
+  it('custom message on matches rule', async () => {
+    const form = createForm({
+      initialValues: { pass: 'abc', confirm: 'xyz' },
+      rules: { confirm: { matches: 'pass', message: 'Passwords do not match' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.confirm).toBe('Passwords do not match');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rules + validator composition
+// ---------------------------------------------------------------------------
+
+describe('rules + validator composition', () => {
+  it('validator error overrides built-in rule error for same field', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      rules: { email: 'required' },
+      validator: () => ({ email: 'Custom error from validator' }),
+    });
+    await form.validate();
+    // validator wins for the same path
+    expect(form.getState().errors.email).toBe('Custom error from validator');
+  });
+
+  it('built-in rule error survives when validator returns no error for that field', async () => {
+    const form = createForm({
+      initialValues: { email: '', name: '' },
+      rules: { email: 'email', name: 'required' },
+      validator: (v: any) => (v.name ? {} : { name: 'Name validator error' }),
+    });
+    form.set('email', 'notanemail', { validate: false });
+    await form.validate();
+    // validator also flags name, but email has built-in error
+    expect(form.getState().errors.email).toBeTruthy();
+    expect(form.getState().errors.name).toBe('Name validator error');
+  });
+
+  it('passing rules with no validator still validates correctly', async () => {
+    const form = createForm({
+      initialValues: { age: 15 },
+      rules: { age: { min: 18 } },
+    });
+    await form.validate();
+    expect(form.getState().errors.age).toBeTruthy();
   });
 });
