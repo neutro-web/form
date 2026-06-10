@@ -5,5 +5,5 @@ export default defineConfig({
   format: ['esm', 'cjs'],
   dts: true,
   clean: true,
-  external: ['react', 'react-dom', '@agnostic-web/form-core'],
+  external: ['react', 'react-dom', '@agw/form-core'],
 });

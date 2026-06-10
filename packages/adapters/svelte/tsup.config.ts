@@ -5,5 +5,5 @@ export default defineConfig({
   format: ['esm', 'cjs'],
   dts: true,
   clean: true,
-  external: ['svelte', 'svelte/store', '@agnostic-web/form-core'],
+  external: ['svelte', 'svelte/store', '@agw/form-core'],
 });

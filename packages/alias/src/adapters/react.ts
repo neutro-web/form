@@ -1,1 +1,1 @@
-export * from '@agnostic-web/form-react';
+export * from '@agw/form-react';

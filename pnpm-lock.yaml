@@ -20,7 +20,7 @@ importers:
 
   packages/adapters/angular:
     dependencies:
-      '@agnostic-web/form-core':
+      '@agw/form-core':
         specifier: workspace:*
         version: link:../../core
       '@angular/core':
@@ -33,7 +33,7 @@ importers:
 
   packages/adapters/react:
     dependencies:
-      '@agnostic-web/form-core':
+      '@agw/form-core':
         specifier: workspace:*
         version: link:../../core
       react:
@@ -49,7 +49,7 @@ importers:
 
   packages/adapters/solid:
     dependencies:
-      '@agnostic-web/form-core':
+      '@agw/form-core':
         specifier: workspace:*
         version: link:../../core
       solid-js:
@@ -62,7 +62,7 @@ importers:
 
   packages/adapters/svelte:
     dependencies:
-      '@agnostic-web/form-core':
+      '@agw/form-core':
         specifier: workspace:*
         version: link:../../core
       svelte:
@@ -75,7 +75,7 @@ importers:
 
   packages/adapters/vue:
     dependencies:
-      '@agnostic-web/form-core':
+      '@agw/form-core':
         specifier: workspace:*
         version: link:../../core
       vue:
@@ -88,22 +88,22 @@ importers:
 
   packages/alias:
     dependencies:
-      '@agnostic-web/form-angular':
+      '@agw/form-angular':
         specifier: workspace:*
         version: link:../adapters/angular
-      '@agnostic-web/form-core':
+      '@agw/form-core':
         specifier: workspace:*
         version: link:../core
-      '@agnostic-web/form-react':
+      '@agw/form-react':
         specifier: workspace:*
         version: link:../adapters/react
-      '@agnostic-web/form-solid':
+      '@agw/form-solid':
         specifier: workspace:*
         version: link:../adapters/solid
-      '@agnostic-web/form-svelte':
+      '@agw/form-svelte':
         specifier: workspace:*
         version: link:../adapters/svelte
-      '@agnostic-web/form-vue':
+      '@agw/form-vue':
         specifier: workspace:*
         version: link:../adapters/vue
     devDependencies:

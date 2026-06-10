@@ -1,5 +1,5 @@
 /**
- * @agnostic-web/form-core
+ * @agw/form-core
  * High-Performance, Zero-Dependency, Framework-Agnostic Reactive Form Engine.
  */
 

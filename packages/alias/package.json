@@ -38,12 +38,12 @@
     "build": "tsup"
   },
   "dependencies": {
-    "@agnostic-web/form-core": "workspace:*",
-    "@agnostic-web/form-react": "workspace:*",
-    "@agnostic-web/form-svelte": "workspace:*",
-    "@agnostic-web/form-vue": "workspace:*",
-    "@agnostic-web/form-solid": "workspace:*",
-    "@agnostic-web/form-angular": "workspace:*"
+    "@agw/form-core": "workspace:*",
+    "@agw/form-react": "workspace:*",
+    "@agw/form-svelte": "workspace:*",
+    "@agw/form-vue": "workspace:*",
+    "@agw/form-solid": "workspace:*",
+    "@agw/form-angular": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.0.0"

@@ -5,5 +5,5 @@ export default defineConfig({
   format: ['esm', 'cjs'],
   dts: true,
   clean: true,
-  external: ['@angular/core', '@agnostic-web/form-core'],
+  external: ['@angular/core', '@agw/form-core'],
 });

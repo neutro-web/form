@@ -1,5 +1,5 @@
 {
-  "name": "@agnostic-web/form-solid",
+  "name": "@agw/form-solid",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -22,7 +22,7 @@
     "solid-js": "^1.0.0"
   },
   "dependencies": {
-    "@agnostic-web/form-core": "workspace:*"
+    "@agw/form-core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.0.0"

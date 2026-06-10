@@ -1,5 +1,5 @@
 {
-  "name": "@agnostic-web/form-vue",
+  "name": "@agw/form-vue",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -22,7 +22,7 @@
     "vue": "^3.0.0"
   },
   "dependencies": {
-    "@agnostic-web/form-core": "workspace:*"
+    "@agw/form-core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.0.0"

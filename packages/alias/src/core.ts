@@ -1,1 +1,1 @@
-export * from '@agnostic-web/form-core';
+export * from '@agw/form-core';

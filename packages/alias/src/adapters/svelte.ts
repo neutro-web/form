@@ -1,1 +1,1 @@
-export * from '@agnostic-web/form-svelte';
+export * from '@agw/form-svelte';

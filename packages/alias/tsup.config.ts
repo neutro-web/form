@@ -13,11 +13,11 @@ export default defineConfig({
   dts: true,
   clean: true,
   external: [
-    '@agnostic-web/form-core',
-    '@agnostic-web/form-react',
-    '@agnostic-web/form-svelte',
-    '@agnostic-web/form-vue',
-    '@agnostic-web/form-solid',
-    '@agnostic-web/form-angular',
+    '@agw/form-core',
+    '@agw/form-react',
+    '@agw/form-svelte',
+    '@agw/form-vue',
+    '@agw/form-solid',
+    '@agw/form-angular',
   ],
 });

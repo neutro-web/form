@@ -1,1 +1,1 @@
-export * from '@agnostic-web/form-vue';
+export * from '@agw/form-vue';

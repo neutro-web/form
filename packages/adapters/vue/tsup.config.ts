@@ -5,5 +5,5 @@ export default defineConfig({
   format: ['esm', 'cjs'],
   dts: true,
   clean: true,
-  external: ['vue', '@agnostic-web/form-core'],
+  external: ['vue', '@agw/form-core'],
 });

@@ -1,1 +1,1 @@
-export * from '@agnostic-web/form-solid';
+export * from '@agw/form-solid';
