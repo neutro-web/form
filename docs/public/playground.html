@@ -187,8 +187,8 @@
   <span class="hdr-logo">@neutro/form</span>
   <span class="hdr-tag">Playground &amp; Tutorial</span>
   <div class="hdr-right">
-    <a class="chip" href="https://www.npmjs.com/package/@agnostic-web/form-core" target="_blank">npm</a>
-    <a class="chip" href="https://github.com/koficodedat/agw-form" target="_blank">GitHub</a>
+    <a class="chip" href="https://www.npmjs.com/package/@neutro/form" target="_blank">npm</a>
+    <a class="chip" href="https://github.com/neutro-web/form" target="_blank">GitHub</a>
   </div>
 </header>
 
@@ -230,7 +230,7 @@
 const { createForm } = agwForm;
 
 // Dynamic base URL — works on localhost AND GitHub Pages
-const BASE_URL = window.location.origin + (window.location.pathname.includes('/agw-form') ? '/agw-form/' : '/');
+const BASE_URL = window.location.origin + (window.location.pathname.includes('/form') ? '/form/' : '/');
 const CORE_URL = BASE_URL + 'form-core.js';
 
 // ─── IFRAME STYLE SHEET (injected into framework iframes) ────────────────────
@@ -2798,7 +2798,7 @@ iframeHtml: makeSvelteIframe(`<script>
 // form-core is loaded via JSDelivr CDN so no npm publish is required.
 const ANGULAR_SB_PROJECT = {
   title: 'AGW Form — Angular 17 Demo',
-  description: 'Signal-based form service + standalone component (agnostic-web/form-core)',
+  description: 'Signal-based form service + standalone component (neutro/form)',
   template: 'angular-cli',
   files: {
     'src/index.html': `<!DOCTYPE html>
@@ -2809,7 +2809,7 @@ const ANGULAR_SB_PROJECT = {
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <script src="https://cdn.jsdelivr.net/gh/agnostic-web/agw-form@main/docs/public/form-core.js"><\/script>
+  <script src="https://cdn.jsdelivr.net/gh/neutro-web/form@main/docs/public/form-core.js"><\/script>
 </head>
 <body>
   <app-root></app-root>

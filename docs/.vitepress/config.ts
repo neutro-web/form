@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: '@neutro/form',
   description: 'Zero-dependency reactive form engine for every framework.',
-  base: '/agw-form/',
+  base: '/form/',
 
   themeConfig: {
     nav: [
@@ -54,7 +54,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/agnostic-web/agw-form' },
+      { icon: 'github', link: 'https://github.com/neutro-web/form' },
     ],
   },
 })

@@ -20,10 +20,10 @@ pnpm exec vitest
 
 # Build all packages
 pnpm build
-# or: pnpm --filter "@agnostic-web/*" run build
+# or: pnpm --filter "@neutro/*" run build
 
 # Build only core
-pnpm --filter @agnostic-web/form-core run build
+pnpm --filter @neutro/form-core run build
 
 # Bootstrap workspace from scratch (generates all package files)
 node workspace_auto_initializer.js
@@ -42,12 +42,12 @@ This is a pnpm monorepo. The published packages live under `packages/`. Two root
 
 | Package | npm name | Path |
 |---|---|---|
-| Core engine | `@agnostic-web/form-core` | `packages/core/src/index.ts` |
-| React adapter | `@agnostic-web/form-react` | `packages/adapters/react/src/index.ts` |
-| Svelte 5 adapter | `@agnostic-web/form-svelte` | `packages/adapters/svelte/src/index.ts` |
-| Vue 3 adapter | `@agnostic-web/form-vue` | `packages/adapters/vue/src/index.ts` |
-| SolidJS adapter | `@agnostic-web/form-solid` | `packages/adapters/solid/src/index.ts` |
-| Angular 16+ adapter | `@agnostic-web/form-angular` | `packages/adapters/angular/src/index.ts` |
+| Core engine | `@neutro/form-core` | `packages/core/src/index.ts` |
+| React adapter | `@neutro/form-react` | `packages/adapters/react/src/index.ts` |
+| Svelte 5 adapter | `@neutro/form-svelte` | `packages/adapters/svelte/src/index.ts` |
+| Vue 3 adapter | `@neutro/form-vue` | `packages/adapters/vue/src/index.ts` |
+| SolidJS adapter | `@neutro/form-solid` | `packages/adapters/solid/src/index.ts` |
+| Angular 16+ adapter | `@neutro/form-angular` | `packages/adapters/angular/src/index.ts` |
 | Alias wrapper | `@neutro/form` | `packages/alias/package.json` |
 
 The alias package is a zero-code shell: its `package.json` `exports` map re-routes `@neutro/form/core`, `@neutro/form/adapters/react`, etc. to the scoped packages. The `tsconfig.json` at the root also maps these paths directly to source for local development.
@@ -70,10 +70,10 @@ The alias package is a zero-code shell: its `package.json` `exports` map re-rout
 
 The VitePress documentation site lives in `docs/`. Source files are Markdown; the config is at `docs/.vitepress/config.ts`.
 
-- Dev server: `pnpm docs:dev` → http://localhost:5173/agw-form/
+- Dev server: `pnpm docs:dev` → http://localhost:5173/form/
 - Production build: `pnpm docs:build` → outputs to `docs/.vitepress/dist`
 - The site is deployed to GitHub Pages automatically on every push to `main` via `.github/workflows/docs.yml`
-- Public URL: https://koficodedat.github.io/agw-form/
+- Public URL: https://neutro-web.github.io/form/
 
 ### Browser Demo
 

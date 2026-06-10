@@ -1,8 +1,8 @@
-# agw-form
+# @neutro/form
 
 High-performance, zero-dependency, framework-agnostic reactive form engine.
 
-**[Documentation](https://agnostic-web.github.io/agw-form/)** · [Getting Started](https://agnostic-web.github.io/agw-form/getting-started) · [API Reference](https://agnostic-web.github.io/agw-form/api/)
+**[Documentation](https://neutro-web.github.io/form/)** · [Getting Started](https://neutro-web.github.io/form/getting-started) · [API Reference](https://neutro-web.github.io/form/api/)
 
 ## Install
 
