@@ -382,7 +382,7 @@ window.createForm = agwForm.createForm;
 const src = ${jsonSrc};
 try {
   const { js } = compile(src, { filename:'Demo.svelte', generate:'dom', format:'esm', dev:false });
-  const code = js.code.replace(/from ['"]svelte(\\/[a-z_/]+)?['"]/g, function(m, sub) {
+  const code = js.code.replace(/from ['"]svelte(\\/[a-z_0-9/-]+)?['"]/g, function(m, sub) {
     return "from 'https://esm.sh/svelte@4.2.19" + (sub || '') + "'";
   });
   const blob = new Blob([code], { type:'text/javascript' });
