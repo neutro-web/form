@@ -223,7 +223,7 @@ export function deepClone<T>(val: T, hash = new WeakMap()): T {
   if (val === null || val === undefined || typeof val !== 'object') return val;
   if (val instanceof Date) return new Date(val.getTime()) as any;
   if (val instanceof RegExp) return new RegExp(val.source, val.flags) as any;
-  if (val instanceof File) return val;
+  if (typeof File !== 'undefined' && val instanceof File) return val;
   if (hash.has(val)) return hash.get(val);
   if (val instanceof Set) {
     const cloneSet = new Set();
@@ -306,7 +306,7 @@ export function isDeepEqual(a: any, b: any, hash = new WeakMap()): boolean {
 }
 
 export function extractAllPaths(obj: any, prefix = ''): string[] {
-  if (obj === null || typeof obj !== 'object' || obj instanceof Date || obj instanceof File) {
+  if (obj === null || typeof obj !== 'object' || obj instanceof Date || (typeof File !== 'undefined' && obj instanceof File)) {
     return prefix ? [prefix] : [];
   }
   const paths: string[] = [];
