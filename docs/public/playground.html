@@ -309,14 +309,86 @@ function useVueForm(form) {
 function useVueField(form, path) {
   const value = ref(form.get(path));
   const error = ref(undefined);
-  const unsub = form.subscribeToPath(path, (v, fs) => { value.value = v; error.value = fs.error; });
+  const touched = ref(false);
+  const unsub = form.subscribeToPath(path, (v, fs) => { value.value = v; error.value = fs.error; touched.value = !!fs.touched; });
   onUnmounted(unsub);
-  return { value, error };
+  return { value, error, touched };
 }
 createApp({
   setup() { ${setup} },
   template: \`${template}\`
 }).mount('#app');
+<\/script><\/body><\/html>`;
+}
+
+// ─── PERF WRAPPER ────────────────────────────────────────────────────────────
+// Augments a real engine form instance with lightweight perf tracking.
+function withPerf(form) {
+  let _n = 0, _ms = null, _epoch = 0, _batchDepth = 0;
+  const _pathCounts = {};
+
+  const origSub = form.subscribe.bind(form);
+  const origPath = form.subscribeToPath.bind(form);
+  const origValidate = form.validate.bind(form);
+  const origBatch = form.batch.bind(form);
+
+  form.subscribe = fn => {
+    const wrapped = s => { _n++; fn(s); };
+    return origSub(wrapped);
+  };
+  form.subscribeToPath = (path, fn) => {
+    _pathCounts[path] = (_pathCounts[path] || 0) + 1;
+    const wrapped = (v, fs) => { _n++; fn(v, fs); };
+    const unsub = origPath(path, wrapped);
+    return () => { _pathCounts[path] = Math.max(0, (_pathCounts[path] || 1) - 1); if (!_pathCounts[path]) delete _pathCounts[path]; unsub(); };
+  };
+  form.validate = paths => {
+    const t = performance.now();
+    _epoch++;
+    return origValidate(paths).then(r => { _ms = performance.now() - t; return r; });
+  };
+  form.batch = fn => {
+    _batchDepth++;
+    try { origBatch(fn); } finally { _batchDepth--; }
+  };
+
+  form.perf = {
+    get notifications() { return _n; },
+    get lastValidationMs() { return _ms; },
+    get epoch() { return _epoch; },
+    get batchActive() { return _batchDepth > 0; },
+    get subscriberCount() { return Object.values(_pathCounts).reduce((a, b) => a + b, 0); },
+    get pathMap() { return Object.assign({}, _pathCounts); },
+    reset() { _n = 0; _ms = null; },
+  };
+  return form;
+}
+
+// ─── SVELTE IN-BROWSER COMPILER ──────────────────────────────────────────────
+function makeSvelteIframe(svelteSource) {
+  const escaped = svelteSource
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\$\{/g, '\\${');
+  return `<!DOCTYPE html><html>
+<head>
+<script type="importmap">{"imports":{"svelte/internal":"https://esm.sh/svelte@4.2.19/internal","svelte/store":"https://esm.sh/svelte@4.2.19/store","svelte":"https://esm.sh/svelte@4.2.19"}}<\/script>
+<style>${IFRAME_CSS}<\/style>
+<\/head><body>
+<div id="root"><\/div>
+<script type="module">
+import { compile } from 'https://esm.sh/svelte@4.2.19/compiler';
+await new Promise(res => { const s = document.createElement('script'); s.src='${CORE_URL}'; s.onload=res; document.head.appendChild(s); });
+window.createForm = agwForm.createForm;
+const src = \`${escaped}\`;
+try {
+  const { js } = compile(src, { filename:'Demo.svelte', generate:'dom', format:'esm', dev:false });
+  const blob = new Blob([js.code], { type:'text/javascript' });
+  const { default: Component } = await import(URL.createObjectURL(blob));
+  new Component({ target: document.getElementById('root') });
+} catch(e) {
+  document.getElementById('root').innerHTML = '<pre style="color:#f85149;font-size:11px;">' + e.message + '<\/pre>';
+}
 <\/script><\/body><\/html>`;
 }
 
@@ -326,6 +398,7 @@ function makeSolidIframe(code) {
 <script type="module">
 import{createSignal,createEffect,onCleanup,For,Show,createMemo}from'https://esm.sh/solid-js@1.8.17';
 import{render}from'https://esm.sh/solid-js@1.8.17/web';
+import html from'https://esm.sh/solid-js@1.8.17/html';
 
 // Load engine via dynamic import of the IIFE script
 await new Promise(res => {
@@ -1714,7 +1787,7 @@ const { notifications, lastValidationMs, epoch, subscriberCount } = form.perf;`,
 run(el) {
   const FIELD_COUNT = 10;
   const fields = Object.fromEntries(Array.from({ length: FIELD_COUNT }, (_, i) => ['field' + i, '']));
-  const form = createForm({
+  const form = withPerf(createForm({
     initialValues: fields,
     asyncDebounceMs: 50,
     async validator(values, _paths, signal) {
@@ -1724,7 +1797,7 @@ run(el) {
         Object.entries(values).filter(([,v]) => v === 'bad').map(([k]) => [k, 'bad value'])
       );
     },
-  });
+  }));
 
   const globalUnsubs = [];
   const pathUnsubs = [];
@@ -2063,7 +2136,6 @@ function App() {
         Taken: admin, alice, bob, test, user, root
       </div>
       <div className="box" style={{marginTop:10}}>
-        epoch: {form.perf.epoch}{"\\n"}
         isValidating: {String(isValidating)}{"\\n"}
         error: {errors.username || '(none)'}
       </div>
@@ -2399,9 +2471,6 @@ function Field({ form, path, label, type = 'text' }) {
   );
 }`,
 iframeHtml: makeSolidIframe(`
-import html from 'https://esm.sh/solid-js@1.8.17/html';
-import { Show } from 'https://esm.sh/solid-js@1.8.17';
-
 const form = createForm({
   initialValues: { first: '', last: '', email: '', age: '' },
   rules: {
@@ -2459,9 +2528,6 @@ function TodoApp() {
   );
 }`,
 iframeHtml: makeSolidIframe(`
-import html from 'https://esm.sh/solid-js@1.8.17/html';
-import { For, Show, createMemo } from 'https://esm.sh/solid-js@1.8.17';
-
 const TAKEN = new Set(['admin','alice','bob','test']);
 
 const form = createForm({
@@ -2502,81 +2568,205 @@ render(() => html\`<\${App}/>\`, document.getElementById('root'));
 },
 ];
 
-// ─── SVELTE TUTORIALS (code-only) ────────────────────────────────────────────
+// ─── SVELTE TUTORIALS ────────────────────────────────────────────────────────
 const SVELTE = [
 {
 title: 'Svelte Store Integration',
-desc: 'Wrap the form in a Svelte readable() store. The engine\'s subscribe interface matches Svelte\'s store contract exactly — components auto-subscribe with $state syntax.',
-code: `<!-- FormStore.js -->
-import { readable } from 'svelte/store';
-import { createForm } from '@agw/form/core';
-
-export function createFormStore(config) {
-  const form = createForm(config);
-
-  const store = readable(form.getState(), (set) => {
-    const unsub = form.subscribe(set);
-    return unsub; // Svelte calls this on store cleanup
-  });
-
-  return { ...form, subscribe: store.subscribe };
-}
-
-<!-- ContactForm.svelte -->
+desc: 'Wrap the form in a Svelte readable() store. The engine\'s subscribe interface matches Svelte\'s store contract exactly — components auto-subscribe with the $store shorthand.',
+code: `<!-- ContactForm.svelte (Svelte 4) -->
 <script>
-  import { createFormStore } from './FormStore.js';
+  import { readable } from 'svelte/store';
+  // In a real project: import { createForm } from '@agw/form/core';
+  const { createForm } = window.agwForm;
+
+  function createFormStore(config) {
+    const form = createForm(config);
+    const store = readable(form.getState(), function(set) {
+      return form.subscribe(set); // Svelte calls this on cleanup
+    });
+    return Object.assign({}, form, { subscribe: store.subscribe });
+  }
 
   const form = createFormStore({
     initialValues: { name: '', email: '' },
     rules: { name: 'required', email: ['required', 'email'] },
   });
-  // $form auto-subscribes — no manual subscribe/cleanup
-<\/script>
 
-<input bind:value={$form.values.name}
-  on:input={e => form.set('name', e.target.value, { touch: true, validate: true })} />
-{#if $form.touched.name && $form.errors.name}
-  <p class="error">{$form.errors.name}</p>
-{/if}
-
-<button on:click={() => form.submit(save)} disabled={$form.isSubmitting}>
-  {$form.isSubmitting ? 'Saving…' : 'Save'}
-</button>`,
-stackblitzUrl: 'https://stackblitz.com/edit/vitejs-vite-svelte-agw-form?file=src/App.svelte',
-},
-{
-title: 'Per-Field Rune ($state)',
-desc: 'In Svelte 5 with runes, use $state + $effect to create a reactive field that only updates when its own path changes.',
-code: `<!-- EmailField.svelte (Svelte 5 runes) -->
-<script>
-  import { createForm } from '@agw/form/core';
-
-  let { form, path } = $props();
-
-  let value = $state(form.get(path));
-  let error = $state(undefined);
-  let touched = $state(false);
-
-  $effect(() => {
-    return form.subscribeToPath(path, (val, fs) => {
-      value = val;
-      error = fs.error;
-      touched = !!fs.touched;
-    });
-  });
-
-  function set(v) {
-    form.set(path, v, { touch: true, validate: true });
+  function handleSubmit() {
+    form.submit(function(v) { return new Promise(function(r) { setTimeout(r, 800); }); });
   }
 <\/script>
 
-<div>
-  <input {value} oninput={e => set(e.target.value)} />
-  {#if touched && error}
-    <span class="error">{error}<\/span>
+<!-- $form auto-subscribes; no manual cleanup needed -->
+<div class="field-row">
+  <label>Name</label>
+  <input value={$form.values.name}
+    on:input={function(e) { form.set('name', e.target.value, { touch: true, validate: true }); }} />
+  {#if $form.touched.name && $form.errors.name}
+    <span class="error">{$form.errors.name}</span>
   {/if}
-<\/div>`,
-stackblitzUrl: 'https://stackblitz.com/edit/vitejs-vite-svelte5-agw-form?file=src/lib/Field.svelte',
+</div>
+
+<div class="field-row">
+  <label>Email</label>
+  <input value={$form.values.email}
+    on:input={function(e) { form.set('email', e.target.value, { touch: true, validate: true }); }} />
+  {#if $form.touched.email && $form.errors.email}
+    <span class="error">{$form.errors.email}</span>
+  {/if}
+</div>
+
+<div class="btn-row">
+  <button class="btn primary" on:click={handleSubmit} disabled={$form.isSubmitting}>
+    {$form.isSubmitting ? 'Saving…' : 'Submit'}
+  </button>
+  <button class="btn" on:click={() => form.reset()}>Reset</button>
+</div>
+<div class="box" style="margin-top:10px;font-size:11px;">
+  isDirty: {$form.isDirty} | errors: {JSON.stringify($form.errors)}
+</div>`,
+iframeHtml: makeSvelteIframe(`<script>
+  import { readable } from 'svelte/store';
+  const createForm = window.createForm;
+  function createFormStore(config) {
+    const form = createForm(config);
+    const store = readable(form.getState(), function(set) { return form.subscribe(set); });
+    return Object.assign({}, form, { subscribe: store.subscribe });
+  }
+  const form = createFormStore({
+    initialValues: { name: '', email: '' },
+    rules: { name: 'required', email: ['required', 'email'] },
+  });
+  function handleSubmit() {
+    form.submit(function(v) { return new Promise(function(r) { setTimeout(r, 800); }); });
+  }
+<\/script>
+<div>
+  <div class="field-row">
+    <label>Name</label>
+    <input value={$form.values.name}
+      on:input={function(e) { form.set('name', e.target.value, { touch: true, validate: true }); }} />
+    {#if $form.touched.name && $form.errors.name}
+      <span class="error">{$form.errors.name}</span>
+    {/if}
+  </div>
+  <div class="field-row">
+    <label>Email</label>
+    <input value={$form.values.email}
+      on:input={function(e) { form.set('email', e.target.value, { touch: true, validate: true }); }} />
+    {#if $form.touched.email && $form.errors.email}
+      <span class="error">{$form.errors.email}</span>
+    {/if}
+  </div>
+  <div class="btn-row">
+    <button class="btn primary" on:click={handleSubmit} disabled={$form.isSubmitting}>
+      {$form.isSubmitting ? 'Saving...' : 'Submit'}
+    </button>
+    <button class="btn" on:click={() => form.reset()}>Reset</button>
+  </div>
+  <div class="box" style="margin-top:10px;font-size:11px;">
+    isDirty: {$form.isDirty}
+  </div>
+</div>`),
+},
+{
+title: 'Per-Field Stores',
+desc: 'Use subscribeToPath() with writable stores for surgical reactivity — only the field that changed re-renders, not the whole form.',
+code: `<!-- ContactForm.svelte (Svelte 4) -->
+<script>
+  import { writable } from 'svelte/store';
+  import { onDestroy } from 'svelte';
+  // In a real project: import { createForm } from '@agw/form/core';
+  const { createForm } = window.agwForm;
+
+  function useField(form, path) {
+    const value   = writable(form.get(path));
+    const error   = writable(undefined);
+    const touched = writable(false);
+    const unsub   = form.subscribeToPath(path, function(v, fs) {
+      value.set(v);
+      error.set(fs.error);
+      touched.set(!!fs.touched);
+    });
+    onDestroy(unsub);
+    return { value, error, touched };
+  }
+
+  const form = createForm({
+    initialValues: { name: '', email: '' },
+    rules: { name: 'required', email: ['required', 'email'] },
+  });
+
+  // Each field is an independent set of stores
+  const { value: nameVal, error: nameErr, touched: nameTouched } = useField(form, 'name');
+  const { value: emailVal, error: emailErr, touched: emailTouched } = useField(form, 'email');
+<\/script>
+
+<div class="field-row">
+  <label>Name</label>
+  <input value={$nameVal}
+    on:input={function(e) { form.set('name', e.target.value, { touch: true, validate: true }); }} />
+  {#if $nameTouched && $nameErr}
+    <span class="error">{$nameErr}</span>
+  {/if}
+</div>
+
+<div class="field-row">
+  <label>Email</label>
+  <input value={$emailVal}
+    on:input={function(e) { form.set('email', e.target.value, { touch: true, validate: true }); }} />
+  {#if $emailTouched && $emailErr}
+    <span class="error">{$emailErr}</span>
+  {/if}
+</div>
+
+<button class="btn primary"
+  on:click={() => form.submit(function(v) { console.log('submitted', v); return Promise.resolve(); })}>
+  Submit
+</button>`,
+iframeHtml: makeSvelteIframe(`<script>
+  import { writable } from 'svelte/store';
+  import { onDestroy } from 'svelte';
+  const createForm = window.createForm;
+  function useField(form, path) {
+    const value   = writable(form.get(path));
+    const error   = writable(undefined);
+    const touched = writable(false);
+    const unsub   = form.subscribeToPath(path, function(v, fs) {
+      value.set(v); error.set(fs.error); touched.set(!!fs.touched);
+    });
+    onDestroy(unsub);
+    return { value, error, touched };
+  }
+  const form = createForm({
+    initialValues: { name: '', email: '' },
+    rules: { name: 'required', email: ['required', 'email'] },
+  });
+  const { value: nameVal, error: nameErr, touched: nameTouched } = useField(form, 'name');
+  const { value: emailVal, error: emailErr, touched: emailTouched } = useField(form, 'email');
+<\/script>
+<div>
+  <div class="field-row">
+    <label>Name</label>
+    <input value={$nameVal}
+      on:input={function(e) { form.set('name', e.target.value, { touch: true, validate: true }); }} />
+    {#if $nameTouched && $nameErr}
+      <span class="error">{$nameErr}</span>
+    {/if}
+  </div>
+  <div class="field-row">
+    <label>Email</label>
+    <input value={$emailVal}
+      on:input={function(e) { form.set('email', e.target.value, { touch: true, validate: true }); }} />
+    {#if $emailTouched && $emailErr}
+      <span class="error">{$emailErr}</span>
+    {/if}
+  </div>
+  <button class="btn primary"
+    on:click={() => form.submit(function(v) { return Promise.resolve(); })}>
+    Submit
+  </button>
+</div>`),
 },
 ];
 
@@ -2615,7 +2805,7 @@ export class ContactFormService {
     return this.form.submit(onValid);
   }
 }`,
-stackblitzUrl: 'https://stackblitz.com/edit/angular-17-agw-form?file=src/app/contact-form/contact-form.service.ts',
+cliOnly: true,
 },
 {
 title: 'Component Binding',
@@ -2648,7 +2838,7 @@ export class ContactFormComponent {
     await fetch('/api/contact', { method: 'POST', body: JSON.stringify(values) });
   }
 }`,
-stackblitzUrl: 'https://stackblitz.com/edit/angular-17-agw-form?file=src/app/contact-form/contact-form.component.ts',
+cliOnly: true,
 },
 ];
 // ─── APP STATE ────────────────────────────────────────────────────────────────
@@ -2774,6 +2964,7 @@ function renderDemo(step) {
 
   const isVanilla = currentFw === 'vanilla';
   const hasSb = step.stackblitzUrl;
+  const isCliOnly = step.cliOnly;
 
   if (isVanilla && step.run) {
     // Vanilla — run the demo directly
@@ -2804,6 +2995,26 @@ function renderDemo(step) {
     demoArea.style.display = 'flex';
     demoArea.style.flexDirection = 'column';
     demoArea.appendChild(iframe);
+  } else if (isCliOnly) {
+    // CLI-only framework — no live demo possible
+    document.getElementById('demoLabel').textContent = 'About';
+    hidePerfPanel();
+
+    demoArea.innerHTML = `
+      <div style="max-width:420px;">
+        <div class="alert info" style="font-size:13px;line-height:1.7;">
+          <strong>Angular requires a build step</strong> — TypeScript compilation, decorators, and the
+          Angular CLI mean it can't run in a browser sandbox. The code on the left is correct and
+          production-ready. To try it, scaffold a project with <code>ng new</code> and drop in the
+          service and component shown.
+        </div>
+        <div class="box" style="margin-top:12px;font-size:12px;color:var(--t2);">
+          <div style="margin-bottom:4px;font-weight:600;color:var(--t1);">Quick start</div>
+          <code>ng new my-app --standalone</code><br>
+          <code>npm install @agw/form</code><br>
+          <code># paste the code from the left panel</code>
+        </div>
+      </div>`;
   } else if (hasSb) {
     // Code-only with StackBlitz link
     document.getElementById('demoLabel').textContent = 'Run It';
