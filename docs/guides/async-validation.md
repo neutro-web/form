@@ -50,7 +50,7 @@ Each validation scope gets its own `AbortController`. When a field is re-validat
 Pass the `signal` argument to `fetch` (or any abort-aware API) to benefit from this:
 
 ```ts
-import { createForm } from '@agnostic-web/form-core'
+import { createForm } from '@agw/form/core'
 
 const form = createForm({
   initialValues: { username: '' },

@@ -119,7 +119,7 @@ This is common for cross-field equality checks where it's unclear which field th
 ## Combined Example: Sign-Up Form
 
 ```ts
-import { createForm } from '@agnostic-web/form-core'
+import { createForm } from '@agw/form/core'
 
 const form = createForm({
   initialValues: {

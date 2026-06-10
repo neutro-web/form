@@ -2,55 +2,27 @@
 
 ## Installation
 
-Install the core engine on its own, or use the `@agw/form` alias package which re-exports everything from a single entry point.
-
-::: code-group
-
-```sh [npm]
-npm install @agnostic-web/form-core
-# or short alias
-npm install @agw/form
-```
-
-```sh [pnpm]
-pnpm add @agnostic-web/form-core
-# or short alias
-pnpm add @agw/form
-```
-
-```sh [yarn]
-yarn add @agnostic-web/form-core
-# or short alias
-yarn add @agw/form
-```
-
-:::
-
-Framework adapters are separate packages. Install the one you need alongside the core:
-
 ```sh
-# React
-pnpm add @agnostic-web/form-react
-
-# Svelte 5
-pnpm add @agnostic-web/form-svelte
-
-# Vue 3
-pnpm add @agnostic-web/form-vue
-
-# SolidJS
-pnpm add @agnostic-web/form-solid
-
-# Angular 16+
-pnpm add @agnostic-web/form-angular
+npm install @agw/form
+# pnpm add @agw/form
+# yarn add @agw/form
 ```
+
+One package. The exports map routes each adapter subpath:
+
+| Import path | What you get |
+|---|---|
+| `@agw/form/core` | `createForm`, validation adapters, types |
+| `@agw/form/adapters/react` | `useForm`, `useFormPath`, `useFormConnect` |
+| `@agw/form/adapters/svelte` | `useSvelteForm` |
+| `@agw/form/adapters/vue` | `useVueForm` |
+| `@agw/form/adapters/solid` | `useSolidForm` |
+| `@agw/form/adapters/angular` | `AngularFormService` |
 
 ## Quick Example
 
 ```ts
-import { createForm } from '@agnostic-web/form-core'
-// Equivalent using the alias package:
-// import { createForm } from '@agw/form/core'
+import { createForm } from '@agw/form/core'
 
 const form = createForm({
   initialValues: {
@@ -105,20 +77,71 @@ unsubscribe()
 unsubPath()
 ```
 
-### Triggering Validation Manually
+## Built-in Validation Rules
+
+For common validation you don't need an external schema library. The `rules` config takes
+rule names or option objects per field path:
 
 ```ts
-// Validate all fields
-await form.validate()
+import { createForm } from '@agw/form/core'
 
-// Validate specific paths only
-await form.validate(['email', 'username'])
+const form = createForm({
+  initialValues: { email: '', username: '', age: 18, website: '' },
+
+  rules: {
+    email:    ['required', 'email'],
+    username: ['required', { minLength: 3 }, { maxLength: 20 }],
+    age:      [{ min: 0 }, { max: 120 }],
+    website:  ['url'],
+  },
+})
 ```
 
-## Sync Validator
+### Available rules
+
+| Rule | Type | Checks | Default message |
+|---|---|---|---|
+| `'required'` | string | non-empty value | "This field is required" |
+| `'email'` | string | valid email format | "Must be a valid email address" |
+| `'url'` | string | valid URL | "Must be a valid URL" |
+| `'numeric'` | string | is a number | "Must be a number" |
+| `{ minLength: n }` | object | `str.length >= n` | "Must be at least N characters" |
+| `{ maxLength: n }` | object | `str.length <= n` | "Must be at most N characters" |
+| `{ min: n }` | object | `number >= n` | "Must be at least N" |
+| `{ max: n }` | object | `number <= n` | "Must be at most N" |
+| `{ pattern: RegExp, message?: string }` | object | matches regex | "Invalid format" |
+| `{ equalTo: 'path', message?: string }` | object | equals value at path | "Values do not match" |
+
+Rules run first; a custom `validator` can run alongside them and its errors are merged in
+(custom errors take precedence for the same field):
 
 ```ts
-import { createForm } from '@agnostic-web/form-core'
+const form = createForm({
+  initialValues: { password: '', confirmPassword: '' },
+
+  rules: {
+    password:        ['required', { minLength: 8 }],
+    confirmPassword: ['required', { equalTo: 'password', message: 'Passwords do not match' }],
+  },
+
+  // Still run an async check alongside the built-in rules
+  validator: async (values, _scope, signal) => {
+    const errors: Record<string, string> = {}
+    if (values.password && !/[A-Z]/.test(values.password)) {
+      errors.password = 'Must contain at least one uppercase letter'
+    }
+    return errors
+  },
+})
+```
+
+## Custom Validator Function
+
+When built-in rules aren't enough, pass a `validator` function that returns
+`Record<string, string>` (or a `Promise` of one):
+
+```ts
+import { createForm } from '@agw/form/core'
 
 type SignUpValues = {
   email: string
@@ -135,11 +158,9 @@ const form = createForm<SignUpValues>({
     if (!values.email.includes('@')) {
       errors.email = 'Must be a valid email address'
     }
-
     if (values.password.length < 8) {
       errors.password = 'Password must be at least 8 characters'
     }
-
     if (values.confirmPassword !== values.password) {
       errors.confirmPassword = 'Passwords do not match'
     }
@@ -147,7 +168,6 @@ const form = createForm<SignUpValues>({
     return errors
   },
 
-  // Automatically re-validate confirmPassword when password changes
   dependencies: {
     password: ['confirmPassword'],
   },
@@ -156,14 +176,15 @@ const form = createForm<SignUpValues>({
 
 ## Async Validator
 
-Validators can return a `Promise`. Each invocation gets an `AbortSignal` — pass it to `fetch` so in-flight requests are cancelled when the field changes before the response arrives.
+Validators can return a `Promise`. Each invocation gets an `AbortSignal` — pass it to
+`fetch` so in-flight requests are cancelled when the field changes before the response arrives.
 
 ```ts
-import { createForm } from '@agnostic-web/form-core'
+import { createForm } from '@agw/form/core'
 
 const form = createForm({
   initialValues: { username: '' },
-  asyncDebounceMs: 400, // wait 400 ms after the last keystroke before firing
+  asyncDebounceMs: 400,
 
   validator: async (values, _scopePaths, signal) => {
     const errors: Record<string, string> = {}
@@ -176,9 +197,7 @@ const form = createForm({
     const res = await fetch(`/api/check-username?q=${values.username}`, { signal })
     const { taken } = await res.json()
 
-    if (taken) {
-      errors.username = 'Username is already taken'
-    }
+    if (taken) errors.username = 'Username is already taken'
 
     return errors
   },

@@ -21,8 +21,8 @@ pnpm add @agnostic-web/form-core @agnostic-web/form-svelte
 
 ```svelte
 <script lang="ts">
-  import { createForm } from '@agnostic-web/form-core'
-  import { useSvelteForm } from '@agnostic-web/form-svelte'
+  import { createForm } from '@agw/form/core'
+  import { useSvelteForm } from '@agw/form/adapters/svelte'
 
   type LoginValues = { email: string; password: string }
 
@@ -77,8 +77,8 @@ pnpm add @agnostic-web/form-core @agnostic-web/form-svelte
 
 ```svelte
 <script lang="ts">
-  import { createForm } from '@agnostic-web/form-core'
-  import { useSvelteFormPath } from '@agnostic-web/form-svelte'
+  import { createForm } from '@agw/form/core'
+  import { useSvelteFormPath } from '@agw/form/adapters/svelte'
 
   export let form: ReturnType<typeof createForm>
   export let path: string
@@ -108,9 +108,9 @@ pnpm add @agnostic-web/form-core @agnostic-web/form-svelte
 
 ```svelte
 <script lang="ts">
-  import { createForm } from '@agnostic-web/form-core'
-  import { zodAdapter } from '@agnostic-web/form-core'
-  import { useSvelteForm, useSvelteFormPath } from '@agnostic-web/form-svelte'
+  import { createForm } from '@agw/form/core'
+  import { zodAdapter } from '@agw/form/core'
+  import { useSvelteForm, useSvelteFormPath } from '@agw/form/adapters/svelte'
   import { z } from 'zod'
 
   const schema = z.object({

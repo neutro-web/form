@@ -1,7 +1,7 @@
 # Core API — `createForm`
 
 ```ts
-import { createForm } from '@agnostic-web/form-core'
+import { createForm } from '@agw/form/core'
 // or
 import { createForm } from '@agw/form/core'
 ```

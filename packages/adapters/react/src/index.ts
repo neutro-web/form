@@ -1,9 +1,10 @@
 import { useSyncExternalStore, useCallback, useRef } from 'react';
+import type { FormInstance, FormState, Path, GetPathValue } from '@agnostic-web/form-core';
 
-export function useForm<T extends object>(form: any) {
+export function useForm<T extends object>(form: FormInstance<T>): FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState'> {
   const state = useSyncExternalStore(form.subscribe, form.getState, form.getState);
   return {
-    state,
+    ...state,
     get: form.get,
     set: form.set,
     connect: form.connect,
@@ -11,23 +12,29 @@ export function useForm<T extends object>(form: any) {
     handleSubmit: form.handleSubmit,
     reset: form.reset,
     batch: form.batch,
+    subscribeToPath: form.subscribeToPath,
+    validate: form.validate,
+    getPayload: form.getPayload,
+    getConnectedCount: form.getConnectedCount,
+    destroy: form.destroy,
     arrayAppend: form.arrayAppend,
     arrayInsert: form.arrayInsert,
     arrayRemove: form.arrayRemove,
     arrayMove: form.arrayMove,
     arraySwap: form.arraySwap,
-  };
+  } as any;
 }
 
-// Bug #1 fix: wrap the callback so React's () => void notifier adapts to
-// PathSubscriber's (value, fieldState) => void signature.
-export function useFormPath<T extends object>(form: any, path: string) {
+export function useFormPath<T extends object, P extends Path<T>>(
+  form: FormInstance<T>,
+  path: P
+): GetPathValue<T, P> {
   const subscribe = useCallback(
     (onStoreChange: () => void) => form.subscribeToPath(path, () => onStoreChange()),
     [form, path]
   );
   const getSnapshot = useCallback(() => form.get(path), [form, path]);
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot) as GetPathValue<T, P>;
 }
 
 // Zero-rerender hook: wires a DOM input directly via form.connect() without

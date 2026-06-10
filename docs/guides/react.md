@@ -21,8 +21,8 @@ pnpm add @agnostic-web/form-core @agnostic-web/form-react
 `useForm` creates (or receives) a form instance and subscribes to the full `FormState<T>`. The component re-renders whenever any field changes.
 
 ```tsx
-import { createForm } from '@agnostic-web/form-core'
-import { useForm } from '@agnostic-web/form-react'
+import { createForm } from '@agw/form/core'
+import { useForm } from '@agw/form/adapters/react'
 
 type LoginValues = {
   email: string
@@ -79,7 +79,7 @@ export function LoginForm() {
 `useFormPath` subscribes to a single field path. The component re-renders only when that field's value or state changes — not when unrelated fields update.
 
 ```tsx
-import { useFormPath } from '@agnostic-web/form-react'
+import { useFormPath } from '@agw/form/adapters/react'
 
 function EmailField({ form }: { form: typeof loginForm }) {
   const { value, error, touched } = useFormPath(form, 'email')
@@ -105,7 +105,7 @@ function EmailField({ form }: { form: typeof loginForm }) {
 `useFormConnect` wires up `form.connect` inside a `useEffect` and returns a React `ref`. Attaching the ref to an input gives you full form integration with no React re-renders — ideal for inputs that fire very frequently (e.g. rich text editors, masked phone fields).
 
 ```tsx
-import { useFormConnect } from '@agnostic-web/form-react'
+import { useFormConnect } from '@agw/form/adapters/react'
 
 function PhoneField({ form }: { form: typeof myForm }) {
   const ref = useFormConnect(form, 'phone', {
@@ -138,9 +138,9 @@ The element is disconnected automatically when the component unmounts.
 ## Full TypeScript Example
 
 ```tsx
-import { createForm } from '@agnostic-web/form-core'
-import { useForm, useFormPath } from '@agnostic-web/form-react'
-import { zodAdapter } from '@agnostic-web/form-core'
+import { createForm } from '@agw/form/core'
+import { useForm, useFormPath } from '@agw/form/adapters/react'
+import { zodAdapter } from '@agw/form/core'
 import { z } from 'zod'
 
 const schema = z.object({

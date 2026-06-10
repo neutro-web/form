@@ -37,7 +37,7 @@ features:
 Most form libraries are coupled to a single framework or require a large runtime. `@agw/form` ships a single closure factory — `createForm<T>` — that manages all form state internally. Framework adapters are thin reactive wrappers around the same engine, so you get identical validation behaviour, array operations, and DOM bridge semantics regardless of which UI framework you use.
 
 ```ts
-import { createForm } from '@agnostic-web/form-core'
+import { createForm } from '@agw/form/core'
 // or
 import { createForm } from '@agw/form/core'
 

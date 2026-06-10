@@ -20,8 +20,8 @@ The adapter uses SolidJS's `createStore` with `reconcile` for structural diffing
 ## `useSolidForm` — Granular Store
 
 ```tsx
-import { createForm } from '@agnostic-web/form-core'
-import { useSolidForm } from '@agnostic-web/form-solid'
+import { createForm } from '@agw/form/core'
+import { useSolidForm } from '@agw/form/adapters/solid'
 
 type LoginValues = { email: string; password: string }
 
@@ -78,7 +78,7 @@ export function LoginForm() {
 `useSolidFormPath` returns a signal accessor that reads the field's `{ value, error, touched, dirty }` slice from the store. Only the component that reads the signal re-runs when that path changes.
 
 ```tsx
-import { useSolidFormPath } from '@agnostic-web/form-solid'
+import { useSolidFormPath } from '@agw/form/adapters/solid'
 
 function Field(props: {
   form: typeof form
@@ -152,9 +152,9 @@ function DestinationList() {
 ## Full Example with Zod
 
 ```tsx
-import { createForm } from '@agnostic-web/form-core'
-import { zodAdapter } from '@agnostic-web/form-core'
-import { useSolidForm, useSolidFormPath } from '@agnostic-web/form-solid'
+import { createForm } from '@agw/form/core'
+import { zodAdapter } from '@agw/form/core'
+import { useSolidForm, useSolidFormPath } from '@agw/form/adapters/solid'
 import { z } from 'zod'
 
 const schema = z.object({

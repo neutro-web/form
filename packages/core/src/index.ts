@@ -32,6 +32,21 @@ export type PathImpl<T, K extends keyof T, Depth extends number = 5> = [Depth] e
 
 export type Path<T> = PathImpl<T, keyof T> & string;
 
+type _GetPathValue<T, P extends string> =
+  P extends `${infer K}.${infer Rest}`
+    ? K extends keyof T
+      ? _GetPathValue<NonNullable<T[K]>, Rest>
+      : T extends readonly any[]
+        ? _GetPathValue<NonNullable<T[number]>, Rest>
+        : unknown
+    : P extends keyof T
+      ? T[P]
+      : T extends readonly any[]
+        ? T[number]
+        : unknown;
+
+export type GetPathValue<T, P extends string> = _GetPathValue<T, P>;
+
 export interface FormState<T> {
   values: T;
   errors: Record<string, string>;
@@ -44,8 +59,21 @@ export interface FormState<T> {
 export type FormSubscriber<T> = (state: FormState<T>) => void;
 export type PathSubscriber = (value: any, fieldState: { error?: string; touched?: boolean; dirty?: boolean }) => void;
 
+export type BuiltInRule =
+  | 'required'
+  | 'email'
+  | 'url'
+  | 'numeric'
+  | { minLength: number; message?: string }
+  | { maxLength: number; message?: string }
+  | { min: number; message?: string }
+  | { max: number; message?: string }
+  | { pattern: string | RegExp; message?: string }
+  | { equalTo: string; message?: string };
+
 export interface FormConfig<T> {
   initialValues: T;
+  rules?: Partial<Record<string, BuiltInRule | BuiltInRule[]>>;
   validator?: (
     values: T,
     scopePaths?: string[],
@@ -58,6 +86,31 @@ export interface FormConfig<T> {
 export interface ConnectOptions {
   persist?: boolean;
   format?: (val: string) => string;
+}
+
+export interface FormInstance<T extends object> {
+  subscribe: (fn: FormSubscriber<T>) => () => void;
+  subscribeToPath: (path: Path<T> | string, fn: PathSubscriber) => () => void;
+  get: (path: Path<T> | string | string[]) => any;
+  set: (path: Path<T> | string | string[], val: any, options?: { touch?: boolean; validate?: boolean }) => void;
+  validate: (scopePaths?: Path<T>[] | string[] | string[][]) => Promise<boolean>;
+  connect: (path: Path<T> | string, el: HTMLElement, options?: ConnectOptions) => () => void;
+  submit: (onValid: (payload: Partial<T>) => void | Promise<void>) => Promise<boolean>;
+  handleSubmit: (
+    onValid: (payload: Partial<T>) => void | Promise<void>,
+    onInvalid?: (errors: Record<string, string>) => void
+  ) => (e?: Event) => void;
+  getState: () => FormState<T>;
+  getPayload: () => Partial<T>;
+  batch: (fn: () => void) => void;
+  arrayAppend: (path: Path<T> | string | string[], item: any) => void;
+  arrayInsert: (path: Path<T> | string | string[], index: number, item: any) => void;
+  arrayRemove: (path: Path<T> | string | string[], index: number) => void;
+  arrayMove: (path: Path<T> | string | string[], fromIndex: number, toIndex: number) => void;
+  arraySwap: (path: Path<T> | string | string[], indexA: number, indexB: number) => void;
+  reset: (newValues?: T) => void;
+  getConnectedCount: () => number;
+  destroy: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -279,10 +332,75 @@ export function compileDependencyScopes(
 }
 
 // ---------------------------------------------------------------------------
+// Built-in rule runner
+// ---------------------------------------------------------------------------
+
+function applyBuiltInRules<T>(
+  values: T,
+  rules: Record<string, BuiltInRule | BuiltInRule[]>,
+  scopePaths?: string[]
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const paths = scopePaths ?? Object.keys(rules);
+  for (const path of paths) {
+    const ruleSet = rules[path];
+    if (!ruleSet) continue;
+    const ruleArr = Array.isArray(ruleSet) ? ruleSet : [ruleSet];
+    const value = getNestedValue(values, path);
+    for (const rule of ruleArr) {
+      let error: string | null = null;
+      if (rule === 'required') {
+        if (value === undefined || value === null || value === '' ||
+            (typeof value === 'string' && !value.trim()) ||
+            (Array.isArray(value) && value.length === 0)) {
+          error = 'This field is required';
+        }
+      } else if (rule === 'email') {
+        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value))) {
+          error = 'Must be a valid email address';
+        }
+      } else if (rule === 'url') {
+        if (value) {
+          try { new URL(String(value)); }
+          catch { error = 'Must be a valid URL'; }
+        }
+      } else if (rule === 'numeric') {
+        if (value !== undefined && value !== null && value !== '' && isNaN(Number(value))) {
+          error = 'Must be a number';
+        }
+      } else if (typeof rule === 'object') {
+        const str = String(value ?? '');
+        if ('minLength' in rule) {
+          if (str.length < rule.minLength) error = rule.message ?? `Must be at least ${rule.minLength} characters`;
+        } else if ('maxLength' in rule) {
+          if (str.length > rule.maxLength) error = rule.message ?? `Must be at most ${rule.maxLength} characters`;
+        } else if ('min' in rule) {
+          if (value !== undefined && value !== null && value !== '' && Number(value) < (rule as { min: number }).min) {
+            error = rule.message ?? `Must be at least ${(rule as { min: number }).min}`;
+          }
+        } else if ('max' in rule) {
+          if (value !== undefined && value !== null && value !== '' && Number(value) > (rule as { max: number }).max) {
+            error = rule.message ?? `Must be at most ${(rule as { max: number }).max}`;
+          }
+        } else if ('pattern' in rule) {
+          const re = typeof rule.pattern === 'string' ? new RegExp(rule.pattern) : rule.pattern as RegExp;
+          if (value && !re.test(String(value))) error = rule.message ?? 'Invalid format';
+        } else if ('equalTo' in rule) {
+          const other = getNestedValue(values, (rule as { equalTo: string }).equalTo);
+          if (value !== other) error = rule.message ?? 'Values do not match';
+        }
+      }
+      if (error !== null) { errors[path] = error; break; }
+    }
+  }
+  return errors;
+}
+
+// ---------------------------------------------------------------------------
 // createForm
 // ---------------------------------------------------------------------------
 
-export function createForm<T extends object>(config: FormConfig<T>) {
+export function createForm<T extends object>(config: FormConfig<T>): FormInstance<T> {
   let initialValues = deepClone(config.initialValues);
   let values = deepClone(initialValues);
   let errors: Record<string, string> = {};
@@ -381,7 +499,7 @@ export function createForm<T extends object>(config: FormConfig<T>) {
   };
 
   const runValidation = async (scopePaths?: string[]): Promise<boolean> => {
-    if (!config.validator) return true;
+    if (!config.validator && !config.rules) return true;
     isValidating = true;
     // isValidating is a global flag — only global subscribers need this notification.
     if (globalSubscribers.size > 0) globalSubscribers.forEach((fn) => fn(getState()));
@@ -422,33 +540,46 @@ export function createForm<T extends object>(config: FormConfig<T>) {
         expandedScope.forEach((path) => activeAbortControllers.set(path, abortController));
       }
 
-      // Bug #13: pass snapshot so mid-await mutations can't corrupt validation state.
-      const valuesSnapshot = deepClone(values);
-      const validationResult = config.validator(valuesSnapshot, expandedScope, abortController.signal);
+      // Built-in rules run synchronously first; custom validator errors override on conflict.
+      const builtInErrors: Record<string, string> = config.rules
+        ? applyBuiltInRules(values, config.rules as Record<string, BuiltInRule | BuiltInRule[]>, expandedScope)
+        : {};
 
-      if (validationResult instanceof Promise) {
-        // Bug #8: per-invocation debounce — uses a local timer, not a shared one.
-        const resolvedErrors = await new Promise<Record<string, string>>((resolve) => {
-          let localTimer: any;
-          const onAbort = () => { clearTimeout(localTimer); resolve(errors); };
-          abortController.signal.addEventListener('abort', onAbort, { once: true });
-          localTimer = setTimeout(async () => {
-            abortController.signal.removeEventListener('abort', onAbort);
-            if (abortController.signal.aborted) { resolve(errors); return; }
-            try { resolve(await validationResult); }
-            catch { resolve({ _global: 'Asynchronous validation transaction failed.' }); }
-          }, config.asyncDebounceMs ?? 300);
-        });
+      if (config.validator) {
+        // Bug #13: pass snapshot so mid-await mutations can't corrupt validation state.
+        const valuesSnapshot = deepClone(values);
+        const validationResult = config.validator(valuesSnapshot, expandedScope, abortController.signal);
 
-        if (activeEpoch === asyncEpoch && !abortController.signal.aborted) {
+        if (validationResult instanceof Promise) {
+          // Bug #8: per-invocation debounce — uses a local timer, not a shared one.
+          const resolvedErrors = await new Promise<Record<string, string>>((resolve) => {
+            let localTimer: any;
+            const onAbort = () => { clearTimeout(localTimer); resolve(errors); };
+            abortController.signal.addEventListener('abort', onAbort, { once: true });
+            localTimer = setTimeout(async () => {
+              abortController.signal.removeEventListener('abort', onAbort);
+              if (abortController.signal.aborted) { resolve(errors); return; }
+              try { resolve(await validationResult); }
+              catch { resolve({ _global: 'Asynchronous validation transaction failed.' }); }
+            }, config.asyncDebounceMs ?? 300);
+          });
+
+          if (activeEpoch === asyncEpoch && !abortController.signal.aborted) {
+            const combined = { ...builtInErrors, ...resolvedErrors };
+            errors = expandedScope
+              ? mergeScopedErrors(errors, combined, expandedScope)
+              : combined;
+          }
+        } else {
+          const combined = { ...builtInErrors, ...validationResult };
           errors = expandedScope
-            ? mergeScopedErrors(errors, resolvedErrors, expandedScope)
-            : resolvedErrors;
+            ? mergeScopedErrors(errors, combined, expandedScope)
+            : combined;
         }
       } else {
         errors = expandedScope
-          ? mergeScopedErrors(errors, validationResult, expandedScope)
-          : validationResult;
+          ? mergeScopedErrors(errors, builtInErrors, expandedScope)
+          : builtInErrors;
       }
     } finally {
       if (expandedScope) expandedScope.forEach((path) => activeAbortControllers.delete(path));

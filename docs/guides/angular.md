@@ -22,8 +22,8 @@ Both `useAngularForm` and `useAngularFormPath` **must be called inside an inject
 
 ```ts
 import { Component } from '@angular/core'
-import { createForm } from '@agnostic-web/form-core'
-import { useAngularForm } from '@agnostic-web/form-angular'
+import { createForm } from '@agw/form/core'
+import { useAngularForm } from '@agw/form/adapters/angular'
 
 type LoginValues = { email: string; password: string }
 
@@ -83,8 +83,8 @@ export class LoginFormComponent {
 
 ```ts
 import { Component, input } from '@angular/core'
-import { createForm } from '@agnostic-web/form-core'
-import { useAngularFormPath } from '@agnostic-web/form-angular'
+import { createForm } from '@agw/form/core'
+import { useAngularFormPath } from '@agw/form/adapters/angular'
 
 @Component({
   selector: 'app-field',
@@ -126,9 +126,9 @@ export class FieldComponent {
 
 ```ts
 import { Component } from '@angular/core'
-import { createForm } from '@agnostic-web/form-core'
-import { zodAdapter } from '@agnostic-web/form-core'
-import { useAngularForm, useAngularFormPath } from '@agnostic-web/form-angular'
+import { createForm } from '@agw/form/core'
+import { zodAdapter } from '@agw/form/core'
+import { useAngularForm, useAngularFormPath } from '@agw/form/adapters/angular'
 import { z } from 'zod'
 
 const schema = z.object({

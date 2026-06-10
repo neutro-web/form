@@ -9,7 +9,7 @@
 Rather than creating one form per step and merging state at the end, create a single form at the top level with all fields. This avoids the complexity of synchronising multiple forms and gives you one `getPayload()` call at submission time.
 
 ```ts
-import { createForm } from '@agnostic-web/form-core'
+import { createForm } from '@agw/form/core'
 
 type WizardValues = {
   // Step 1 — personal info

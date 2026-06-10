@@ -21,8 +21,8 @@ Both hooks call `onUnmounted` to clean up their subscriptions automatically.
 
 ```vue
 <script setup lang="ts">
-import { createForm } from '@agnostic-web/form-core'
-import { useVueForm } from '@agnostic-web/form-vue'
+import { createForm } from '@agw/form/core'
+import { useVueForm } from '@agw/form/adapters/vue'
 
 type LoginValues = { email: string; password: string }
 
@@ -74,7 +74,7 @@ async function handleSubmit() {
 
 ```vue
 <script setup lang="ts">
-import { useVueFormPath } from '@agnostic-web/form-vue'
+import { useVueFormPath } from '@agw/form/adapters/vue'
 
 const props = defineProps<{
   form: ReturnType<typeof createForm>
@@ -110,7 +110,7 @@ Because `useVueFormPath` accepts `MaybeRef<string>`, you can pass a computed pat
 ```vue
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useVueFormPath } from '@agnostic-web/form-vue'
+import { useVueFormPath } from '@agw/form/adapters/vue'
 
 const props = defineProps<{
   form: ReturnType<typeof createForm>
@@ -141,9 +141,9 @@ const city = useVueFormPath(props.form, cityPath)
 
 ```vue
 <script setup lang="ts">
-import { createForm } from '@agnostic-web/form-core'
-import { zodAdapter } from '@agnostic-web/form-core'
-import { useVueForm, useVueFormPath } from '@agnostic-web/form-vue'
+import { createForm } from '@agw/form/core'
+import { zodAdapter } from '@agw/form/core'
+import { useVueForm, useVueFormPath } from '@agw/form/adapters/vue'
 import { z } from 'zod'
 
 const schema = z.object({
