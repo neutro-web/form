@@ -60,16 +60,47 @@ export type FormSubscriber<T> = (state: FormState<T>) => void;
 export type PathSubscriber = (value: any, fieldState: { error?: string; touched?: boolean; dirty?: boolean }) => void;
 
 export type BuiltInRule =
-  | 'required'
-  | 'email'
-  | 'url'
-  | 'numeric'
-  | { minLength: number; message?: string }
-  | { maxLength: number; message?: string }
-  | { min: number; message?: string }
-  | { max: number; message?: string }
-  | { pattern: string | RegExp; message?: string }
-  | { equalTo: string; message?: string };
+  // Presence
+  | 'required'                                               // non-empty value
+  | 'accepted'                                               // must be true (checkboxes, terms)
+  // Format
+  | 'email'                                                  // valid email
+  | 'url'                                                    // valid URL
+  | 'numeric'                                                // is a number
+  | 'integer'                                                // whole number only
+  | 'positive'                                               // number > 0
+  | 'nonNegative'                                            // number >= 0
+  | 'alpha'                                                  // letters only
+  | 'alphanumeric'                                           // letters and numbers
+  | 'date'                                                   // parseable date string
+  // Length / size
+  | { minLength: number; message?: string }                  // string length >= n
+  | { maxLength: number; message?: string }                  // string length <= n
+  | { min: number; message?: string }                        // number >= n
+  | { max: number; message?: string }                        // number <= n
+  // String content
+  | { startsWith: string; message?: string }
+  | { endsWith: string; message?: string }
+  | { includes: string; message?: string }                   // string contains substring
+  | { pattern: string | RegExp; message?: string }           // matches regex
+  // Array
+  | { minItems: number; message?: string }                   // array.length >= n
+  | { maxItems: number; message?: string }                   // array.length <= n
+  | 'unique'                                                 // all array items distinct
+  | { contains: unknown; message?: string }                  // array includes value (deep equal)
+  // Enum
+  | { oneOf: unknown[]; message?: string }                   // value is in the list
+  | { notOneOf: unknown[]; message?: string }                // value is not in the list
+  // Cross-field comparisons (all accept a dot-path string)
+  | { matches: string; message?: string }                    // deep-equals value at path
+  | { doesNotMatch: string; message?: string }               // does NOT deep-equal value at path
+  | { greaterThan: string; message?: string }                // numeric > value at path
+  | { lessThan: string; message?: string }                   // numeric < value at path
+  | { after: string; message?: string }                      // date/time after value at path
+  | { before: string; message?: string }                     // date/time before value at path
+  // Conditional presence
+  | { requiredIf: string; message?: string }                 // required when field at path is truthy
+  | { requiredUnless: string; message?: string };            // required unless field at path is truthy
 
 export interface FormConfig<T> {
   initialValues: T;
@@ -335,6 +366,21 @@ export function compileDependencyScopes(
 // Built-in rule runner
 // ---------------------------------------------------------------------------
 
+function isEmpty(v: unknown): boolean {
+  return v === undefined || v === null || v === '' ||
+    (typeof v === 'string' && !v.trim()) ||
+    (Array.isArray(v) && v.length === 0);
+}
+
+function toDate(v: unknown): Date | null {
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (typeof v === 'string' || typeof v === 'number') {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
 function applyBuiltInRules<T>(
   values: T,
   rules: Record<string, BuiltInRule | BuiltInRule[]>,
@@ -342,54 +388,147 @@ function applyBuiltInRules<T>(
 ): Record<string, string> {
   const errors: Record<string, string> = {};
   const paths = scopePaths ?? Object.keys(rules);
+
   for (const path of paths) {
     const ruleSet = rules[path];
     if (!ruleSet) continue;
     const ruleArr = Array.isArray(ruleSet) ? ruleSet : [ruleSet];
     const value = getNestedValue(values, path);
+    const str = typeof value === 'string' ? value : String(value ?? '');
+    const arr = Array.isArray(value) ? value : null;
+    const present = !isEmpty(value);
+
     for (const rule of ruleArr) {
       let error: string | null = null;
+
+      // ── Presence ──────────────────────────────────────────────────────────
       if (rule === 'required') {
-        if (value === undefined || value === null || value === '' ||
-            (typeof value === 'string' && !value.trim()) ||
-            (Array.isArray(value) && value.length === 0)) {
-          error = 'This field is required';
+        if (!present) error = 'This field is required';
+
+      } else if (rule === 'accepted') {
+        if (value !== true && value !== 1 && value !== 'yes' && value !== 'true') {
+          error = 'This field must be accepted';
         }
+
+      // ── Format ────────────────────────────────────────────────────────────
       } else if (rule === 'email') {
-        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value))) {
+        if (present && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)) {
           error = 'Must be a valid email address';
         }
       } else if (rule === 'url') {
-        if (value) {
-          try { new URL(String(value)); }
+        if (present) {
+          try { new URL(str); }
           catch { error = 'Must be a valid URL'; }
         }
       } else if (rule === 'numeric') {
-        if (value !== undefined && value !== null && value !== '' && isNaN(Number(value))) {
-          error = 'Must be a number';
+        if (present && isNaN(Number(value))) error = 'Must be a number';
+      } else if (rule === 'integer') {
+        if (present && !Number.isInteger(Number(value))) error = 'Must be a whole number';
+      } else if (rule === 'positive') {
+        if (present && Number(value) <= 0) error = 'Must be greater than zero';
+      } else if (rule === 'nonNegative') {
+        if (present && Number(value) < 0) error = 'Must be zero or greater';
+      } else if (rule === 'alpha') {
+        if (present && !/^[a-zA-Z]+$/.test(str)) error = 'Must contain letters only';
+      } else if (rule === 'alphanumeric') {
+        if (present && !/^[a-zA-Z0-9]+$/.test(str)) error = 'Must contain letters and numbers only';
+      } else if (rule === 'date') {
+        if (present && toDate(value) === null) error = 'Must be a valid date';
+
+      // ── Unique (array) ────────────────────────────────────────────────────
+      } else if (rule === 'unique') {
+        if (arr) {
+          const seen = new Set(arr.map((item) => JSON.stringify(item)));
+          if (seen.size !== arr.length) error = 'All items must be unique';
         }
+
       } else if (typeof rule === 'object') {
-        const str = String(value ?? '');
+
+        // ── Length / size ────────────────────────────────────────────────────
         if ('minLength' in rule) {
-          if (str.length < rule.minLength) error = rule.message ?? `Must be at least ${rule.minLength} characters`;
+          if (str.length < rule.minLength)
+            error = rule.message ?? `Must be at least ${rule.minLength} character${rule.minLength === 1 ? '' : 's'}`;
         } else if ('maxLength' in rule) {
-          if (str.length > rule.maxLength) error = rule.message ?? `Must be at most ${rule.maxLength} characters`;
+          if (str.length > rule.maxLength)
+            error = rule.message ?? `Must be at most ${rule.maxLength} character${rule.maxLength === 1 ? '' : 's'}`;
         } else if ('min' in rule) {
-          if (value !== undefined && value !== null && value !== '' && Number(value) < (rule as { min: number }).min) {
+          if (present && Number(value) < (rule as { min: number; message?: string }).min)
             error = rule.message ?? `Must be at least ${(rule as { min: number }).min}`;
-          }
         } else if ('max' in rule) {
-          if (value !== undefined && value !== null && value !== '' && Number(value) > (rule as { max: number }).max) {
+          if (present && Number(value) > (rule as { max: number; message?: string }).max)
             error = rule.message ?? `Must be at most ${(rule as { max: number }).max}`;
-          }
+
+        // ── String content ────────────────────────────────────────────────
+        } else if ('startsWith' in rule) {
+          if (present && !str.startsWith((rule as { startsWith: string }).startsWith))
+            error = rule.message ?? `Must start with "${(rule as { startsWith: string }).startsWith}"`;
+        } else if ('endsWith' in rule) {
+          if (present && !str.endsWith((rule as { endsWith: string }).endsWith))
+            error = rule.message ?? `Must end with "${(rule as { endsWith: string }).endsWith}"`;
+        } else if ('includes' in rule) {
+          if (present && !str.includes((rule as { includes: string }).includes))
+            error = rule.message ?? `Must contain "${(rule as { includes: string }).includes}"`;
         } else if ('pattern' in rule) {
           const re = typeof rule.pattern === 'string' ? new RegExp(rule.pattern) : rule.pattern as RegExp;
-          if (value && !re.test(String(value))) error = rule.message ?? 'Invalid format';
-        } else if ('equalTo' in rule) {
-          const other = getNestedValue(values, (rule as { equalTo: string }).equalTo);
-          if (value !== other) error = rule.message ?? 'Values do not match';
+          if (present && !re.test(str)) error = rule.message ?? 'Invalid format';
+
+        // ── Array ─────────────────────────────────────────────────────────
+        } else if ('minItems' in rule) {
+          const len = arr ? arr.length : 0;
+          if (len < (rule as { minItems: number }).minItems)
+            error = rule.message ?? `Must have at least ${(rule as { minItems: number }).minItems} item${(rule as { minItems: number }).minItems === 1 ? '' : 's'}`;
+        } else if ('maxItems' in rule) {
+          const len = arr ? arr.length : 0;
+          if (len > (rule as { maxItems: number }).maxItems)
+            error = rule.message ?? `Must have at most ${(rule as { maxItems: number }).maxItems} item${(rule as { maxItems: number }).maxItems === 1 ? '' : 's'}`;
+        } else if ('contains' in rule) {
+          if (!arr || !arr.some((item) => isDeepEqual(item, (rule as { contains: unknown }).contains)))
+            error = rule.message ?? 'Must contain the required value';
+
+        // ── Enum ──────────────────────────────────────────────────────────
+        } else if ('oneOf' in rule) {
+          if (!(rule as { oneOf: unknown[] }).oneOf.some((opt) => isDeepEqual(value, opt)))
+            error = rule.message ?? `Must be one of: ${(rule as { oneOf: unknown[] }).oneOf.join(', ')}`;
+        } else if ('notOneOf' in rule) {
+          if ((rule as { notOneOf: unknown[] }).notOneOf.some((opt) => isDeepEqual(value, opt)))
+            error = rule.message ?? `Must not be one of: ${(rule as { notOneOf: unknown[] }).notOneOf.join(', ')}`;
+
+        // ── Cross-field comparisons ───────────────────────────────────────
+        } else if ('matches' in rule) {
+          const other = getNestedValue(values, (rule as { matches: string }).matches);
+          if (!isDeepEqual(value, other)) error = rule.message ?? 'Values do not match';
+        } else if ('doesNotMatch' in rule) {
+          const other = getNestedValue(values, (rule as { doesNotMatch: string }).doesNotMatch);
+          if (isDeepEqual(value, other)) error = rule.message ?? 'Values must not match';
+        } else if ('greaterThan' in rule) {
+          const other = Number(getNestedValue(values, (rule as { greaterThan: string }).greaterThan));
+          if (present && Number(value) <= other)
+            error = rule.message ?? `Must be greater than ${other}`;
+        } else if ('lessThan' in rule) {
+          const other = Number(getNestedValue(values, (rule as { lessThan: string }).lessThan));
+          if (present && Number(value) >= other)
+            error = rule.message ?? `Must be less than ${other}`;
+        } else if ('after' in rule) {
+          const thisDate = toDate(value);
+          const otherDate = toDate(getNestedValue(values, (rule as { after: string }).after));
+          if (thisDate && otherDate && thisDate <= otherDate)
+            error = rule.message ?? 'Must be after the reference date';
+        } else if ('before' in rule) {
+          const thisDate = toDate(value);
+          const otherDate = toDate(getNestedValue(values, (rule as { before: string }).before));
+          if (thisDate && otherDate && thisDate >= otherDate)
+            error = rule.message ?? 'Must be before the reference date';
+
+        // ── Conditional presence ──────────────────────────────────────────
+        } else if ('requiredIf' in rule) {
+          const trigger = getNestedValue(values, (rule as { requiredIf: string }).requiredIf);
+          if (trigger && !present) error = rule.message ?? 'This field is required';
+        } else if ('requiredUnless' in rule) {
+          const trigger = getNestedValue(values, (rule as { requiredUnless: string }).requiredUnless);
+          if (!trigger && !present) error = rule.message ?? 'This field is required';
         }
       }
+
       if (error !== null) { errors[path] = error; break; }
     }
   }

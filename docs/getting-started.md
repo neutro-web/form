@@ -86,31 +86,102 @@ rule names or option objects per field path:
 import { createForm } from '@agw/form/core'
 
 const form = createForm({
-  initialValues: { email: '', username: '', age: 18, website: '' },
-
+  initialValues: {
+    email: '', username: '', age: 18, website: '',
+    password: '', confirmPassword: '',
+    terms: false, tags: [] as string[],
+    startDate: '', endDate: '',
+  },
   rules: {
-    email:    ['required', 'email'],
-    username: ['required', { minLength: 3 }, { maxLength: 20 }],
-    age:      [{ min: 0 }, { max: 120 }],
-    website:  ['url'],
+    email:           ['required', 'email'],
+    username:        ['required', 'alphanumeric', { minLength: 3 }, { maxLength: 20 }],
+    age:             ['integer', { min: 0 }, { max: 120 }],
+    website:         'url',
+    password:        ['required', { minLength: 8 }],
+    confirmPassword: { matches: 'password', message: 'Passwords do not match' },
+    terms:           'accepted',
+    tags:            [{ minItems: 1 }, 'unique'],
+    endDate:         { after: 'startDate' },
   },
 })
 ```
 
 ### Available rules
 
-| Rule | Type | Checks | Default message |
-|---|---|---|---|
-| `'required'` | string | non-empty value | "This field is required" |
-| `'email'` | string | valid email format | "Must be a valid email address" |
-| `'url'` | string | valid URL | "Must be a valid URL" |
-| `'numeric'` | string | is a number | "Must be a number" |
-| `{ minLength: n }` | object | `str.length >= n` | "Must be at least N characters" |
-| `{ maxLength: n }` | object | `str.length <= n` | "Must be at most N characters" |
-| `{ min: n }` | object | `number >= n` | "Must be at least N" |
-| `{ max: n }` | object | `number <= n` | "Must be at most N" |
-| `{ pattern: RegExp, message?: string }` | object | matches regex | "Invalid format" |
-| `{ equalTo: 'path', message?: string }` | object | equals value at path | "Values do not match" |
+**Presence**
+
+| Rule | Checks | Default message |
+|---|---|---|
+| `'required'` | non-empty (string, array, value) | "This field is required" |
+| `'accepted'` | must be `true` (checkbox / terms) | "This field must be accepted" |
+
+**Format**
+
+| Rule | Checks | Default message |
+|---|---|---|
+| `'email'` | valid email address | "Must be a valid email address" |
+| `'url'` | valid URL | "Must be a valid URL" |
+| `'numeric'` | is a number | "Must be a number" |
+| `'integer'` | whole number, no decimals | "Must be a whole number" |
+| `'positive'` | number > 0 | "Must be greater than zero" |
+| `'nonNegative'` | number >= 0 | "Must be zero or greater" |
+| `'alpha'` | letters only [a-zA-Z] | "Must contain letters only" |
+| `'alphanumeric'` | letters and numbers | "Must contain letters and numbers only" |
+| `'date'` | parseable date string | "Must be a valid date" |
+
+**Length / size**
+
+| Rule | Checks | Default message |
+|---|---|---|
+| `{ minLength: n }` | `str.length >= n` | "Must be at least N characters" |
+| `{ maxLength: n }` | `str.length <= n` | "Must be at most N characters" |
+| `{ min: n }` | `number >= n` | "Must be at least N" |
+| `{ max: n }` | `number <= n` | "Must be at most N" |
+
+**String content**
+
+| Rule | Checks | Default message |
+|---|---|---|
+| `{ startsWith: 'prefix' }` | string starts with prefix | "Must start with ..." |
+| `{ endsWith: 'suffix' }` | string ends with suffix | "Must end with ..." |
+| `{ includes: 'text' }` | string contains substring | "Must contain ..." |
+| `{ pattern: RegExp }` | matches regex | "Invalid format" |
+
+**Array**
+
+| Rule | Checks | Default message |
+|---|---|---|
+| `{ minItems: n }` | `array.length >= n` | "Must have at least N items" |
+| `{ maxItems: n }` | `array.length <= n` | "Must have at most N items" |
+| `'unique'` | all items distinct (deep equality) | "All items must be unique" |
+| `{ contains: value }` | array includes value (deep equality) | "Must contain the required value" |
+
+**Enum**
+
+| Rule | Checks | Default message |
+|---|---|---|
+| `{ oneOf: [...] }` | value is in the list | "Must be one of: ..." |
+| `{ notOneOf: [...] }` | value is not in the list | "Must not be one of: ..." |
+
+**Cross-field** — all accept a dot-path string pointing to another field
+
+| Rule | Checks | Default message |
+|---|---|---|
+| `{ matches: 'path' }` | deep-equals value at path (works for any type) | "Values do not match" |
+| `{ doesNotMatch: 'path' }` | does NOT deep-equal value at path | "Values must not match" |
+| `{ greaterThan: 'path' }` | numeric > value at path | "Must be greater than N" |
+| `{ lessThan: 'path' }` | numeric < value at path | "Must be less than N" |
+| `{ after: 'path' }` | date/time after date at path | "Must be after the reference date" |
+| `{ before: 'path' }` | date/time before date at path | "Must be before the reference date" |
+
+**Conditional presence**
+
+| Rule | Checks | Default message |
+|---|---|---|
+| `{ requiredIf: 'path' }` | required when field at path is truthy | "This field is required" |
+| `{ requiredUnless: 'path' }` | required unless field at path is truthy | "This field is required" |
+
+Every rule accepts an optional `message` property to override the default.
 
 Rules run first; a custom `validator` can run alongside them and its errors are merged in
 (custom errors take precedence for the same field):
@@ -121,7 +192,7 @@ const form = createForm({
 
   rules: {
     password:        ['required', { minLength: 8 }],
-    confirmPassword: ['required', { equalTo: 'password', message: 'Passwords do not match' }],
+    confirmPassword: ['required', { matches: 'password', message: 'Passwords do not match' }],
   },
 
   // Still run an async check alongside the built-in rules

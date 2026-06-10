@@ -703,3 +703,493 @@ describe('compileDependencyScopes', () => {
     expect(scopes['items.*.name']).toContain('items.*.price');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Built-in validation rules
+// ---------------------------------------------------------------------------
+
+describe('built-in rules — presence', () => {
+  it('required — rejects empty string', async () => {
+    const form = createForm({ initialValues: { name: '' }, rules: { name: 'required' } });
+    await form.validate();
+    expect(form.getState().errors.name).toBe('This field is required');
+  });
+
+  it('required — rejects whitespace-only string', async () => {
+    const form = createForm({ initialValues: { name: '   ' }, rules: { name: 'required' } });
+    await form.validate();
+    expect(form.getState().errors.name).toBeTruthy();
+  });
+
+  it('required — rejects empty array', async () => {
+    const form = createForm({ initialValues: { tags: [] as string[] }, rules: { tags: 'required' } });
+    await form.validate();
+    expect(form.getState().errors.tags).toBeTruthy();
+  });
+
+  it('required — passes for non-empty value', async () => {
+    const form = createForm({ initialValues: { name: 'Ada' }, rules: { name: 'required' } });
+    await form.validate();
+    expect(form.getState().errors.name).toBeUndefined();
+  });
+
+  it('accepted — passes for true', async () => {
+    const form = createForm({ initialValues: { terms: true }, rules: { terms: 'accepted' } });
+    await form.validate();
+    expect(form.getState().errors.terms).toBeUndefined();
+  });
+
+  it('accepted — rejects false', async () => {
+    const form = createForm({ initialValues: { terms: false }, rules: { terms: 'accepted' } });
+    await form.validate();
+    expect(form.getState().errors.terms).toBeTruthy();
+  });
+});
+
+describe('built-in rules — format', () => {
+  it('email — passes valid email', async () => {
+    const form = createForm({ initialValues: { email: 'a@b.com' }, rules: { email: 'email' } });
+    await form.validate();
+    expect(form.getState().errors.email).toBeUndefined();
+  });
+
+  it('email — rejects invalid email', async () => {
+    const form = createForm({ initialValues: { email: 'notanemail' }, rules: { email: 'email' } });
+    await form.validate();
+    expect(form.getState().errors.email).toBeTruthy();
+  });
+
+  it('url — passes valid URL', async () => {
+    const form = createForm({ initialValues: { site: 'https://example.com' }, rules: { site: 'url' } });
+    await form.validate();
+    expect(form.getState().errors.site).toBeUndefined();
+  });
+
+  it('url — rejects plain string', async () => {
+    const form = createForm({ initialValues: { site: 'not a url' }, rules: { site: 'url' } });
+    await form.validate();
+    expect(form.getState().errors.site).toBeTruthy();
+  });
+
+  it('numeric — passes a number string', async () => {
+    const form = createForm({ initialValues: { age: '25' }, rules: { age: 'numeric' } });
+    await form.validate();
+    expect(form.getState().errors.age).toBeUndefined();
+  });
+
+  it('numeric — rejects non-numeric string', async () => {
+    const form = createForm({ initialValues: { age: 'abc' }, rules: { age: 'numeric' } });
+    await form.validate();
+    expect(form.getState().errors.age).toBeTruthy();
+  });
+
+  it('integer — passes whole number', async () => {
+    const form = createForm({ initialValues: { qty: 3 }, rules: { qty: 'integer' } });
+    await form.validate();
+    expect(form.getState().errors.qty).toBeUndefined();
+  });
+
+  it('integer — rejects decimal', async () => {
+    const form = createForm({ initialValues: { qty: 3.5 }, rules: { qty: 'integer' } });
+    await form.validate();
+    expect(form.getState().errors.qty).toBeTruthy();
+  });
+
+  it('positive — passes value > 0', async () => {
+    const form = createForm({ initialValues: { score: 1 }, rules: { score: 'positive' } });
+    await form.validate();
+    expect(form.getState().errors.score).toBeUndefined();
+  });
+
+  it('positive — rejects zero', async () => {
+    const form = createForm({ initialValues: { score: 0 }, rules: { score: 'positive' } });
+    await form.validate();
+    expect(form.getState().errors.score).toBeTruthy();
+  });
+
+  it('nonNegative — passes zero', async () => {
+    const form = createForm({ initialValues: { score: 0 }, rules: { score: 'nonNegative' } });
+    await form.validate();
+    expect(form.getState().errors.score).toBeUndefined();
+  });
+
+  it('nonNegative — rejects negative', async () => {
+    const form = createForm({ initialValues: { score: -1 }, rules: { score: 'nonNegative' } });
+    await form.validate();
+    expect(form.getState().errors.score).toBeTruthy();
+  });
+
+  it('alpha — passes letters only', async () => {
+    const form = createForm({ initialValues: { name: 'Ada' }, rules: { name: 'alpha' } });
+    await form.validate();
+    expect(form.getState().errors.name).toBeUndefined();
+  });
+
+  it('alpha — rejects alphanumeric', async () => {
+    const form = createForm({ initialValues: { name: 'Ada1' }, rules: { name: 'alpha' } });
+    await form.validate();
+    expect(form.getState().errors.name).toBeTruthy();
+  });
+
+  it('alphanumeric — passes letters and numbers', async () => {
+    const form = createForm({ initialValues: { handle: 'user123' }, rules: { handle: 'alphanumeric' } });
+    await form.validate();
+    expect(form.getState().errors.handle).toBeUndefined();
+  });
+
+  it('alphanumeric — rejects spaces', async () => {
+    const form = createForm({ initialValues: { handle: 'user 123' }, rules: { handle: 'alphanumeric' } });
+    await form.validate();
+    expect(form.getState().errors.handle).toBeTruthy();
+  });
+
+  it('date — passes valid date string', async () => {
+    const form = createForm({ initialValues: { dob: '1990-01-01' }, rules: { dob: 'date' } });
+    await form.validate();
+    expect(form.getState().errors.dob).toBeUndefined();
+  });
+
+  it('date — rejects non-date string', async () => {
+    const form = createForm({ initialValues: { dob: 'not-a-date' }, rules: { dob: 'date' } });
+    await form.validate();
+    expect(form.getState().errors.dob).toBeTruthy();
+  });
+});
+
+describe('built-in rules — length and size', () => {
+  it('minLength — passes when long enough', async () => {
+    const form = createForm({ initialValues: { pw: 'secret' }, rules: { pw: { minLength: 6 } } });
+    await form.validate();
+    expect(form.getState().errors.pw).toBeUndefined();
+  });
+
+  it('minLength — rejects too short', async () => {
+    const form = createForm({ initialValues: { pw: 'abc' }, rules: { pw: { minLength: 6 } } });
+    await form.validate();
+    expect(form.getState().errors.pw).toBeTruthy();
+  });
+
+  it('maxLength — rejects too long', async () => {
+    const form = createForm({ initialValues: { bio: 'x'.repeat(201) }, rules: { bio: { maxLength: 200 } } });
+    await form.validate();
+    expect(form.getState().errors.bio).toBeTruthy();
+  });
+
+  it('min/max — passes within range', async () => {
+    const form = createForm({ initialValues: { age: 25 }, rules: { age: [{ min: 18 }, { max: 120 }] } });
+    await form.validate();
+    expect(form.getState().errors.age).toBeUndefined();
+  });
+
+  it('min — rejects below minimum', async () => {
+    const form = createForm({ initialValues: { age: 10 }, rules: { age: { min: 18 } } });
+    await form.validate();
+    expect(form.getState().errors.age).toBeTruthy();
+  });
+});
+
+describe('built-in rules — string content', () => {
+  it('startsWith — passes matching prefix', async () => {
+    const form = createForm({ initialValues: { code: 'US-123' }, rules: { code: { startsWith: 'US-' } } });
+    await form.validate();
+    expect(form.getState().errors.code).toBeUndefined();
+  });
+
+  it('startsWith — rejects wrong prefix', async () => {
+    const form = createForm({ initialValues: { code: 'EU-123' }, rules: { code: { startsWith: 'US-' } } });
+    await form.validate();
+    expect(form.getState().errors.code).toBeTruthy();
+  });
+
+  it('endsWith — passes matching suffix', async () => {
+    const form = createForm({ initialValues: { file: 'report.pdf' }, rules: { file: { endsWith: '.pdf' } } });
+    await form.validate();
+    expect(form.getState().errors.file).toBeUndefined();
+  });
+
+  it('includes — rejects missing substring', async () => {
+    const form = createForm({ initialValues: { bio: 'hello world' }, rules: { bio: { includes: 'missing' } } });
+    await form.validate();
+    expect(form.getState().errors.bio).toBeTruthy();
+  });
+
+  it('pattern — passes matching regex', async () => {
+    const form = createForm({ initialValues: { code: 'ABC-123' }, rules: { code: { pattern: /^[A-Z]+-\d+$/ } } });
+    await form.validate();
+    expect(form.getState().errors.code).toBeUndefined();
+  });
+
+  it('pattern — rejects non-matching', async () => {
+    const form = createForm({ initialValues: { code: 'abc123' }, rules: { code: { pattern: /^[A-Z]+-\d+$/ } } });
+    await form.validate();
+    expect(form.getState().errors.code).toBeTruthy();
+  });
+});
+
+describe('built-in rules — array', () => {
+  it('minItems — passes with enough items', async () => {
+    const form = createForm({ initialValues: { tags: ['a', 'b'] }, rules: { tags: { minItems: 1 } } });
+    await form.validate();
+    expect(form.getState().errors.tags).toBeUndefined();
+  });
+
+  it('minItems — rejects empty array', async () => {
+    const form = createForm({ initialValues: { tags: [] as string[] }, rules: { tags: { minItems: 1 } } });
+    await form.validate();
+    expect(form.getState().errors.tags).toBeTruthy();
+  });
+
+  it('maxItems — rejects too many items', async () => {
+    const form = createForm({ initialValues: { tags: ['a', 'b', 'c', 'd', 'e', 'f'] }, rules: { tags: { maxItems: 5 } } });
+    await form.validate();
+    expect(form.getState().errors.tags).toBeTruthy();
+  });
+
+  it('unique — passes distinct items', async () => {
+    const form = createForm({ initialValues: { tags: ['a', 'b', 'c'] }, rules: { tags: 'unique' } });
+    await form.validate();
+    expect(form.getState().errors.tags).toBeUndefined();
+  });
+
+  it('unique — rejects duplicate items', async () => {
+    const form = createForm({ initialValues: { tags: ['a', 'b', 'a'] }, rules: { tags: 'unique' } });
+    await form.validate();
+    expect(form.getState().errors.tags).toBeTruthy();
+  });
+
+  it('unique — works with objects using deep equality', async () => {
+    const form = createForm({
+      initialValues: { items: [{ id: 1 }, { id: 2 }, { id: 1 }] },
+      rules: { items: 'unique' }
+    });
+    await form.validate();
+    expect(form.getState().errors.items).toBeTruthy();
+  });
+
+  it('contains — passes when value is present', async () => {
+    const form = createForm({ initialValues: { roles: ['admin', 'user'] }, rules: { roles: { contains: 'admin' } } });
+    await form.validate();
+    expect(form.getState().errors.roles).toBeUndefined();
+  });
+
+  it('contains — rejects when value is absent', async () => {
+    const form = createForm({ initialValues: { roles: ['user'] }, rules: { roles: { contains: 'admin' } } });
+    await form.validate();
+    expect(form.getState().errors.roles).toBeTruthy();
+  });
+});
+
+describe('built-in rules — enum', () => {
+  it('oneOf — passes for allowed value', async () => {
+    const form = createForm({ initialValues: { role: 'admin' }, rules: { role: { oneOf: ['admin', 'user'] } } });
+    await form.validate();
+    expect(form.getState().errors.role).toBeUndefined();
+  });
+
+  it('oneOf — rejects disallowed value', async () => {
+    const form = createForm({ initialValues: { role: 'superuser' }, rules: { role: { oneOf: ['admin', 'user'] } } });
+    await form.validate();
+    expect(form.getState().errors.role).toBeTruthy();
+  });
+
+  it('notOneOf — rejects blacklisted value', async () => {
+    const form = createForm({ initialValues: { name: 'admin' }, rules: { name: { notOneOf: ['admin', 'root'] } } });
+    await form.validate();
+    expect(form.getState().errors.name).toBeTruthy();
+  });
+
+  it('notOneOf — passes non-blacklisted value', async () => {
+    const form = createForm({ initialValues: { name: 'alice' }, rules: { name: { notOneOf: ['admin', 'root'] } } });
+    await form.validate();
+    expect(form.getState().errors.name).toBeUndefined();
+  });
+});
+
+describe('built-in rules — cross-field', () => {
+  it('matches — passes for equal primitive values', async () => {
+    const form = createForm({
+      initialValues: { password: 'secret', confirm: 'secret' },
+      rules: { confirm: { matches: 'password' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.confirm).toBeUndefined();
+  });
+
+  it('matches — rejects when values differ', async () => {
+    const form = createForm({
+      initialValues: { password: 'secret', confirm: 'wrong' },
+      rules: { confirm: { matches: 'password' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.confirm).toBeTruthy();
+  });
+
+  it('matches — uses deep equality for objects', async () => {
+    const form = createForm({
+      initialValues: { a: { x: 1, y: 2 }, b: { x: 1, y: 2 } },
+      rules: { b: { matches: 'a' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.b).toBeUndefined();
+  });
+
+  it('matches — uses deep equality for arrays', async () => {
+    const form = createForm({
+      initialValues: { a: [1, 2, 3], b: [1, 2, 4] },
+      rules: { b: { matches: 'a' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.b).toBeTruthy();
+  });
+
+  it('doesNotMatch — passes when values differ', async () => {
+    const form = createForm({
+      initialValues: { username: 'alice', password: 'aliceXYZ' },
+      rules: { password: { doesNotMatch: 'username' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.password).toBeUndefined();
+  });
+
+  it('doesNotMatch — rejects when values are equal', async () => {
+    const form = createForm({
+      initialValues: { username: 'alice', password: 'alice' },
+      rules: { password: { doesNotMatch: 'username' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.password).toBeTruthy();
+  });
+
+  it('greaterThan — passes when value exceeds path value', async () => {
+    const form = createForm({
+      initialValues: { min: 10, max: 20 },
+      rules: { max: { greaterThan: 'min' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.max).toBeUndefined();
+  });
+
+  it('greaterThan — rejects when value does not exceed path value', async () => {
+    const form = createForm({
+      initialValues: { min: 20, max: 10 },
+      rules: { max: { greaterThan: 'min' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.max).toBeTruthy();
+  });
+
+  it('lessThan — passes when value is below path value', async () => {
+    const form = createForm({
+      initialValues: { low: 5, high: 10 },
+      rules: { low: { lessThan: 'high' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.low).toBeUndefined();
+  });
+
+  it('after — passes when date is later', async () => {
+    const form = createForm({
+      initialValues: { start: '2024-01-01', end: '2024-12-31' },
+      rules: { end: { after: 'start' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.end).toBeUndefined();
+  });
+
+  it('after — rejects when date is earlier', async () => {
+    const form = createForm({
+      initialValues: { start: '2024-12-31', end: '2024-01-01' },
+      rules: { end: { after: 'start' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.end).toBeTruthy();
+  });
+
+  it('before — passes when date is earlier', async () => {
+    const form = createForm({
+      initialValues: { start: '2024-01-01', end: '2024-12-31' },
+      rules: { start: { before: 'end' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.start).toBeUndefined();
+  });
+});
+
+describe('built-in rules — conditional presence', () => {
+  it('requiredIf — not required when trigger is falsy', async () => {
+    const form = createForm({
+      initialValues: { hasAddress: false, address: '' },
+      rules: { address: { requiredIf: 'hasAddress' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.address).toBeUndefined();
+  });
+
+  it('requiredIf — required when trigger is truthy', async () => {
+    const form = createForm({
+      initialValues: { hasAddress: true, address: '' },
+      rules: { address: { requiredIf: 'hasAddress' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.address).toBeTruthy();
+  });
+
+  it('requiredIf — passes when trigger is truthy and value is present', async () => {
+    const form = createForm({
+      initialValues: { hasAddress: true, address: '123 Main St' },
+      rules: { address: { requiredIf: 'hasAddress' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.address).toBeUndefined();
+  });
+
+  it('requiredUnless — not required when trigger is truthy', async () => {
+    const form = createForm({
+      initialValues: { isCompany: true, vat: '' },
+      rules: { vat: { requiredUnless: 'isCompany' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.vat).toBeUndefined();
+  });
+
+  it('requiredUnless — required when trigger is falsy and value missing', async () => {
+    const form = createForm({
+      initialValues: { isCompany: false, vat: '' },
+      rules: { vat: { requiredUnless: 'isCompany' } },
+    });
+    await form.validate();
+    expect(form.getState().errors.vat).toBeTruthy();
+  });
+});
+
+describe('built-in rules — composition with custom validator', () => {
+  it('custom validator errors override built-in errors for the same field', async () => {
+    const form = createForm({
+      initialValues: { email: 'notanemail' },
+      rules: { email: 'email' },
+      validator: () => ({ email: 'Custom message from validator' }),
+    });
+    await form.validate();
+    expect(form.getState().errors.email).toBe('Custom message from validator');
+  });
+
+  it('built-in and custom errors coexist on different fields', async () => {
+    const form = createForm({
+      initialValues: { email: 'bad', name: '' },
+      rules: { email: 'email' },
+      validator: () => ({ name: 'Name is required' }),
+    });
+    await form.validate();
+    expect(form.getState().errors.email).toBeTruthy();
+    expect(form.getState().errors.name).toBe('Name is required');
+  });
+
+  it('stops at first failing rule per field (short-circuit)', async () => {
+    const form = createForm({
+      initialValues: { pw: '' },
+      rules: { pw: ['required', { minLength: 8 }] },
+    });
+    await form.validate();
+    expect(form.getState().errors.pw).toBe('This field is required');
+  });
+});
