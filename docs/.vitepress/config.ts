@@ -11,7 +11,7 @@ export default defineConfig({
       { text: 'Getting Started', link: '/getting-started' },
       { text: 'API', link: '/api/' },
       { text: 'Guides', link: '/guides/react' },
-      { text: 'Playground', link: '/playground' },
+      { text: 'Playground', link: '/playground.html' },
     ],
 
     sidebar: {
@@ -54,7 +54,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/koficodedat/agw-form' },
+      { icon: 'github', link: 'https://github.com/agnostic-web/agw-form' },
     ],
   },
 })

@@ -2,7 +2,7 @@
 
 High-performance, zero-dependency, framework-agnostic reactive form engine.
 
-**[Documentation](https://koficodedat.github.io/agw-form/)** · [Getting Started](https://koficodedat.github.io/agw-form/getting-started) · [API Reference](https://koficodedat.github.io/agw-form/api/)
+**[Documentation](https://agnostic-web.github.io/agw-form/)** · [Getting Started](https://agnostic-web.github.io/agw-form/getting-started) · [API Reference](https://agnostic-web.github.io/agw-form/api/)
 
 ## Install
 
