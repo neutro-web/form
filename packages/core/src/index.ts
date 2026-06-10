@@ -446,10 +446,10 @@ function applyBuiltInRules<T>(
 
         // ── Length / size ────────────────────────────────────────────────────
         if ('minLength' in rule) {
-          if (str.length < rule.minLength)
+          if (present && str.length < rule.minLength)
             error = rule.message ?? `Must be at least ${rule.minLength} character${rule.minLength === 1 ? '' : 's'}`;
         } else if ('maxLength' in rule) {
-          if (str.length > rule.maxLength)
+          if (present && str.length > rule.maxLength)
             error = rule.message ?? `Must be at most ${rule.maxLength} character${rule.maxLength === 1 ? '' : 's'}`;
         } else if ('min' in rule) {
           if (present && Number(value) < (rule as { min: number; message?: string }).min)
@@ -487,7 +487,7 @@ function applyBuiltInRules<T>(
 
         // ── Enum ──────────────────────────────────────────────────────────
         } else if ('oneOf' in rule) {
-          if (!(rule as { oneOf: unknown[] }).oneOf.some((opt) => isDeepEqual(value, opt)))
+          if (present && !(rule as { oneOf: unknown[] }).oneOf.some((opt) => isDeepEqual(value, opt)))
             error = rule.message ?? `Must be one of: ${(rule as { oneOf: unknown[] }).oneOf.join(', ')}`;
         } else if ('notOneOf' in rule) {
           if ((rule as { notOneOf: unknown[] }).notOneOf.some((opt) => isDeepEqual(value, opt)))
