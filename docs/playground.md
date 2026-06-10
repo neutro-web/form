@@ -1,23 +1,33 @@
-# Playground
+# Playground & Tutorial
 
-An interactive, self-contained demo of `@agw/form` running directly in the browser — no build step required.
+An interactive walkthrough from Vanilla JS through all five framework adapters — live in your browser, no build step required.
 
-```html
 <iframe
-  src="../hardened_sandbox_playground.html"
-  style="width:100%;height:800px;border:none;border-radius:8px;"
+  src="/agw-form/playground.html"
+  style="width:100%;height:820px;border:none;border-radius:8px;"
   title="@agw/form interactive playground"
 ></iframe>
-```
 
-The playground exercises all major features:
+## What you'll learn
 
-- Multi-step wizard with scoped validation per step
-- Async uniqueness checks with visible AbortSignal cancellation
-- Cursor-preserving phone number formatter via the DOM bridge
-- Multi-select field
-- Date cross-field dependency (end date re-validates when start date changes)
-- Dynamic array CRUD with move and swap operations
-- `reset(newValues)` re-seeding
+The tutorial is split into two tracks:
 
-To run it locally, open `hardened_sandbox_playground.html` directly in a browser from the repository root. It uses Tailwind via CDN and has the engine inlined as vanilla JS.
+**Vanilla JS** — 9 interactive steps where you type into live inputs and see form state, errors, dirty tracking, and array operations update in real time.
+
+| Step | Topic |
+|---|---|
+| 1 | Create a form with `createForm()` |
+| 2 | Get & set values via dot-paths |
+| 3 | Subscribe to full state changes |
+| 4 | Path-scoped subscriptions |
+| 5 | Sync validation |
+| 6 | Async validation with debounce |
+| 7 | Array fields (append, remove, move) |
+| 8 | Dependency graph |
+| 9 | Reset and re-seeding |
+
+**Framework guides** — annotated code walkthroughs for React, Svelte, Vue 3, SolidJS, and Angular showing the same patterns using each adapter.
+
+## Run locally
+
+Open `docs/public/playground.html` directly in a browser from the repository root — it is fully self-contained (Tailwind and highlight.js via CDN, engine inlined as vanilla JS).
