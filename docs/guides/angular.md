@@ -1,9 +1,9 @@
 # Angular Guide
 
-Install the adapter alongside the core:
-
 ```sh
-pnpm add @agnostic-web/form-core @agnostic-web/form-angular
+npm install @agw/form
+# pnpm add @agw/form
+# yarn add @agw/form
 ```
 
 Angular 16+ is required. The adapter uses Angular signals internally.

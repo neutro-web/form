@@ -1,9 +1,9 @@
 # Svelte 5 Guide
 
-Install the adapter alongside the core:
-
 ```sh
-pnpm add @agnostic-web/form-core @agnostic-web/form-svelte
+npm install @agw/form
+# pnpm add @agw/form
+# yarn add @agw/form
 ```
 
 ## Hook Overview

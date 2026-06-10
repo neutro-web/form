@@ -1,9 +1,9 @@
 # React Guide
 
-Install the adapter alongside the core:
-
 ```sh
-pnpm add @agnostic-web/form-core @agnostic-web/form-react
+npm install @agw/form
+# pnpm add @agw/form
+# yarn add @agw/form
 ```
 
 ## Hook Overview
@@ -76,62 +76,61 @@ export function LoginForm() {
 
 ## `useFormPath` — Controlled Field
 
-`useFormPath` subscribes to a single field path. The component re-renders only when that field's value or state changes — not when unrelated fields update.
+`useFormPath` subscribes to a single field path and returns the value at that path with its TypeScript type inferred automatically. The component re-renders only when that field's value changes — not when unrelated fields update.
 
 ```tsx
-import { useFormPath } from '@agw/form/adapters/react'
+import { useForm, useFormPath } from '@agw/form/adapters/react'
 
 function EmailField({ form }: { form: typeof loginForm }) {
-  const { value, error, touched } = useFormPath(form, 'email')
+  const email = useFormPath(form, 'email')   // inferred as string
+  const { errors, touched } = useForm(form)  // for field metadata
 
   return (
     <div>
       <input
-        value={value as string}
+        value={email}
         onChange={(e) =>
           form.set('email', e.target.value, { touch: true, validate: true })
         }
       />
-      {touched && error && <span className="error">{error}</span>}
+      {touched.email && errors.email && <span className="error">{errors.email}</span>}
     </div>
   )
 }
 ```
 
+`useFormPath` returns the field value directly — not an object. Access `errors` and `touched` from `useForm` (or from `form.getState()` if you need them without subscribing).
+
 ---
 
 ## `useFormConnect` — Uncontrolled (Zero Re-render)
 
-`useFormConnect` wires up `form.connect` inside a `useEffect` and returns a React `ref`. Attaching the ref to an input gives you full form integration with no React re-renders — ideal for inputs that fire very frequently (e.g. rich text editors, masked phone fields).
+`useFormConnect` takes the form instance and returns a curried ref-callback factory. Call it with a path (and optional `ConnectOptions`) to get a React ref callback — attach that to any DOM element for zero-rerender integration with the form. Ideal for high-frequency inputs like masked phone fields.
 
 ```tsx
 import { useFormConnect } from '@agw/form/adapters/react'
 
 function PhoneField({ form }: { form: typeof myForm }) {
-  const ref = useFormConnect(form, 'phone', {
-    persist: false,
-    format: (v) => {
-      const digits = String(v).replace(/\D/g, '')
-      if (digits.length <= 3) return digits
-      if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
-      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`
-    },
-  })
+  const register = useFormConnect(form)
 
   return (
     <input
-      ref={ref}
+      ref={register('phone', {
+        format: (v) => {
+          const digits = String(v).replace(/\D/g, '')
+          if (digits.length <= 3) return digits
+          if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+          return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`
+        },
+      })}
       type="tel"
       placeholder="(555) 000-0000"
-      onInput={(e) =>
-        form.set('phone', (e.target as HTMLInputElement).value, { validate: true })
-      }
     />
   )
 }
 ```
 
-The element is disconnected automatically when the component unmounts.
+The element is disconnected automatically when the component unmounts. You can call `register` with multiple paths to wire up several inputs from the same hook.
 
 ---
 
@@ -162,15 +161,16 @@ function Field({ form, path, label }: {
   path: keyof ProfileValues
   label: string
 }) {
-  const { value, error, touched } = useFormPath(form, path)
+  const value = useFormPath(form, path)        // inferred string
+  const { errors, touched } = useForm(form)   // re-renders only matter at this level
   return (
     <label>
       {label}
       <input
-        value={value as string}
+        value={value}
         onChange={(e) => form.set(path, e.target.value, { touch: true, validate: true })}
       />
-      {touched && error && <p className="error">{error}</p>}
+      {touched[path] && errors[path] && <p className="error">{errors[path]}</p>}
     </label>
   )
 }

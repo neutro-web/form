@@ -2,25 +2,32 @@
 
 ```ts
 import { createForm } from '@agw/form/core'
-// or
-import { createForm } from '@agw/form/core'
 ```
 
 ## `FormConfig<T>`
 
 ```ts
-interface FormConfig<T extends Record<string, unknown>> {
+interface FormConfig<T> {
   /** Initial field values. Defines the shape of the form. */
   initialValues: T
+
+  /**
+   * Built-in validation rules per field path.
+   * Rule names or option objects — no external schema library required.
+   *
+   * @example { email: ['required', 'email'], age: [{ min: 0 }, { max: 120 }] }
+   */
+  rules?: Partial<Record<string, BuiltInRule | BuiltInRule[]>>
 
   /**
    * Validator function. May be sync or async.
    * Return a Record<string, string> where keys are dot-notation field paths
    * and values are error messages. An empty object (or undefined) means valid.
+   * Errors from this function take precedence over built-in rules for the same field.
    *
-   * @param values   - current form values snapshot
-   * @param scopePaths - array of field paths being validated in this invocation
-   * @param signal   - AbortSignal; abort if the field changes before this resolves
+   * @param values     - current form values snapshot
+   * @param scopePaths - field paths being validated in this invocation
+   * @param signal     - AbortSignal; abort if the field changes before this resolves
    */
   validator?: (
     values: T,
@@ -117,7 +124,7 @@ form.set('email', 'alice@example.com', { touch: true, validate: true })
 ### `form.validate(paths?)`
 
 ```ts
-form.validate(paths?: string[]): Promise<void>
+form.validate(paths?: string[]): Promise<boolean>
 ```
 
 Runs the validator. When `paths` is provided, only those paths (plus their computed dependents) are validated. When omitted, all fields are validated.
@@ -227,14 +234,55 @@ form.batch(() => {
 ### `form.reset(newValues?)`
 
 ```ts
-form.reset(newValues?: Partial<T>): void
+form.reset(newValues?: T): void
 ```
 
-Resets the form to its initial state. If `newValues` is provided, those values are merged in as the new baseline (and become the new "initial" state for dirty tracking).
+Resets the form to its initial state. If `newValues` is provided, those values become both the current values and the new baseline for dirty tracking.
 
 ```ts
 form.reset()                          // back to original initialValues
 form.reset({ email: 'new@ex.com' })   // re-seed with new values
+```
+
+---
+
+### `form.submit(onValid)`
+
+```ts
+form.submit(onValid: (payload: Partial<T>) => void | Promise<void>): Promise<boolean>
+```
+
+Validates the entire form and, if valid, calls `onValid` with the current payload. Returns `true` on success, `false` if validation failed or the form is already submitting. Sets `isSubmitting = true` while running.
+
+```ts
+const ok = await form.submit(async (payload) => {
+  await fetch('/api/save', { method: 'POST', body: JSON.stringify(payload) })
+})
+if (!ok) console.log('Validation failed:', form.getState().errors)
+```
+
+---
+
+### `form.handleSubmit(onValid, onInvalid?)`
+
+```ts
+form.handleSubmit(
+  onValid: (payload: Partial<T>) => void | Promise<void>,
+  onInvalid?: (errors: Record<string, string>) => void
+): (e?: Event) => void
+```
+
+Convenience wrapper that creates an event handler. Calls `e.preventDefault()` when passed an `Event`, then delegates to `form.submit`. Suitable for attaching directly to `<form onSubmit>`.
+
+```ts
+// Vanilla JS
+formEl.addEventListener('submit', form.handleSubmit(
+  (payload) => fetch('/api/save', { body: JSON.stringify(payload) }),
+  (errors) => console.log('Invalid:', errors)
+))
+
+// React
+<form onSubmit={form.handleSubmit(onValid, onInvalid)}>
 ```
 
 ---
@@ -296,3 +344,22 @@ form.arraySwap(path: string, i: number, j: number): void
 ```
 
 Swaps the items at indices `i` and `j`, swapping their field state as well.
+
+---
+
+## `BuiltInRule`
+
+The full union type accepted by the `rules` config. Single rules or arrays of rules can be assigned per field path.
+
+```ts
+const form = createForm({
+  initialValues: { email: '', age: 0, confirmEmail: '' },
+  rules: {
+    email:        ['required', 'email'],
+    age:          [{ min: 18 }, { max: 120 }],
+    confirmEmail: { matches: 'email', message: 'Emails do not match' },
+  },
+})
+```
+
+See [Getting Started → Built-in Validation Rules](/getting-started#built-in-validation-rules) for the full rule reference table.

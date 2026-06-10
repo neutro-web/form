@@ -99,19 +99,21 @@ While async validation is in progress, `form.getState().isValidating` is `true`.
 ```tsx
 // React example
 function UsernameField({ form }) {
-  const { value, error, touched } = useFormPath(form, 'username')
-  const { isValidating } = useForm(form)
+  const username = useFormPath(form, 'username')         // the field value
+  const { isValidating, errors, touched } = useForm(form)
 
   return (
     <div>
       <input
-        value={value}
+        value={username}
         onChange={(e) =>
           form.set('username', e.target.value, { touch: true, validate: true })
         }
       />
       {isValidating && <span>Checking availability…</span>}
-      {!isValidating && touched && error && <span className="error">{error}</span>}
+      {!isValidating && touched.username && errors.username && (
+        <span className="error">{errors.username}</span>
+      )}
     </div>
   )
 }
