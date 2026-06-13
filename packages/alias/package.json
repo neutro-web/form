@@ -1,6 +1,6 @@
 {
   "name": "@neutro/form",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Framework-agnostic form state management for React, Vue, Svelte, SolidJS, and Angular",
   "keywords": ["form", "validation", "react", "vue", "svelte", "solid", "angular", "framework-agnostic"],
   "license": "MIT",
