@@ -144,6 +144,7 @@ export interface FormInstance<T extends object> {
   reset: (newValues?: T) => void;
   getConnectedCount: () => number;
   destroy: () => void;
+  setErrors(errors: Partial<Record<Path<T> | (string & {}), string>>): void;
 }
 
 // ---------------------------------------------------------------------------
@@ -1042,6 +1043,19 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     };
   };
 
+  const setErrors = (incoming: Record<string, string>): void => {
+    Object.assign(errors, incoming);
+    const paths = Object.keys(incoming);
+    paths.forEach(p => { touched[p] = true; });
+    if (paths.length === 0) {
+      notify();
+    } else {
+      batch(() => {
+        paths.forEach(p => notify(p));
+      });
+    }
+  };
+
   return {
     subscribe,
     subscribeToPath,
@@ -1067,6 +1081,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     getState,
     getPayload: () => _getPayload(values, connectionRegistry, connectedPaths, persistedPaths),
     batch,
+    setErrors,
 
     arrayAppend: (path: Path<T> | string | string[], item: any) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
