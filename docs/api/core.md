@@ -246,6 +246,38 @@ form.reset({ email: 'new@ex.com' })   // re-seed with new values
 
 ---
 
+### `form.setErrors(errors)`
+
+```ts
+form.setErrors(errors: Record<string, string>): void
+```
+
+Merges server-returned field errors into form state. Each injected error behaves identically to a client-side validation error — it appears in `state.errors`, notifies all subscribers, and clears the next time the affected field is validated.
+
+**When to use:** inside your submit handler, after an API call returns field-level validation errors.
+
+```ts
+form.handleSubmit(async (payload) => {
+  const res = await fetch('/api/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const { errors } = await res.json()
+    // e.g. { email: 'Already taken', username: 'Unavailable' }
+    form.setErrors(errors)
+  }
+})
+```
+
+**Merge semantics:** only the keys present in the argument are written. Existing errors for other fields are untouched.
+
+**Touched:** each path in the argument is marked `touched: true` so the error displays immediately, regardless of whether the user has interacted with the field.
+
+**Clearing:** server errors clear the same way client errors do — when `validate()` runs for a path and the validator returns no error for it. `reset()` clears all errors including server-injected ones.
+
+---
+
 ### `form.submit(onValid)`
 
 ```ts
