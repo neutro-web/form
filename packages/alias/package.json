@@ -1,6 +1,6 @@
 {
   "name": "@neutro/form",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "High-performance, zero-dependency, framework-agnostic reactive form engine.",
   "keywords": ["form", "validation", "react", "vue", "svelte", "solid", "angular", "framework-agnostic"],
   "license": "MIT",
@@ -41,6 +41,16 @@
       "types": "./dist/adapters/angular.d.ts",
       "import": "./dist/adapters/angular.js",
       "require": "./dist/adapters/angular.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "core": ["./dist/core.d.ts"],
+      "adapters/react": ["./dist/adapters/react.d.ts"],
+      "adapters/svelte": ["./dist/adapters/svelte.d.ts"],
+      "adapters/vue": ["./dist/adapters/vue.d.ts"],
+      "adapters/solid": ["./dist/adapters/solid.d.ts"],
+      "adapters/angular": ["./dist/adapters/angular.d.ts"]
     }
   },
   "scripts": {
