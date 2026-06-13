@@ -144,7 +144,7 @@ export interface FormInstance<T extends object> {
   reset: (newValues?: T) => void;
   getConnectedCount: () => number;
   destroy: () => void;
-  setErrors(errors: Partial<Record<Path<T> | (string & {}), string>>): void;
+  setErrors: (errors: Record<Path<T> | (string & {}), string>) => void;
 }
 
 // ---------------------------------------------------------------------------
