@@ -1044,16 +1044,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   const setErrors = (incoming: Record<string, string>): void => {
-    Object.assign(errors, incoming);
     const paths = Object.keys(incoming);
+    if (paths.length === 0) return;
+    Object.assign(errors, incoming);
     paths.forEach(p => { touched[p] = true; });
-    if (paths.length === 0) {
-      notify();
-    } else {
-      batch(() => {
-        paths.forEach(p => notify(p));
-      });
-    }
+    batch(() => paths.forEach(p => notify(p)));
   };
 
   return {
