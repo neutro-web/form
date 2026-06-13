@@ -2609,3 +2609,187 @@ describe('rules + validator composition', () => {
     expect(form.getState().errors.age).toBeTruthy();
   });
 });
+
+// ---------------------------------------------------------------------------
+// setErrors
+// ---------------------------------------------------------------------------
+
+describe('setErrors', () => {
+  it('merges server errors into existing error state without wiping client errors', async () => {
+    const form = createForm({
+      initialValues: { email: '', username: '' },
+      rules: { username: 'required' },
+    });
+    await form.validate();
+    expect(form.getState().errors.username).toBeTruthy();
+    expect(form.getState().errors.email).toBeUndefined();
+
+    form.setErrors({ email: 'Already taken' });
+
+    expect(form.getState().errors.email).toBe('Already taken');
+    expect(form.getState().errors.username).toBeTruthy();
+  });
+
+  it('marks affected paths as touched', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    expect(form.getState().touched.email).toBeFalsy();
+
+    form.setErrors({ email: 'Already taken' });
+
+    expect(form.getState().touched.email).toBe(true);
+  });
+
+  it('marks multiple affected paths as touched in one call', () => {
+    const form = createForm({ initialValues: { email: '', username: '' } });
+
+    form.setErrors({ email: 'Already taken', username: 'Unavailable' });
+
+    expect(form.getState().touched.email).toBe(true);
+    expect(form.getState().touched.username).toBe(true);
+  });
+
+  it('does not touch paths not present in the incoming errors', () => {
+    const form = createForm({ initialValues: { email: '', username: '' } });
+
+    form.setErrors({ email: 'Already taken' });
+
+    expect(form.getState().touched.username).toBeFalsy();
+  });
+
+  it('notifies global subscribers', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    const listener = vi.fn();
+    form.subscribe(listener);
+    listener.mockClear();
+
+    form.setErrors({ email: 'Already taken' });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][0].errors.email).toBe('Already taken');
+  });
+
+  it('notifies path subscriber for the affected path', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    const listener = vi.fn();
+    form.subscribeToPath('email', listener);
+    listener.mockClear();
+
+    form.setErrors({ email: 'Already taken' });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][1].error).toBe('Already taken');
+  });
+
+  it('does not notify path subscriber for an unaffected path', () => {
+    const form = createForm({ initialValues: { email: '', username: '' } });
+    const listener = vi.fn();
+    form.subscribeToPath('username', listener);
+    listener.mockClear();
+
+    form.setErrors({ email: 'Already taken' });
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('server error clears when validate() runs and validator returns no error for that path', async () => {
+    const form = createForm({
+      initialValues: { email: 'good@example.com' },
+      validator: () => ({}),
+    });
+    form.setErrors({ email: 'Already taken' });
+    expect(form.getState().errors.email).toBe('Already taken');
+
+    await form.validate();
+
+    expect(form.getState().errors.email).toBeUndefined();
+  });
+
+  it('server error clears when set() is called with validate:true and validator returns no error', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      validator: () => ({}),
+    });
+    form.setErrors({ email: 'Already taken' });
+
+    form.set('email', 'new@example.com', { validate: true });
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(form.getState().errors.email).toBeUndefined();
+  });
+
+  it('validate(specificPaths) clears only the validated path, not other server errors', async () => {
+    const form = createForm({
+      initialValues: { email: '', username: '' },
+      validator: () => ({}),
+    });
+    form.setErrors({ email: 'Already taken', username: 'Unavailable' });
+
+    await form.validate(['email']);
+
+    expect(form.getState().errors.email).toBeUndefined();
+    expect(form.getState().errors.username).toBe('Unavailable');
+  });
+
+  it('server error survives set() without validate:true', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    form.setErrors({ email: 'Already taken' });
+
+    form.set('email', 'new@example.com');
+
+    expect(form.getState().errors.email).toBe('Already taken');
+  });
+
+  it('reset() clears all server-injected errors', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    form.setErrors({ email: 'Already taken' });
+
+    form.reset();
+
+    expect(form.getState().errors).toEqual({});
+  });
+
+  it('second setErrors call overwrites the same key', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    form.setErrors({ email: 'Already taken' });
+    form.setErrors({ email: 'Try a different address' });
+
+    expect(form.getState().errors.email).toBe('Try a different address');
+  });
+
+  it('second setErrors call merges new keys without removing prior server errors', () => {
+    const form = createForm({ initialValues: { email: '', username: '' } });
+    form.setErrors({ email: 'Already taken' });
+    form.setErrors({ username: 'Unavailable' });
+
+    expect(form.getState().errors.email).toBe('Already taken');
+    expect(form.getState().errors.username).toBe('Unavailable');
+  });
+
+  it('supports nested dot-notation paths', () => {
+    const form = createForm({ initialValues: { user: { email: '' } } });
+
+    form.setErrors({ 'user.email': 'Already taken' });
+
+    expect(form.getState().errors['user.email']).toBe('Already taken');
+    expect(form.getState().touched['user.email']).toBe(true);
+  });
+
+  it('does not affect isValidating state', () => {
+    const form = createForm({ initialValues: { email: '' } });
+
+    form.setErrors({ email: 'Already taken' });
+
+    expect(form.getState().isValidating).toBe(false);
+  });
+
+  it('handles empty object without throwing or notifying', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    const listener = vi.fn();
+    form.subscribe(listener);
+    listener.mockClear();
+
+    expect(() => form.setErrors({})).not.toThrow();
+    // notify() is still called; subscriber receives unchanged state
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
