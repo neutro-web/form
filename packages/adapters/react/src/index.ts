@@ -22,7 +22,7 @@ export function useForm<T extends object>(form: FormInstance<T>): FormState<T> &
     arrayRemove: form.arrayRemove,
     arrayMove: form.arrayMove,
     arraySwap: form.arraySwap,
-  } as any;
+  } as FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState'>;
 }
 
 export function useFormPath<T extends object, P extends Path<T>>(
