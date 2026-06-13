@@ -3149,12 +3149,16 @@ const ANGULAR_SB_PROJECT = {
     "sourceMap": true,
     "declaration": false,
     "experimentalDecorators": true,
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "importHelpers": true,
     "target": "ES2022",
     "module": "ES2022",
     "useDefineForClassFields": false,
-    "lib": ["ES2022", "dom"]
+    "lib": ["ES2022", "dom"],
+    "paths": {
+      "@neutro/form/core": ["node_modules/@neutro/form/dist/core.d.ts"],
+      "@neutro/form/adapters/angular": ["node_modules/@neutro/form/dist/adapters/angular.d.ts"]
+    }
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
