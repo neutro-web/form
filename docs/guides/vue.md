@@ -10,8 +10,8 @@ npm install @neutro/form
 
 | Hook | Returns | Best for |
 |---|---|---|
-| `useVueForm` | `readonly` ref of full `FormState<T>` | Submit button, form-level status |
-| `useVueFormPath` | `readonly` ref of `{ value, error, touched, dirty }` | Individual field components |
+| `useVueForm` | `{ state: Readonly<Ref<FormState<T>>>, ...methods }` | Submit button, form-level status |
+| `useVueFormPath` | `{ value: Readonly<Ref>, fieldState: Readonly<Ref<{ error?, touched?, dirty? }>> }` | Individual field components |
 
 Both hooks call `onUnmounted` to clean up their subscriptions automatically.
 
@@ -36,8 +36,8 @@ const form = createForm<LoginValues>({
   },
 })
 
-// Readonly ref — Vue reactivity tracks reads automatically
-const state = useVueForm(form)
+// Destructure state (readonly ShallowRef) — Vue auto-unwraps it in the template
+const { state } = useVueForm(form)
 
 async function handleSubmit() {
   await form.validate()
@@ -131,7 +131,7 @@ const city = useVueFormPath(props.form, cityPath)
       })
     "
   />
-  <span v-if="city.error">{{ city.error }}</span>
+  <span v-if="city.fieldState?.error">{{ city.fieldState?.error }}</span>
 </template>
 ```
 
@@ -158,7 +158,7 @@ const form = createForm<Values>({
   validator: zodAdapter(schema),
 })
 
-const state = useVueForm(form)
+const { state } = useVueForm(form)
 const username = useVueFormPath(form, 'username')
 const email = useVueFormPath(form, 'email')
 </script>
@@ -173,7 +173,7 @@ const email = useVueFormPath(form, 'email')
           touch: true, validate: true
         })"
       />
-      <span v-if="username.touched && username.error">{{ username.error }}</span>
+      <span v-if="username.fieldState?.touched && username.fieldState?.error">{{ username.fieldState?.error }}</span>
     </label>
 
     <label>
@@ -185,7 +185,7 @@ const email = useVueFormPath(form, 'email')
           touch: true, validate: true
         })"
       />
-      <span v-if="email.touched && email.error">{{ email.error }}</span>
+      <span v-if="email.fieldState?.touched && email.fieldState?.error">{{ email.fieldState?.error }}</span>
     </label>
 
     <button type="submit" :disabled="state.isSubmitting">Save</button>
@@ -195,6 +195,10 @@ const email = useVueFormPath(form, 'email')
 
 ---
 
-## Notes on Readonly Refs
+## Return Shape Reference
 
-Both `useVueForm` and `useVueFormPath` return `readonly` refs. Attempting to mutate them directly will produce a Vue warning in development. All mutations must go through the form methods (`form.set`, `form.validate`, etc.) — the refs are read-only by design so that the engine remains the single source of truth.
+`useVueForm(form)` returns `{ state, get, set, connect, submit, handleSubmit, reset, batch, arrayAppend, arrayInsert, arrayRemove, arrayMove, arraySwap }`. Destructure `state` to get the reactive `ShallowRef<FormState<T>>` — Vue auto-unwraps it in templates so `state.values.email` works without `.value`.
+
+`useVueFormPath(form, path)` returns `{ value, fieldState }` — both are readonly refs. `value` holds the field's current value; `fieldState` holds `{ error?, touched?, dirty? }` or `null`. Access them as `field.value` and `field.fieldState?.error` in templates (Vue unwraps the refs automatically).
+
+Attempting to mutate either ref directly produces a Vue warning in development. All mutations go through the form methods — the refs are read-only so the engine remains the single source of truth.

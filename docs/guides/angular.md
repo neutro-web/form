@@ -77,9 +77,9 @@ export class LoginFormComponent {
 
 ---
 
-## `useAngularFormPath` — Field Signal
+## `useAngularFormPath` — Field Signals
 
-`useAngularFormPath` returns a signal for a single field path. It updates only when that path's value or state changes.
+`useAngularFormPath` returns `{ value: Signal<unknown>, fieldState: Signal<{ error?, touched?, dirty? } | null> }` — two independent readonly signals. Call each to read its current value: `field.value()` for the field's value, `field.fieldState()?.error` for the error message.
 
 ```ts
 import { Component, input } from '@angular/core'
@@ -93,11 +93,11 @@ import { useAngularFormPath } from '@neutro/form/adapters/angular'
     <label>
       {{ label() }}
       <input
-        [value]="field().value"
+        [value]="field.value()"
         (input)="onInput($event)"
       />
-      @if (field().touched && field().error) {
-        <span class="error">{{ field().error }}</span>
+      @if (field.fieldState()?.touched && field.fieldState()?.error) {
+        <span class="error">{{ field.fieldState()?.error }}</span>
       }
     </label>
   `,
@@ -146,11 +146,11 @@ type Values = z.infer<typeof schema>
       <label>
         Username
         <input
-          [value]="username().value"
+          [value]="username.value()"
           (input)="form.set('username', $event.target.value, { touch: true, validate: true })"
         />
-        @if (username().touched && username().error) {
-          <span>{{ username().error }}</span>
+        @if (username.fieldState()?.touched && username.fieldState()?.error) {
+          <span>{{ username.fieldState()?.error }}</span>
         }
       </label>
 
@@ -158,11 +158,11 @@ type Values = z.infer<typeof schema>
         Email
         <input
           type="email"
-          [value]="email().value"
+          [value]="email.value()"
           (input)="form.set('email', $event.target.value, { touch: true, validate: true })"
         />
-        @if (email().touched && email().error) {
-          <span>{{ email().error }}</span>
+        @if (email.fieldState()?.touched && email.fieldState()?.error) {
+          <span>{{ email.fieldState()?.error }}</span>
         }
       </label>
 

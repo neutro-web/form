@@ -10,8 +10,8 @@ npm install @neutro/form
 
 | Hook | Returns | Best for |
 |---|---|---|
-| `useSvelteForm` | Svelte readable of full `FormState<T>` | Submit button, form-level status |
-| `useSvelteFormPath` | Svelte readable of `{ value, error, touched, dirty }` | Individual field components |
+| `useSvelteForm` | `{ state: Readable<FormState<T>>, ...methods }` | Submit button, form-level status |
+| `useSvelteFormPath` | `Readable<{ value, fieldState: { error?, touched?, dirty? } }>` | Individual field components |
 
 > **Important:** Call both hooks during component initialisation — not inside event handlers or `setTimeout`. They call `onDestroy` internally to unsubscribe, which requires a live Svelte component context.
 
@@ -36,8 +36,8 @@ npm install @neutro/form
     },
   })
 
-  // Returns a Svelte readable store
-  const state = useSvelteForm(form)
+  // Destructure state (the Svelte readable) — use $state in templates
+  const { state } = useSvelteForm(form)
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
@@ -73,7 +73,7 @@ npm install @neutro/form
 
 ## `useSvelteFormPath` — Single Field Store
 
-`useSvelteFormPath` returns a readable store that updates only when the specified path changes. Use the `$field` shorthand to access `value`, `error`, `touched`, and `dirty` reactively.
+`useSvelteFormPath` returns a readable store of `{ value, fieldState }`. Use the `$field` shorthand in templates: `$field.value` for the field's current value, `$field.fieldState?.error` / `$field.fieldState?.touched` for validation state.
 
 ```svelte
 <script lang="ts">
@@ -125,7 +125,7 @@ npm install @neutro/form
     validator: zodAdapter(schema),
   })
 
-  const state = useSvelteForm(form)
+  const { state } = useSvelteForm(form)
   const username = useSvelteFormPath(form, 'username')
   const email = useSvelteFormPath(form, 'email')
 </script>
@@ -137,8 +137,8 @@ npm install @neutro/form
       value={$username.value}
       on:input={(e) => form.set('username', e.currentTarget.value, { touch: true, validate: true })}
     />
-    {#if $username.touched && $username.error}
-      <span>{$username.error}</span>
+    {#if $username.fieldState?.touched && $username.fieldState?.error}
+      <span>{$username.fieldState?.error}</span>
     {/if}
   </label>
 
@@ -149,8 +149,8 @@ npm install @neutro/form
       value={$email.value}
       on:input={(e) => form.set('email', e.currentTarget.value, { touch: true, validate: true })}
     />
-    {#if $email.touched && $email.error}
-      <span>{$email.error}</span>
+    {#if $email.fieldState?.touched && $email.fieldState?.error}
+      <span>{$email.fieldState?.error}</span>
     {/if}
   </label>
 

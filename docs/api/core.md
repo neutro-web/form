@@ -17,7 +17,7 @@ interface FormConfig<T> {
    *
    * @example { email: ['required', 'email'], age: [{ min: 0 }, { max: 120 }] }
    */
-  rules?: Partial<Record<string, BuiltInRule | BuiltInRule[]>>
+  rules?: Partial<Record<Path<T> | (string & {}), BuiltInRule | BuiltInRule[]>>
 
   /**
    * Validator function. May be sync or async.
@@ -252,7 +252,7 @@ form.reset({ email: 'new@ex.com' })   // re-seed with new values
 form.submit(onValid: (payload: Partial<T>) => void | Promise<void>): Promise<boolean>
 ```
 
-Validates the entire form and, if valid, calls `onValid` with the current payload. Returns `true` on success, `false` if validation failed or the form is already submitting. Sets `isSubmitting = true` while running.
+Validates the entire form and, if valid, calls `onValid` with the current payload. Returns `true` on success, `false` if validation failed or the form is already submitting. Sets `isSubmitting = true` while running. All fields are marked as `touched` before validation runs, so error messages appear immediately even for fields the user has not interacted with.
 
 ```ts
 const ok = await form.submit(async (payload) => {
