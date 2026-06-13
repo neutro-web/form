@@ -10,7 +10,7 @@ export default defineConfig({
     'adapters/angular': 'src/adapters/angular.ts',
   },
   format: ['esm', 'cjs'],
-  dts: true,
+  dts: { resolve: true },
   clean: true,
   external: [
     'react',
