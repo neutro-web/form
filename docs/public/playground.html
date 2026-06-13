@@ -1835,6 +1835,104 @@ run(el) {
 
 // ── Step 15 ─────────────────────────────────────────────────────────────────
 {
+title: 'setErrors — Server Error Injection',
+desc: 'After a failed API call, use setErrors() to merge server-returned field errors into form state. They behave identically to client errors: appear in state.errors, notify subscribers, and clear on the next validation run.',
+code: `const form = createForm({
+  initialValues: { email: '', username: '' },
+  rules: {
+    email: ['required', 'email'],
+    username: 'required',
+  },
+});
+
+// Simulate a submit that hits the server
+await form.submit(async (payload) => {
+  const res = await fakeApi(payload); // POST /api/register
+
+  if (!res.ok) {
+    // Merge server errors into form state — same as client errors
+    form.setErrors(res.errors);
+    // e.g. { email: 'Already taken', username: 'Unavailable' }
+  }
+});
+
+// Server errors appear in state.errors immediately
+// Edit a field and validate to clear its error`,
+
+run(el) {
+  const form = createForm({
+    initialValues: { email: '', username: '' },
+    rules: {
+      email: ['required', 'email'],
+      username: 'required',
+    },
+  });
+
+  // Wire up display
+  const unsub = form.subscribe(state => {
+    const emailErr  = el.querySelector('#se-email-err');
+    const userErr   = el.querySelector('#se-user-err');
+    const log       = el.querySelector('#se-log');
+    if (emailErr) emailErr.textContent = (state.touched.email && state.errors.email) ? state.errors.email : '';
+    if (userErr)  userErr.textContent  = (state.touched.username && state.errors.username) ? state.errors.username : '';
+    if (log) {
+      const errs = Object.keys(state.errors);
+      log.textContent = errs.length ? 'Errors: ' + JSON.stringify(state.errors) : 'No errors';
+    }
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div style="flex:1">
+        <div class="fld">
+          <label>Email</label>
+          <input id="se-email" placeholder="user@example.com" />
+          <span class="err" id="se-email-err"></span>
+        </div>
+        <div class="fld">
+          <label>Username</label>
+          <input id="se-user" placeholder="username" />
+          <span class="err" id="se-user-err"></span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="primary" id="se-submit">Submit (simulate taken)</button>
+          <button id="se-clear">Validate to clear</button>
+        </div>
+      </div>
+      <div class="state" style="flex:1">
+        <div id="se-log" style="font-size:13px;color:#aaa">No errors</div>
+      </div>
+    </div>
+  `;
+
+  el.querySelector('#se-email').addEventListener('input', e => {
+    form.set('email', e.target.value, { touch: true });
+  });
+  el.querySelector('#se-user').addEventListener('input', e => {
+    form.set('username', e.target.value, { touch: true });
+  });
+
+  el.querySelector('#se-submit').addEventListener('click', async () => {
+    await form.submit(async (payload) => {
+      // Simulate server rejecting with field errors
+      await new Promise(r => setTimeout(r, 300));
+      form.setErrors({
+        email: 'Already taken',
+        username: 'Unavailable',
+      });
+    });
+  });
+
+  el.querySelector('#se-clear').addEventListener('click', async () => {
+    await form.validate();
+  });
+
+  return () => unsub();
+},
+},
+
+// ── Step 16 ─────────────────────────────────────────────────────────────────
+{
 title: 'DOM Connect Bridge',
 desc: 'form.connect(path, element) links an input to a form path — syncing value, touch, and validation automatically. Supports format() for masking (phone, card number, etc).',
 code: `const form = createForm({
@@ -1942,7 +2040,7 @@ run(el) {
 }
 },
 
-// ── Step 16 ─────────────────────────────────────────────────────────────────
+// ── Step 17 ─────────────────────────────────────────────────────────────────
 {
 title: 'Performance Lab',
 desc: 'Stress-test the engine. Add 50 subscribers, batch 100 field mutations, run async validation — then inspect the perf metrics: notification count, validation time, epoch, and subscriber map.',
