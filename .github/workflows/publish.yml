@@ -42,7 +42,7 @@ jobs:
           echo "✅ Version $PKG_VERSION matches tag"
 
       - name: Build
-        run: pnpm --filter @neutro/form-core run build && pnpm --filter @neutro/form run build
+        run: pnpm --filter "@neutro/*" run build
 
       - name: Publish
         run: pnpm --filter @neutro/form publish --access public --no-git-checks
