@@ -15,6 +15,7 @@ export interface VueFormReturn<T extends object> {
   arrayRemove: FormInstance<T>['arrayRemove'];
   arrayMove: FormInstance<T>['arrayMove'];
   arraySwap: FormInstance<T>['arraySwap'];
+  setErrors: FormInstance<T>['setErrors'];
 }
 
 export function useVueForm<T extends object>(form: FormInstance<T>): VueFormReturn<T> {
@@ -35,6 +36,7 @@ export function useVueForm<T extends object>(form: FormInstance<T>): VueFormRetu
     arrayRemove: form.arrayRemove,
     arrayMove: form.arrayMove,
     arraySwap: form.arraySwap,
+    setErrors: form.setErrors,
   };
 }
 
