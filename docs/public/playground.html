@@ -3101,7 +3101,7 @@ const ANGULAR_SB_PROJECT = {
     "sourceMap": true,
     "declaration": false,
     "experimentalDecorators": true,
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "importHelpers": true,
     "target": "ES2022",
     "module": "ES2022",
@@ -3118,15 +3118,6 @@ const ANGULAR_SB_PROJECT = {
     "strictInputAccessModifiers": true,
     "strictTemplates": true
   }
-}`,
-    'tsconfig.app.json': `{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "outDir": "./dist/out-tsc",
-    "types": []
-  },
-  "files": ["src/main.ts"],
-  "include": ["src/**/*.d.ts"]
 }`,
     'src/index.html': `<!DOCTYPE html>
 <html lang="en">
