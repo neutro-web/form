@@ -1868,19 +1868,6 @@ run(el) {
     },
   });
 
-  // Wire up display
-  const unsub = form.subscribe(state => {
-    const emailErr  = el.querySelector('#se-email-err');
-    const userErr   = el.querySelector('#se-user-err');
-    const log       = el.querySelector('#se-log');
-    if (emailErr) emailErr.textContent = (state.touched.email && state.errors.email) ? state.errors.email : '';
-    if (userErr)  userErr.textContent  = (state.touched.username && state.errors.username) ? state.errors.username : '';
-    if (log) {
-      const errs = Object.keys(state.errors);
-      log.textContent = errs.length ? 'Errors: ' + JSON.stringify(state.errors) : 'No errors';
-    }
-  });
-
   el.innerHTML = `
     <div class="df">
       <div style="flex:1">
@@ -1905,6 +1892,19 @@ run(el) {
     </div>
   `;
 
+  // Wire up display
+  const unsub = form.subscribe(state => {
+    const emailErr  = el.querySelector('#se-email-err');
+    const userErr   = el.querySelector('#se-user-err');
+    const log       = el.querySelector('#se-log');
+    if (emailErr) emailErr.textContent = (state.touched.email && state.errors.email) ? state.errors.email : '';
+    if (userErr)  userErr.textContent  = (state.touched.username && state.errors.username) ? state.errors.username : '';
+    if (log) {
+      const errs = Object.keys(state.errors);
+      log.textContent = errs.length ? 'Errors: ' + JSON.stringify(state.errors) : 'No errors';
+    }
+  });
+
   el.querySelector('#se-email').addEventListener('input', e => {
     form.set('email', e.target.value, { touch: true });
   });
@@ -1916,10 +1916,10 @@ run(el) {
     await form.submit(async (payload) => {
       // Simulate server rejecting with field errors
       await new Promise(r => setTimeout(r, 300));
-      form.setErrors({
-        email: 'Already taken',
-        username: 'Unavailable',
-      });
+      const res = { ok: false, errors: { email: 'Already taken', username: 'Unavailable' } };
+      if (!res.ok) {
+        form.setErrors(res.errors);
+      }
     });
   });
 
@@ -1927,7 +1927,8 @@ run(el) {
     await form.validate();
   });
 
-  return () => unsub();
+  el._cleanup = unsub;
+  return form;
 },
 },
 

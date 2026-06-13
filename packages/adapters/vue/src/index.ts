@@ -1,4 +1,4 @@
-import { type DeepReadonly, type ShallowRef, shallowRef, readonly, unref, watch, onUnmounted, type MaybeRef } from 'vue';
+import { type DeepReadonly, type ShallowRef, shallowRef, readonly, unref, watch, onUnmounted, getCurrentInstance, type MaybeRef } from 'vue';
 import type { FormInstance, FormState } from '@neutro/form-core';
 
 export interface VueFormReturn<T extends object> {
@@ -21,7 +21,7 @@ export interface VueFormReturn<T extends object> {
 export function useVueForm<T extends object>(form: FormInstance<T>): VueFormReturn<T> {
   const state = shallowRef<FormState<T>>(form.getState());
   const unsubscribe = form.subscribe((s) => { state.value = s; });
-  onUnmounted(unsubscribe);
+  if (getCurrentInstance()) onUnmounted(unsubscribe);
   return {
     state: readonly(state),
     get: form.get,
@@ -63,7 +63,7 @@ export function useVueFormPath<T extends object>(form: FormInstance<T>, path: Ma
     }
   );
 
-  onUnmounted(() => unsubscribe());
+  if (getCurrentInstance()) onUnmounted(() => unsubscribe());
 
   return { value: readonly(value), fieldState: readonly(fieldState) };
 }
