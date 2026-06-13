@@ -96,7 +96,7 @@ const field = useVueFormPath(props.form, () => props.path)
         validate: true,
       })"
     />
-    <span v-if="field.touched && field.error" class="error">{{ field.error }}</span>
+    <span v-if="field.fieldState?.touched && field.fieldState?.error" class="error">{{ field.fieldState?.error }}</span>
   </label>
 </template>
 ```

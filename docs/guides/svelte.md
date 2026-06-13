@@ -96,8 +96,8 @@ npm install @neutro/form
       form.set(path, e.currentTarget.value, { touch: true, validate: true })
     }
   />
-  {#if $field.touched && $field.error}
-    <span class="error">{$field.error}</span>
+  {#if $field.fieldState?.touched && $field.fieldState?.error}
+    <span class="error">{$field.fieldState?.error}</span>
   {/if}
 </label>
 ```

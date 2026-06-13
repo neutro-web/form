@@ -6,7 +6,6 @@
   <title>@neutro/form — Playground</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-  <script src="form-core.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -225,14 +224,12 @@
   <button class="nav-btn" id="nextBtn">Next →</button>
 </footer>
 
-<script>
-// agwForm global is loaded from form-core.js above
-// `let` so renderDemo can temporarily wrap it with withPerf during step.run()
-let createForm = agwForm.createForm;
+<script type="module">
+import { createForm as _createForm } from 'https://esm.sh/@neutro/form@0.0.5/core';
+let createForm = _createForm;
 
 // Dynamic base URL — works on localhost AND GitHub Pages
 const BASE_URL = window.location.origin + (window.location.pathname.includes('/form') ? '/form/' : '/');
-const CORE_URL = BASE_URL + 'form-core.js';
 
 // ─── IFRAME STYLE SHEET (injected into framework iframes) ────────────────────
 const IFRAME_CSS = `
@@ -270,9 +267,11 @@ function makeReactIframe(jsx, extraSetup = '') {
 <script src="https://unpkg.com/@babel/standalone@7.24.4/babel.min.js"><\/script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"><\/script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"><\/script>
-<script src="${CORE_URL}"><\/script>
+<script type="module">
+import { createForm } from 'https://esm.sh/@neutro/form@0.0.5/core';
+window.createForm = createForm;
+<\/script>
 <script>
-const { createForm } = agwForm;
 function useForm(form) {
   const [s, set] = React.useState(() => form.getState());
   React.useEffect(() => form.subscribe(set), []);
@@ -297,9 +296,8 @@ function makeVueIframe(setup, template) {
   return `<!DOCTYPE html><html><head><style>${IFRAME_CSS}<\/style><\/head><body>
 <div id="app"><\/div>
 <script src="https://unpkg.com/vue@3.4.31/dist/vue.global.prod.js"><\/script>
-<script src="${CORE_URL}"><\/script>
-<script>
-const { createForm } = agwForm;
+<script type="module">
+import { createForm } from 'https://esm.sh/@neutro/form@0.0.5/core';
 const { createApp, ref, shallowRef, computed, onUnmounted, readonly } = Vue;
 function useVueForm(form) {
   const state = shallowRef(form.getState());
@@ -378,8 +376,8 @@ function makeSvelteIframe(svelteSource) {
 <div id="root"><\/div>
 <script type="module">
 import { compile } from 'https://esm.sh/svelte@4.1.2/compiler';
-await new Promise(res => { const s = document.createElement('script'); s.src='${CORE_URL}'; s.onload=res; document.head.appendChild(s); });
-window.createForm = agwForm.createForm;
+import { createForm } from 'https://esm.sh/@neutro/form@0.0.5/core';
+window.createForm = createForm;
 const src = ${jsonSrc};
 try {
   const { js } = compile(src, { filename:'Demo.svelte', generate:'dom', format:'esm', dev:false });
@@ -427,15 +425,7 @@ function makeSolidIframe(code) {
 import{createSignal,createEffect,onCleanup,For,Show,createMemo}from'https://esm.sh/solid-js@1.8.17';
 import{render}from'https://esm.sh/solid-js@1.8.17/web';
 import html from'https://esm.sh/solid-js@1.8.17/html';
-
-// Load engine via dynamic import of the IIFE script
-await new Promise(res => {
-  const s = document.createElement('script');
-  s.src = '${CORE_URL}';
-  s.onload = res;
-  document.head.appendChild(s);
-});
-const { createForm } = window.agwForm;
+import { createForm } from 'https://esm.sh/@neutro/form@0.0.5/core';
 
 function useSolidForm(form) {
   const [s, set] = createSignal(form.getState(), { equals: false });
@@ -455,7 +445,7 @@ ${code}
 }
 
 function makeAngularIframe() {
-  const NGV = '17.3.12';
+  const NGV = '19';
   const esm = 'https://esm.sh';
   return `<!DOCTYPE html><html><head><style>${IFRAME_CSS}
 body{font-family:system-ui,sans-serif}
@@ -474,8 +464,9 @@ button:disabled{opacity:.6;cursor:not-allowed}
 <\/style><\/head><body>
 <app-root>Loading…<\/app-root>
 <script type="module">
+import '${esm}/zone.js@0.16.2';
 import '${esm}/@angular/compiler@${NGV}';
-import { Injectable, Component, inject, signal, provideExperimentalZonelessChangeDetection } from '${esm}/@angular/core@${NGV}';
+import { Injectable, Component, inject, signal, NgZone } from '${esm}/@angular/core@${NGV}';
 import { NgIf } from '${esm}/@angular/common@${NGV}';
 import { bootstrapApplication } from '${esm}/@angular/platform-browser@${NGV}';
 import { createForm } from '${esm}/@neutro/form@0.0.5/core';
@@ -490,10 +481,12 @@ class _FormService {
     },
   });
   state = signal(this._form.getState());
-  constructor() { this._form.subscribe(s => this.state.set(s)); }
+  wasSubmitted = signal(false);
+  _zone = inject(NgZone);
+  constructor() { this._form.subscribe(s => this._zone.run(() => this.state.set(s))); }
   set(path, value) { this._form.set(path, value, { touch: true, validate: true }); }
-  submit(cb) { return this._form.submit(cb); }
-  reset() { this._form.reset(); }
+  submit(cb) { this.wasSubmitted.set(true); return this._form.submit(cb); }
+  reset() { this._form.reset(); this.wasSubmitted.set(false); }
 }
 const FormService = Injectable({ providedIn: 'root' })(_FormService);
 
@@ -507,12 +500,12 @@ const AppComponent = Component({
   imports: [NgIf],
   template: \`
     <main>
-      <h2>Angular 17 · createForm + signals</h2>
+      <h2>Angular 19 · createForm + signals</h2>
       <div class="field">
         <label>Name</label>
         <input [value]="svc.state().values.name"
                (input)="svc.set('name', $any($event).target.value)" />
-        <p class="error" *ngIf="svc.state().touched['name'] && svc.state().errors['name']">
+        <p class="error" *ngIf="(svc.wasSubmitted() || svc.state().touched['name']) && svc.state().errors['name']">
           {{ svc.state().errors['name'] }}
         </p>
       </div>
@@ -520,7 +513,7 @@ const AppComponent = Component({
         <label>Email</label>
         <input [value]="svc.state().values.email"
                (input)="svc.set('email', $any($event).target.value)" />
-        <p class="error" *ngIf="svc.state().touched['email'] && svc.state().errors['email']">
+        <p class="error" *ngIf="(svc.wasSubmitted() || svc.state().touched['email']) && svc.state().errors['email']">
           {{ svc.state().errors['email'] }}
         </p>
       </div>
@@ -528,7 +521,7 @@ const AppComponent = Component({
         <label>Message <span style="font-weight:normal;text-transform:none">(min 20 chars)</span></label>
         <textarea rows="3" [value]="svc.state().values.message"
                   (input)="svc.set('message', $any($event).target.value)"></textarea>
-        <p class="error" *ngIf="svc.state().touched['message'] && svc.state().errors['message']">
+        <p class="error" *ngIf="(svc.wasSubmitted() || svc.state().touched['message']) && svc.state().errors['message']">
           {{ svc.state().errors['message'] }}
         </p>
       </div>
@@ -542,9 +535,7 @@ const AppComponent = Component({
   \`,
 })(_AppComponent);
 
-bootstrapApplication(AppComponent, {
-  providers: [provideExperimentalZonelessChangeDetection()]
-}).catch(err => {
+bootstrapApplication(AppComponent).catch(err => {
   document.querySelector('app-root').textContent = '';
   const pre = document.createElement('pre');
   pre.style.cssText = 'color:red;padding:1rem;font-size:11px;white-space:pre-wrap';
@@ -2955,8 +2946,7 @@ desc: 'Wrap the form in a Svelte readable() store. The engine\'s subscribe inter
 code: `<!-- ContactForm.svelte (Svelte 4) -->
 <script>
   import { readable } from 'svelte/store';
-  // In a real project: import { createForm } from '@neutro/form/core';
-  const { createForm } = window.agwForm;
+  import { createForm } from '@neutro/form/core';
 
   function createFormStore(config) {
     const form = createForm(config);
@@ -3057,8 +3047,7 @@ code: `<!-- ContactForm.svelte (Svelte 4) -->
 <script>
   import { writable } from 'svelte/store';
   import { onDestroy } from 'svelte';
-  // In a real project: import { createForm } from '@neutro/form/core';
-  const { createForm } = window.agwForm;
+  import { createForm } from '@neutro/form/core';
 
   function useField(form, path) {
     const value   = writable(form.get(path));
@@ -3153,234 +3142,10 @@ iframeHtml: makeSvelteIframe(`<script>
 </div>`),
 },
 ];
-
-// ─── ANGULAR TUTORIALS ───────────────────────────────────────────────────────
-// Live demo runs in-browser via Angular JIT + esm.sh (no build step, no StackBlitz).
-const ANGULAR_SB_PROJECT_UNUSED = {
-  title: '@neutro/form — Angular 17 Demo',
-  description: 'Signal-based form service + standalone component (@neutro/form)',
-  template: 'angular-cli',
-  files: {
-    'package.json': `{
-  "name": "neutro-form-angular-demo",
-  "version": "0.0.0",
-  "private": true,
-  "dependencies": {
-    "@angular/animations": "^17.3.0",
-    "@angular/common": "^17.3.0",
-    "@angular/compiler": "^17.3.0",
-    "@angular/core": "^17.3.0",
-    "@angular/forms": "^17.3.0",
-    "@angular/platform-browser": "^17.3.0",
-    "@angular/platform-browser-dynamic": "^17.3.0",
-    "@angular/router": "^17.3.0",
-    "@neutro/form": "0.0.5",
-    "rxjs": "~7.8.0",
-    "tslib": "^2.3.0",
-    "zone.js": "~0.14.10"
-  },
-  "devDependencies": {
-    "@angular-devkit/build-angular": "^17.3.0",
-    "@angular/cli": "^17.3.0",
-    "@angular/compiler-cli": "^17.3.0",
-    "typescript": "~5.4.0"
-  }
-}`,
-    'angular.json': `{
-  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
-  "version": 1,
-  "newProjectRoot": "projects",
-  "projects": {
-    "demo": {
-      "projectType": "application",
-      "root": "",
-      "sourceRoot": "src",
-      "prefix": "app",
-      "architect": {
-        "build": {
-          "builder": "@angular-devkit/build-angular:application",
-          "options": {
-            "outputPath": "dist/demo",
-            "index": "src/index.html",
-            "browser": "src/main.ts",
-            "polyfills": ["zone.js"],
-            "tsConfig": "tsconfig.app.json",
-            "assets": [],
-            "styles": [],
-            "scripts": []
-          },
-          "configurations": {
-            "production": {
-              "budgets": [],
-              "outputHashing": "all"
-            },
-            "development": {
-              "optimization": false,
-              "extractLicenses": false,
-              "sourceMap": true
-            }
-          },
-          "defaultConfiguration": "development"
-        },
-        "serve": {
-          "builder": "@angular-devkit/build-angular:dev-server",
-          "configurations": {
-            "production": { "buildTarget": "demo:build:production" },
-            "development": { "buildTarget": "demo:build:development" }
-          },
-          "defaultConfiguration": "development"
-        }
-      }
-    }
-  }
-}`,
-    'tsconfig.json': `{
-  "compileOnSave": false,
-  "compilerOptions": {
-    "baseUrl": ".",
-    "outDir": "./dist/out-tsc",
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "esModuleInterop": true,
-    "sourceMap": true,
-    "declaration": false,
-    "experimentalDecorators": true,
-    "moduleResolution": "node",
-    "importHelpers": true,
-    "target": "ES2022",
-    "module": "ES2022",
-    "useDefineForClassFields": false,
-    "lib": ["ES2022", "dom"],
-    "paths": {
-      "@neutro/form/core": ["node_modules/@neutro/form/dist/core.d.ts"],
-      "@neutro/form/adapters/angular": ["node_modules/@neutro/form/dist/adapters/angular.d.ts"]
-    }
-  },
-  "angularCompilerOptions": {
-    "enableI18nLegacyMessageIdFormat": false,
-    "strictInjectionParameters": true,
-    "strictInputAccessModifiers": true,
-    "strictTemplates": true
-  }
-}`,
-    'tsconfig.app.json': `{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "outDir": "./dist/out-tsc",
-    "types": []
-  },
-  "files": ["src/main.ts"],
-  "include": ["src/**/*.d.ts"]
-}`,
-    'src/index.html': `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>@neutro/form Angular Demo</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-  <app-root></app-root>
-</body>
-</html>`,
-    'src/main.ts': `import { bootstrapApplication } from '@angular/platform-browser';
-import { AppComponent } from './app/app.component';
-bootstrapApplication(AppComponent).catch(err => console.error(err));`,
-    'src/app/form.service.ts': `import { Injectable, signal } from '@angular/core';
-import { createForm } from '@neutro/form/core';
-
-@Injectable({ providedIn: 'root' })
-export class FormService {
-  private form = createForm({
-    initialValues: { name: '', email: '', message: '' },
-    rules: {
-      name: 'required',
-      email: ['required', 'email'],
-      message: ['required', { minLength: 20 }],
-    },
-  });
-  state = signal(this.form.getState());
-  constructor() { this.form.subscribe(s => this.state.set(s)); }
-  set(path: string, value: unknown) { this.form.set(path, value, { touch: true, validate: true }); }
-  submit(onValid: (v: unknown) => Promise<void>) { return this.form.submit(onValid); }
-  reset() { this.form.reset(); }
-}`,
-    'src/app/app.component.ts': `import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormService } from './form.service';
-
-@Component({
-  selector: 'app-root',
-  standalone: true,
-  imports: [CommonModule],
-  styles: [\`
-    body { font-family: system-ui, sans-serif; }
-    main { max-width: 480px; margin: 2rem auto; padding: 1rem; }
-    h2 { font-size: 1.2rem; margin-bottom: 1.5rem; }
-    .field { margin-bottom: 1rem; }
-    label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 4px;
-            text-transform: uppercase; letter-spacing: 0.05em; color: #555; }
-    input, textarea { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db;
-                      border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-    input:focus, textarea:focus { outline: 2px solid #4F46E5; outline-offset: 1px; }
-    .error { color: #dc2626; font-size: 0.8rem; margin: 4px 0 0; }
-    .btn-row { display: flex; gap: 8px; margin-top: 16px; }
-    button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; }
-    .primary { background: #4F46E5; color: white; }
-    .secondary { background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-  \`],
-  template: \`
-    <main>
-      <h2>Angular 17 + @neutro/form</h2>
-      <div class="field">
-        <label>Name</label>
-        <input [value]="svc.state().values.name"
-               (input)="svc.set('name', $any($event).target.value)" />
-        @if (svc.state().touched['name'] && svc.state().errors['name']) {
-          <p class="error">{{ svc.state().errors['name'] }}</p>
-        }
-      </div>
-      <div class="field">
-        <label>Email</label>
-        <input [value]="svc.state().values.email"
-               (input)="svc.set('email', $any($event).target.value)" />
-        @if (svc.state().touched['email'] && svc.state().errors['email']) {
-          <p class="error">{{ svc.state().errors['email'] }}</p>
-        }
-      </div>
-      <div class="field">
-        <label>Message (min 20 chars)</label>
-        <textarea rows="4" [value]="svc.state().values.message"
-                  (input)="svc.set('message', $any($event).target.value)"></textarea>
-        @if (svc.state().touched['message'] && svc.state().errors['message']) {
-          <p class="error">{{ svc.state().errors['message'] }}</p>
-        }
-      </div>
-      <div class="btn-row">
-        <button class="primary" (click)="submit()" [disabled]="svc.state().isSubmitting">
-          {{ svc.state().isSubmitting ? 'Saving...' : 'Submit' }}
-        </button>
-        <button class="secondary" (click)="svc.reset()">Reset</button>
-      </div>
-    </main>
-  \`,
-})
-export class AppComponent {
-  svc = inject(FormService);
-  submit() { this.svc.submit(async v => console.log('Submitted:', v)); }
-}`,
-  },
-};
-
 const ANGULAR = [
 {
 title: 'Signal-Based Form',
-desc: 'Angular 17 signals pair cleanly with the form engine. subscribe() pushes into an Angular signal — the template stays reactive with zero boilerplate.',
+desc: 'Angular 19 signals pair cleanly with the form engine. subscribe() pushes into an Angular signal — the template stays reactive with zero boilerplate.',
 code: `// form.service.ts
 import { Injectable, signal } from '@angular/core';
 import { createForm } from '@neutro/form/core';
@@ -3416,33 +3181,60 @@ iframeHtml: makeAngularIframe(),
 },
 {
 title: 'Component Binding',
-desc: 'The service signal feeds [value] bindings and @if control flow. No async pipe, no manual subscription management in the component.',
-code: `// app.component.ts
+desc: 'Both files shown together. FormService owns createForm — the component just binds. [value] + (input) pairs drive each field; wasSubmitted gates error visibility on submit.',
+code: `// form.service.ts
+import { Injectable, signal } from '@angular/core';
+import { createForm } from '@neutro/form/core';
+
+@Injectable({ providedIn: 'root' })
+export class FormService {
+  private form = createForm({
+    initialValues: { name: '', email: '', message: '' },
+    rules: {
+      name:    'required',
+      email:   ['required', 'email'],
+      message: ['required', { minLength: 20 }],
+    },
+  });
+  state = signal(this.form.getState());
+  wasSubmitted = signal(false);
+  constructor() { this.form.subscribe(s => this.state.set(s)); }
+  set(path: string, value: unknown) { this.form.set(path, value, { touch: true, validate: true }); }
+  submit(onValid: (v: any) => Promise<void>) {
+    this.wasSubmitted.set(true);
+    return this.form.submit(onValid);
+  }
+  reset() { this.form.reset(); this.wasSubmitted.set(false); }
+}
+
+// app.component.ts
 import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { NgIf } from '@angular/common';
 import { FormService } from './form.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule],
+  imports: [NgIf],
   template: \`
     <main>
       <div class="field">
         <label>Name</label>
         <input [value]="svc.state().values.name"
                (input)="svc.set('name', $any($event).target.value)" />
-        @if (svc.state().touched['name'] && svc.state().errors['name']) {
-          <p class="error">{{ svc.state().errors['name'] }}</p>
-        }
+        <p class="error"
+           *ngIf="(svc.wasSubmitted() || svc.state().touched['name']) && svc.state().errors['name']">
+          {{ svc.state().errors['name'] }}
+        </p>
       </div>
       <div class="field">
         <label>Email</label>
         <input [value]="svc.state().values.email"
                (input)="svc.set('email', $any($event).target.value)" />
-        @if (svc.state().touched['email'] && svc.state().errors['email']) {
-          <p class="error">{{ svc.state().errors['email'] }}</p>
-        }
+        <p class="error"
+           *ngIf="(svc.wasSubmitted() || svc.state().touched['email']) && svc.state().errors['email']">
+          {{ svc.state().errors['email'] }}
+        </p>
       </div>
       <div class="btn-row">
         <button class="primary" (click)="submit()" [disabled]="svc.state().isSubmitting">
@@ -3468,7 +3260,7 @@ const FRAMEWORKS = [
   { key: 'vue',     label: 'Vue 3',      steps: VUE },
   { key: 'solid',   label: 'SolidJS',    steps: SOLID },
   { key: 'svelte',  label: 'Svelte 4',   steps: SVELTE },
-  { key: 'angular', label: 'Angular 17', steps: ANGULAR },
+  { key: 'angular', label: 'Angular 19', steps: ANGULAR },
 ];
 
 let currentFw = 'vanilla';
@@ -3597,13 +3389,12 @@ function renderDemo(step) {
     try {
       // Auto-wrap createForm with withPerf so every vanilla step populates
       // the Engine Internals panel without each step having to opt in.
-      const rawCF = agwForm.createForm;
-      createForm = (...a) => withPerf(rawCF(...a));
+      createForm = (...a) => withPerf(_createForm(...a));
       activeForm = step.run(demoArea);
     } catch (err) {
       demoArea.innerHTML = `<div class="alert err">Error: ${err.message}</div>`;
     } finally {
-      createForm = agwForm.createForm; // always restore
+      createForm = _createForm; // always restore
     }
     renderPerfPanel(activeForm);
     startPerfPolling(activeForm);

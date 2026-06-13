@@ -36,8 +36,8 @@ const form = createForm<LoginValues>({
 })
 
 export function LoginForm() {
-  // state is a SolidJS store — read it like a plain object inside JSX
-  const state = useSolidForm(form)
+  // Returns [state, actions] — state is a SolidJS store, actions are the form methods
+  const [state, actions] = useSolidForm(form)
 
   const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault()
@@ -49,7 +49,7 @@ export function LoginForm() {
       <input
         value={state.values.email}
         onInput={(e) =>
-          form.set('email', e.currentTarget.value, { touch: true })
+          actions.set('email', e.currentTarget.value, { touch: true, validate: true })
         }
       />
       {state.errors.email && <span>{state.errors.email}</span>}
@@ -58,7 +58,7 @@ export function LoginForm() {
         type="password"
         value={state.values.password}
         onInput={(e) =>
-          form.set('password', e.currentTarget.value, { touch: true })
+          actions.set('password', e.currentTarget.value, { touch: true, validate: true })
         }
       />
       {state.errors.password && <span>{state.errors.password}</span>}
@@ -73,9 +73,9 @@ export function LoginForm() {
 
 ---
 
-## `useSolidFormPath` — Field Signal
+## `useSolidFormPath` — Field Signals
 
-`useSolidFormPath` returns a signal accessor that reads the field's `{ value, error, touched, dirty }` slice from the store. Only the component that reads the signal re-runs when that path changes.
+`useSolidFormPath` returns `{ value, fieldState }` — two independent signal accessors. Call each to read its current value. Only the component that reads a signal re-runs when that signal changes.
 
 ```tsx
 import { useSolidFormPath } from '@neutro/form/adapters/solid'
@@ -85,14 +85,14 @@ function Field(props: {
   path: string
   label: string
 }) {
-  // Returns a signal: call field() to read
+  // Returns { value: Signal, fieldState: Signal }
   const field = useSolidFormPath(props.form, props.path)
 
   return (
     <label>
       {props.label}
       <input
-        value={field().value as string}
+        value={field.value() as string}
         onInput={(e) =>
           props.form.set(props.path, e.currentTarget.value, {
             touch: true,
@@ -100,8 +100,8 @@ function Field(props: {
           })
         }
       />
-      {field().touched && field().error && (
-        <span class="error">{field().error}</span>
+      {field.fieldState()?.touched && field.fieldState()?.error && (
+        <span class="error">{field.fieldState()?.error}</span>
       )}
     </label>
   )
@@ -125,7 +125,7 @@ function DestinationRow(props: { form: typeof form; index: number }) {
 
   return (
     <input
-      value={city().value as string}
+      value={city.value() as string}
       onInput={(e) =>
         props.form.set(
           `destinations.${props.index}.city`,
@@ -138,7 +138,7 @@ function DestinationRow(props: { form: typeof form; index: number }) {
 }
 
 function DestinationList() {
-  const state = useSolidForm(form)
+  const [state] = useSolidForm(form)
   return (
     <For each={state.values.destinations as Destination[]}>
       {(_, i) => <DestinationRow form={form} index={i()} />}
@@ -170,29 +170,29 @@ const form = createForm<Values>({
 })
 
 export function ProfileForm() {
-  const state = useSolidForm(form)
+  const [state, actions] = useSolidForm(form)
   const username = useSolidFormPath(form, 'username')
   const email = useSolidFormPath(form, 'email')
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); form.validate() }}>
+    <form onSubmit={(e) => { e.preventDefault(); actions.submit(async () => {}) }}>
       <label>
         Username
         <input
-          value={username().value as string}
-          onInput={(e) => form.set('username', e.currentTarget.value, { touch: true, validate: true })}
+          value={username.value() as string}
+          onInput={(e) => actions.set('username', e.currentTarget.value, { touch: true, validate: true })}
         />
-        {username().touched && username().error && <p>{username().error}</p>}
+        {username.fieldState()?.touched && username.fieldState()?.error && <p>{username.fieldState()?.error}</p>}
       </label>
 
       <label>
         Email
         <input
           type="email"
-          value={email().value as string}
-          onInput={(e) => form.set('email', e.currentTarget.value, { touch: true, validate: true })}
+          value={email.value() as string}
+          onInput={(e) => actions.set('email', e.currentTarget.value, { touch: true, validate: true })}
         />
-        {email().touched && email().error && <p>{email().error}</p>}
+        {email.fieldState()?.touched && email.fieldState()?.error && <p>{email.fieldState()?.error}</p>}
       </label>
 
       <button type="submit" disabled={state.isSubmitting}>Save</button>
