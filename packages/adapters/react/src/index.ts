@@ -22,6 +22,7 @@ export function useForm<T extends object>(form: FormInstance<T>): FormState<T> &
     arrayRemove: form.arrayRemove,
     arrayMove: form.arrayMove,
     arraySwap: form.arraySwap,
+    setErrors: form.setErrors,
   } as FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState'>;
 }
 
