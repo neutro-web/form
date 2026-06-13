@@ -25,8 +25,8 @@ export type PathImpl<T, K extends keyof T, Depth extends number = 5> = [Depth] e
     ? K
     : T[K] extends Array<infer U>
     ? K | `${K}.${number}` | (U extends object ? `${K}.${number}.${PathImpl<U, keyof U, Prev[Depth]>}` : never)
-    : T[K] extends object
-    ? K | `${K}.${PathImpl<T[K], keyof T[K], Prev[Depth]>}`
+    : NonNullable<T[K]> extends object
+    ? K | `${K}.${PathImpl<NonNullable<T[K]>, keyof NonNullable<T[K]>, Prev[Depth]>}`
     : K
   : never;
 
@@ -57,7 +57,7 @@ export interface FormState<T> {
 }
 
 export type FormSubscriber<T> = (state: FormState<T>) => void;
-export type PathSubscriber = (value: any, fieldState: { error?: string; touched?: boolean; dirty?: boolean }) => void;
+export type PathSubscriber<V = any> = (value: V, fieldState: { error?: string; touched?: boolean; dirty?: boolean }) => void;
 
 export type BuiltInRule =
   // Presence
@@ -104,7 +104,7 @@ export type BuiltInRule =
 
 export interface FormConfig<T> {
   initialValues: T;
-  rules?: Partial<Record<string, BuiltInRule | BuiltInRule[]>>;
+  rules?: Partial<Record<Path<T> | (string & {}), BuiltInRule | BuiltInRule[]>>;
   validator?: (
     values: T,
     scopePaths?: string[],
@@ -121,8 +121,10 @@ export interface ConnectOptions {
 
 export interface FormInstance<T extends object> {
   subscribe: (fn: FormSubscriber<T>) => () => void;
-  subscribeToPath: (path: Path<T> | string, fn: PathSubscriber) => () => void;
-  get: (path: Path<T> | string | string[]) => any;
+  subscribeToPath<P extends Path<T>>(path: P, fn: PathSubscriber<GetPathValue<T, P>>): () => void;
+  subscribeToPath(path: string, fn: PathSubscriber): () => void;
+  get<P extends Path<T>>(path: P): GetPathValue<T, P>;
+  get(path: string | string[]): any;
   set: (path: Path<T> | string | string[], val: any, options?: { touch?: boolean; validate?: boolean }) => void;
   validate: (scopePaths?: Path<T>[] | string[] | string[][]) => Promise<boolean>;
   connect: (path: Path<T> | string, el: HTMLElement, options?: ConnectOptions) => () => void;
@@ -497,7 +499,7 @@ function applyBuiltInRules<T>(
           if (present && !(rule as { oneOf: unknown[] }).oneOf.some((opt) => isDeepEqual(value, opt)))
             error = rule.message ?? `Must be one of: ${(rule as { oneOf: unknown[] }).oneOf.join(', ')}`;
         } else if ('notOneOf' in rule) {
-          if ((rule as { notOneOf: unknown[] }).notOneOf.some((opt) => isDeepEqual(value, opt)))
+          if (present && (rule as { notOneOf: unknown[] }).notOneOf.some((opt) => isDeepEqual(value, opt)))
             error = rule.message ?? `Must not be one of: ${(rule as { notOneOf: unknown[] }).notOneOf.join(', ')}`;
 
         // ── Cross-field comparisons ───────────────────────────────────────
@@ -775,7 +777,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // Always notify path subscribers immediately so controlled inputs see the new value
     // before async validation completes.
     notify(path);
-    if (options.validate !== false) runValidation([path]);
+    if (options.validate === true) runValidation([path]);
   };
 
   const initMutationObserver = () => {
@@ -1008,6 +1010,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   const submit = async (onSubmitCallback: (payload: Partial<T>) => void | Promise<void>): Promise<boolean> => {
     if (isSubmitting) return false;
     isSubmitting = true;
+    extractAllPaths(values).forEach((p) => { touched[p] = true; });
     notify();
     try {
       const isValid = await runValidation();
@@ -1083,6 +1086,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const shifted = shiftStateIndices(targetPath, index, 'insert', index);
         shifted.forEach((k) => notify(k));
         notify(`${targetPath}.${index}`);
+        notify(targetPath);
       });
       runValidation([targetPath]);
     },
@@ -1215,6 +1219,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     getConnectedCount: () => connectionRegistry.size,
 
     destroy: () => {
+      activeAbortControllers.forEach((ctrl) => ctrl.abort());
+      activeAbortControllers.clear();
       globalSubscribers.clear();
       pathSubscribers.clear();
       connectionRegistry.clear();
