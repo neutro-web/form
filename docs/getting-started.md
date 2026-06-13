@@ -275,6 +275,40 @@ const form = createForm({
 })
 ```
 
+## Handling Server Errors
+
+Client-side validation runs before the request leaves the browser, but servers often return additional field-level errors (duplicate email, reserved username, invalid coupon code). Use `form.setErrors()` to merge these back into form state after a failed API call:
+
+```ts
+import { createForm } from '@neutro/form/core'
+
+const form = createForm({
+  initialValues: { email: '', username: '' },
+  rules: {
+    email: ['required', 'email'],
+    username: 'required',
+  },
+})
+
+form.handleSubmit(async (payload) => {
+  const res = await fetch('/api/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const { errors } = await res.json()
+    // errors might be: { email: 'Already taken', username: 'Unavailable' }
+    form.setErrors(errors)
+    return
+  }
+
+  // success path
+})
+```
+
+Server errors behave exactly like client errors: they appear in `state.errors`, fire all the same subscribers, and clear the next time that field is validated. Calling `form.reset()` wipes them along with everything else.
+
 ## Next Steps
 
 - **Framework adapters:** [React](/guides/react) | [Svelte 5](/guides/svelte) | [Vue 3](/guides/vue) | [SolidJS](/guides/solid) | [Angular](/guides/angular)
