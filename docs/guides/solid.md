@@ -206,3 +206,56 @@ export function ProfileForm() {
 ## Notes on `reconcile`
 
 The adapter calls `reconcile(newState)` when producing store updates. This performs a structural diff and produces the minimal set of signal updates. For large forms with many fields, this means only the changed paths cause reactive re-executions — the SolidJS equivalent of React's `useSyncExternalStore` with selector memoisation, but without any extra configuration on your part.
+
+---
+
+## Handling Server Errors
+
+Use `actions.setErrors()` inside your submit handler to feed API validation errors back into form state. In SolidJS, `actions` is the second element returned by `useSolidForm` and holds all `FormInstance` methods.
+
+```tsx
+import { createForm } from '@neutro/form/core'
+import { useSolidForm } from '@neutro/form/adapters/solid'
+
+const form = createForm({
+  initialValues: { email: '', username: '' },
+  rules: { email: ['required', 'email'], username: 'required' },
+})
+
+export function RegisterForm() {
+  const [state, actions] = useSolidForm(form)
+
+  const handleSubmit = async (e: SubmitEvent) => {
+    e.preventDefault()
+    const valid = await form.validate()
+    if (!valid) return
+
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify(form.getPayload()),
+    })
+    if (!res.ok) {
+      const { errors } = await res.json()
+      actions.setErrors(errors)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        value={state.values.email}
+        onInput={(e) => actions.set('email', e.currentTarget.value, { touch: true })}
+      />
+      {state.touched.email && state.errors.email && <span>{state.errors.email}</span>}
+
+      <input
+        value={state.values.username}
+        onInput={(e) => actions.set('username', e.currentTarget.value, { touch: true })}
+      />
+      {state.touched.username && state.errors.username && <span>{state.errors.username}</span>}
+
+      <button type="submit" disabled={state.isSubmitting}>Register</button>
+    </form>
+  )
+}
+```

@@ -196,3 +196,63 @@ Both hooks inject `DestroyRef` and register an `onDestroy` callback to unsubscri
 - The adapter requires Angular 16 or later (signals API).
 - If you need to create the form asynchronously (e.g. after an HTTP call), create the form instance eagerly with empty initial values and call `form.reset(newValues)` when the data arrives. Do not defer the `useAngularForm` / `useAngularFormPath` calls.
 - Template expressions reading signal values (e.g. `state().errors['email']`) are automatically tracked by Angular's change detection when using `OnPush` — no `markForCheck()` needed.
+
+---
+
+## Handling Server Errors
+
+Use `this.form.setErrors()` inside your submit handler to feed API validation errors back into form state.
+
+```ts
+import { Component } from '@angular/core'
+import { createForm } from '@neutro/form/core'
+import { useAngularForm } from '@neutro/form/adapters/angular'
+
+@Component({
+  selector: 'app-register-form',
+  standalone: true,
+  template: `
+    <form (ngSubmit)="handleSubmit()">
+      <input
+        [value]="state().values.email"
+        (input)="form.set('email', $event.target.value, { touch: true })"
+      />
+      @if (state().touched['email'] && state().errors['email']) {
+        <span class="error">{{ state().errors['email'] }}</span>
+      }
+
+      <input
+        [value]="state().values.username"
+        (input)="form.set('username', $event.target.value, { touch: true })"
+      />
+      @if (state().touched['username'] && state().errors['username']) {
+        <span class="error">{{ state().errors['username'] }}</span>
+      }
+
+      <button type="submit" [disabled]="state().isSubmitting">Register</button>
+    </form>
+  `,
+})
+export class RegisterFormComponent {
+  readonly form = createForm({
+    initialValues: { email: '', username: '' },
+    rules: { email: ['required', 'email'], username: 'required' },
+  })
+
+  readonly state = useAngularForm(this.form)
+
+  async handleSubmit() {
+    const valid = await this.form.validate()
+    if (!valid) return
+
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify(this.form.getPayload()),
+    })
+    if (!res.ok) {
+      const { errors } = await res.json()
+      this.form.setErrors(errors)
+    }
+  }
+}
+```
