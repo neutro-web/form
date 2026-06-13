@@ -1,6 +1,6 @@
 # @neutro/form
 
-Framework-agnostic form state management. One closure factory — `createForm` — that handles validation, async checks, array operations, and DOM binding. Thin reactive adapters for React, Vue, Svelte, SolidJS, and Angular wrap the same engine.
+High-performance, zero-dependency, framework-agnostic reactive form engine. One closure factory — `createForm` — that handles validation, async checks, array operations, and DOM binding. Thin reactive adapters for React, Vue, Svelte, SolidJS, and Angular wrap the same engine.
 
 ## Install
 
