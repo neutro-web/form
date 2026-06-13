@@ -290,20 +290,20 @@ const form = createForm({
   },
 })
 
-form.handleSubmit(async (payload) => {
-  const res = await fetch('/api/register', {
-    method: 'POST',
-    body: JSON.stringify(payload),
+document.querySelector('form')?.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  await form.submit(async (payload) => {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+
+    if (!res.ok) {
+      const { errors } = await res.json()
+      // errors might be: { email: 'Already taken', username: 'Unavailable' }
+      form.setErrors(errors)
+    }
   })
-
-  if (!res.ok) {
-    const { errors } = await res.json()
-    // errors might be: { email: 'Already taken', username: 'Unavailable' }
-    form.setErrors(errors)
-    return
-  }
-
-  // success path
 })
 ```
 
