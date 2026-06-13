@@ -2782,14 +2782,13 @@ describe('setErrors', () => {
     expect(form.getState().isValidating).toBe(false);
   });
 
-  it('handles empty object without throwing or notifying', () => {
+  it('handles empty object without throwing or notifying subscribers', () => {
     const form = createForm({ initialValues: { email: '' } });
     const listener = vi.fn();
     form.subscribe(listener);
     listener.mockClear();
 
     expect(() => form.setErrors({})).not.toThrow();
-    // notify() is still called; subscriber receives unchanged state
-    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).not.toHaveBeenCalled();
   });
 });
