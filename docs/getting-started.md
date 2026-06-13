@@ -14,10 +14,10 @@ One package. The exports map routes each adapter subpath:
 |---|---|
 | `@neutro/form/core` | `createForm`, validation adapters, types |
 | `@neutro/form/adapters/react` | `useForm`, `useFormPath`, `useFormConnect` |
-| `@neutro/form/adapters/svelte` | `useSvelteForm` |
-| `@neutro/form/adapters/vue` | `useVueForm` |
-| `@neutro/form/adapters/solid` | `useSolidForm` |
-| `@neutro/form/adapters/angular` | `AngularFormService` |
+| `@neutro/form/adapters/svelte` | `useSvelteForm`, `useSvelteFormPath` |
+| `@neutro/form/adapters/vue` | `useVueForm`, `useVueFormPath` |
+| `@neutro/form/adapters/solid` | `useSolidForm`, `useSolidFormPath` |
+| `@neutro/form/adapters/angular` | `useAngularForm`, `useAngularFormPath` |
 
 ## Quick Example
 

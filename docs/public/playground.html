@@ -227,7 +227,8 @@
 
 <script>
 // agwForm global is loaded from form-core.js above
-const { createForm } = agwForm;
+// `let` so renderDemo can temporarily wrap it with withPerf during step.run()
+let createForm = agwForm.createForm;
 
 // Dynamic base URL — works on localhost AND GitHub Pages
 const BASE_URL = window.location.origin + (window.location.pathname.includes('/form') ? '/form/' : '/');
@@ -376,15 +377,19 @@ function makeSvelteIframe(svelteSource) {
 <\/head><body>
 <div id="root"><\/div>
 <script type="module">
-import { compile } from 'https://esm.sh/svelte@4.2.19/compiler';
+import { compile } from 'https://esm.sh/svelte@4.1.2/compiler';
 await new Promise(res => { const s = document.createElement('script'); s.src='${CORE_URL}'; s.onload=res; document.head.appendChild(s); });
 window.createForm = agwForm.createForm;
 const src = ${jsonSrc};
 try {
   const { js } = compile(src, { filename:'Demo.svelte', generate:'dom', format:'esm', dev:false });
-  const code = js.code.replace(/from ['"]svelte(\\/[a-z_0-9/-]+)?['"]/g, function(m, sub) {
-    return "from 'https://esm.sh/svelte@4.2.19" + (sub || '') + "'";
-  });
+  const code = js.code
+    .replace(/import\\s*\\{[^}]+\\}\\s*from\\s*['"]svelte\\/internal\\/disclose-version['"]\\s*;?\\n?/g,
+      function(m) { var n=m.match(/\\{[^}]+\\}/); return 'const '+(n?n[0]:'{}')+' = {disclose_version:function(){},PUBLIC_VERSION:"4"};\\n'; })
+    .replace(/import\\s*['"]svelte\\/internal\\/disclose-version['"]\\s*;?\\n?/g, '')
+    .replace(/from ['"]svelte(\\/[a-z_0-9/-]+)?['"]/g, function(m, sub) {
+      return "from 'https://esm.sh/svelte@4.1.2" + (sub || '') + "'";
+    });
   const blob = new Blob([code], { type:'text/javascript' });
   const { default: Component } = await import(URL.createObjectURL(blob));
   new Component({ target: document.getElementById('root') });
@@ -515,7 +520,14 @@ run(el) {
   document.getElementById('i-email').addEventListener('input', e => form.set('email', e.target.value));
   document.getElementById('i-age').addEventListener('input', e => form.set('age', Number(e.target.value)));
   document.getElementById('snap-btn').addEventListener('click', snap);
-  document.getElementById('reset-btn').addEventListener('click', () => { form.reset(); snap(); });
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    form.reset();
+    const vals = form.getState().values;
+    document.getElementById('i-name').value = vals.name;
+    document.getElementById('i-email').value = vals.email;
+    document.getElementById('i-age').value = vals.age;
+    snap();
+  });
 
   return form;
 }
@@ -604,7 +616,9 @@ const unsubPhone = form.subscribeToPath('phone', (value) => {
 form.set('email', 'x@x.com'); // fires unsubEmail only
 form.set('phone', '555-0100'); // fires unsubPhone only
 
-unsubEmail(); // cleanup`,
+// Cleanup when done (e.g. on component unmount)
+unsubEmail();
+unsubPhone();`,
 
 run(el) {
   const form = createForm({ initialValues: { email: '', phone: '' } });
@@ -630,16 +644,17 @@ run(el) {
       </div>
     </div>`;
 
-  form.subscribeToPath('email', () => {
+  const unsubEmail = form.subscribeToPath('email', () => {
     document.getElementById('ef').textContent = ++emailFires;
   });
-  form.subscribeToPath('phone', () => {
+  const unsubPhone = form.subscribeToPath('phone', () => {
     document.getElementById('pf').textContent = ++phoneFires;
   });
 
   document.getElementById('i-email').addEventListener('input', e => form.set('email', e.target.value));
   document.getElementById('i-phone').addEventListener('input', e => form.set('phone', e.target.value));
 
+  el._cleanup = () => { unsubEmail(); unsubPhone(); };
   return form;
 }
 },
@@ -688,7 +703,9 @@ run(el) {
       <div class="fld"><label>firstName</label><input id="i-fn" /></div>
       <div class="fld"><label>lastName</label><input id="i-ln" /></div>
       <div class="sec" style="margin-top:6px;">user.address</div>
-      <div class="fld"><label>city</label><input id="i-city" /></div>
+      <div class="fld"><label>city</label><input id="i-city" />
+        <div class="fhint">subscribeToPath live: <strong id="city-live">–</strong></div>
+      </div>
       <div class="fld">
         <label>country</label>
         <select id="i-cty">
@@ -711,7 +728,14 @@ run(el) {
     document.getElementById(id).addEventListener('input', e => { form.set(path, e.target.value); upd(); });
   });
 
+  // Demonstrate subscribeToPath on a nested path
+  const unsubCity = form.subscribeToPath('user.address.city', (city) => {
+    const cityLive = document.getElementById('city-live');
+    if (cityLive) cityLive.textContent = city || '–';
+  });
+
   upd();
+  el._cleanup = () => { unsubCity(); };
   return form;
 }
 },
@@ -816,8 +840,10 @@ code: `const form = createForm({
   validator(values) {
     const errors = {};
 
-    // password strength
-    if (values.password && values.password.length < 8) {
+    // password strength (always required)
+    if (!values.password) {
+      errors.password = 'Password is required';
+    } else if (values.password.length < 8) {
       errors.password = 'Minimum 8 characters';
     } else if (!/[A-Z]/.test(values.password)) {
       errors.password = 'Needs at least one uppercase letter';
@@ -826,7 +852,9 @@ code: `const form = createForm({
     }
 
     // confirmation match
-    if (values.confirm && values.confirm !== values.password) {
+    if (!values.confirm) {
+      errors.confirm = 'Please confirm your password';
+    } else if (values.confirm !== values.password) {
       errors.confirm = 'Passwords do not match';
     }
 
@@ -839,13 +867,20 @@ run(el) {
     initialValues: { password: '', confirm: '' },
     validator(values) {
       const errors = {};
-      if (values.password) {
-        if (values.password.length < 8) errors.password = 'At least 8 characters required';
-        else if (!/[A-Z]/.test(values.password)) errors.password = 'Needs an uppercase letter';
-        else if (!/[0-9]/.test(values.password)) errors.password = 'Needs a digit';
+      if (!values.password) {
+        errors.password = 'Password is required';
+      } else if (values.password.length < 8) {
+        errors.password = 'At least 8 characters required';
+      } else if (!/[A-Z]/.test(values.password)) {
+        errors.password = 'Needs an uppercase letter';
+      } else if (!/[0-9]/.test(values.password)) {
+        errors.password = 'Needs a digit';
       }
-      if (values.confirm && values.confirm !== values.password)
+      if (!values.confirm) {
+        errors.confirm = 'Please confirm your password';
+      } else if (values.confirm !== values.password) {
         errors.confirm = 'Passwords do not match';
+      }
       return errors;
     },
   });
@@ -892,12 +927,13 @@ run(el) {
   });
 
   document.getElementById('sub-btn').addEventListener('click', async () => {
-    await form.validate();
+    const valid = await form.validate();
     const errs = form.getState().errors;
-    // mark touched
-    ['password','confirm'].forEach(p => form.set(p, form.get(p), { touch: true }));
+    // Force-show errors on the DOM regardless of touched state
+    document.getElementById('e-pw').textContent = errs.password || '';
+    document.getElementById('e-cf').textContent = errs.confirm || '';
     const msg = document.getElementById('msg');
-    if (Object.keys(errs).length) {
+    if (!valid) {
       msg.className = 'alert err'; msg.textContent = 'Fix errors above';
     } else {
       msg.className = 'alert ok'; msg.textContent = 'Password set successfully!';
@@ -980,11 +1016,14 @@ run(el) {
   const errEl = document.getElementById('e-un');
   const okEl = document.getElementById('ok-un');
 
-  inp.addEventListener('input', e => form.set('username', e.target.value, { touch: true, validate: true }));
+  let keystroke = 0;
+  inp.addEventListener('input', e => {
+    document.getElementById('epoch-val').textContent = ++keystroke;
+    form.set('username', e.target.value, { touch: true, validate: true });
+  });
 
   form.subscribe(state => {
     spinWrap.style.display = state.isValidating ? 'block' : 'none';
-    document.getElementById('epoch-val').textContent = form.perf.epoch;
     const err = state.errors.username;
     const touched = state.touched.username;
     errEl.textContent = touched && err ? err : '';
@@ -1071,15 +1110,6 @@ run(el) {
     form.subscribeToPath(path, (_, fs) => {
       const errEl = document.getElementById('e-' + id.slice(2));
       if (errEl) errEl.textContent = fs.touched && fs.error ? fs.error : '';
-    });
-  });
-
-  // Fix: map field ids to error ids properly
-  const errMap = { 'i-pw': 'e-pw', 'i-cf': 'e-cf', 'i-sd': 'e-sd', 'i-ed': 'e-ed' };
-  const pathMap = { 'i-pw': 'password', 'i-cf': 'confirmPassword', 'i-sd': 'startDate', 'i-ed': 'endDate' };
-  Object.entries(pathMap).forEach(([id, path]) => {
-    form.subscribeToPath(path, (_, fs) => {
-      document.getElementById(errMap[id]).textContent = fs.touched && fs.error ? fs.error : '';
     });
   });
 
@@ -1213,6 +1243,15 @@ run(el) {
     document.getElementById('next-btn')?.addEventListener('click', async () => {
       const ok = await form.validate(STEPS[currentStep]);
       if (ok) { currentStep++; renderStep(); }
+      else {
+        // Force-show validation errors so the user knows what to fix
+        const errs = form.getState().errors;
+        const errMap = { firstName:'fn', lastName:'ln', email:'em', username:'un', password:'pw' };
+        STEPS[currentStep].forEach(path => {
+          const errEl = document.getElementById('e-' + (errMap[path] || path));
+          if (errEl) errEl.textContent = errs[path] || '';
+        });
+      }
     });
     document.getElementById('sub-btn')?.addEventListener('click', () => {
       const msg = document.getElementById('msg');
@@ -1255,6 +1294,15 @@ form.subscribeToPath('items', (newArray) => {
 run(el) {
   const form = createForm({
     initialValues: { items: [{ text: 'First item', done: false }] },
+    // Use validator for per-item errors (errors keyed to concrete paths like items.0.text)
+    validator(values) {
+      const errors = {};
+      (values.items || []).forEach((item, i) => {
+        if (!item.text || !item.text.trim()) errors['items.' + i + '.text'] = 'Required';
+        else if (item.text.trim().length < 2) errors['items.' + i + '.text'] = 'At least 2 characters';
+      });
+      return errors;
+    },
   });
 
   function renderList() {
@@ -1459,15 +1507,18 @@ run(el) {
   form.subscribe(upd);
 
   document.getElementById('nobatch-btn').addEventListener('click', () => {
+    form.reset(); // reset to '' so set() always triggers (same-value set is a no-op)
     const before = notifyCount;
     ['a','b','c','d','e'].forEach((k,i) => form.set(k, String(i+1)));
     const after = notifyCount;
     const msg = document.getElementById('msg');
-    msg.className = 'alert err'; msg.textContent = `Unbatched: ${after - before} notifications fired for 5 set() calls`;
+    msg.className = 'alert err'; msg.textContent = `Unbatched: ${after - before} notifications for 5 set() calls`;
     msg.style.display = 'block';
+    upd();
   });
 
   document.getElementById('batch-btn').addEventListener('click', () => {
+    form.reset(); // reset to '' so set() always triggers
     const before = notifyCount;
     form.batch(() => { ['a','b','c','d','e'].forEach((k,i) => form.set(k, String(i+1))); });
     const after = notifyCount;
@@ -1583,6 +1634,15 @@ code: `const form = createForm({
     title: ['required', { minLength: 5 }],
     body:  ['required', { minLength: 20 }],
   },
+  validator(values) {
+    const errors = {};
+    if (values.tags && values.tags.trim()) {
+      const tags = values.tags.split(',').map(t => t.trim());
+      const invalid = tags.some(t => t === '' || !/^[a-z0-9_-]+$/i.test(t));
+      if (invalid) errors.tags = 'Use comma-separated tags — e.g. "react, vue, angular"';
+    }
+    return errors;
+  },
 });
 
 // Direct API — useful when you control the trigger
@@ -1605,6 +1665,15 @@ run(el) {
       title: ['required', { minLength: 5 }],
       body: ['required', { minLength: 20 }],
     },
+    validator(values) {
+      const errors = {};
+      if (values.tags && values.tags.trim()) {
+        const tags = values.tags.split(',').map(t => t.trim());
+        const invalid = tags.some(t => t === '' || !/^[a-z0-9_-]+$/i.test(t));
+        if (invalid) errors.tags = 'Use comma-separated tags — e.g. "react, vue, angular"';
+      }
+      return errors;
+    },
   });
 
   el.innerHTML = `
@@ -1618,8 +1687,10 @@ run(el) {
           <textarea id="i-body" rows="3" placeholder="at least 20 chars"></textarea>
           <div class="ferr" id="e-body"></div>
         </div>
-        <div class="fld"><label>Tags (optional)</label>
-          <input id="i-tags" placeholder="comma-separated" />
+        <div class="fld"><label>Tags</label>
+          <input id="i-tags" placeholder="react, vue, angular" />
+          <div class="ferr" id="e-tags"></div>
+          <div class="fhint">comma-separated · letters, digits, hyphens only</div>
         </div>
         <div class="btn-row">
           <button type="submit" class="btn primary" id="sub-btn">Post</button>
@@ -1635,7 +1706,7 @@ run(el) {
     document.getElementById(id).addEventListener('input', e =>
       form.set(path, e.target.value, {touch:true, validate:true}));
   });
-  ['title','body'].forEach(path => {
+  ['title','body','tags'].forEach(path => {
     form.subscribeToPath(path, (_, fs) => {
       document.getElementById('e-' + path).textContent = fs.touched && fs.error ? fs.error : '';
     });
@@ -1659,6 +1730,11 @@ run(el) {
       msg.className = 'alert err';
       msg.textContent = 'Validation failed: ' + Object.keys(errors).join(', ');
       msg.style.display = 'block';
+      // Force-show field-level errors (bypass touched gate on submit)
+      ['title','body','tags'].forEach(p => {
+        const errEl = document.getElementById('e-' + p);
+        if (errEl) errEl.textContent = errors[p] || '';
+      });
     }
   ));
 
@@ -1810,7 +1886,7 @@ const { notifications, lastValidationMs, epoch, subscriberCount } = form.perf;`,
 run(el) {
   const FIELD_COUNT = 10;
   const fields = Object.fromEntries(Array.from({ length: FIELD_COUNT }, (_, i) => ['field' + i, '']));
-  const form = withPerf(createForm({
+  const form = createForm({
     initialValues: fields,
     asyncDebounceMs: 50,
     async validator(values, _paths, signal) {
@@ -1820,7 +1896,7 @@ run(el) {
         Object.entries(values).filter(([,v]) => v === 'bad').map(([k]) => [k, 'bad value'])
       );
     },
-  }));
+  });
 
   const globalUnsubs = [];
   const pathUnsubs = [];
@@ -1941,6 +2017,9 @@ const form = createForm({
 
 function App() {
   const { values, errors, touched, isSubmitting } = useForm(form);
+  const [submitted, setSubmitted] = React.useState(false);
+
+  const showErr = (field) => (touched[field] || submitted) && errors[field];
 
   return (
     <div style={{maxWidth:340}}>
@@ -1948,20 +2027,23 @@ function App() {
         <label>Name</label>
         <input value={values.name || ''}
           onChange={e => form.set('name', e.target.value, { touch: true, validate: true })} />
-        <div className="err">{touched.name && errors.name}</div>
+        <div className="err">{showErr('name')}</div>
       </div>
       <div className="field">
         <label>Email</label>
         <input type="email" value={values.email || ''}
           onChange={e => form.set('email', e.target.value, { touch: true, validate: true })} />
-        <div className="err">{touched.email && errors.email}</div>
+        <div className="err">{showErr('email')}</div>
       </div>
       <div className="row">
         <button className="primary" disabled={isSubmitting}
-          onClick={() => form.submit(async v => { await new Promise(r=>setTimeout(r,900)); alert('Saved: '+JSON.stringify(v)); })}>
+          onClick={() => {
+            setSubmitted(true);
+            form.submit(async v => { await new Promise(r=>setTimeout(r,900)); alert('Saved: '+JSON.stringify(v)); });
+          }}>
           {isSubmitting ? <><span className="spin"/> Saving…</> : 'Save'}
         </button>
-        <button onClick={() => form.reset()}>Reset</button>
+        <button onClick={() => { form.reset(); setSubmitted(false); }}>Reset</button>
       </div>
       <div className="box" style={{marginTop:10}}>
         {JSON.stringify({values, errors: Object.keys(errors), touched: Object.keys(touched)}, null, 2)}
@@ -2007,7 +2089,7 @@ const form = createForm({
   },
 });
 
-function Field({ form, path, label, type='text' }) {
+function Field({ form, path, label, type='text', showErrors=false }) {
   const [value, { error, touched }, set] = useField(form, path);
   const renders = React.useRef(0);
   renders.current++;
@@ -2015,7 +2097,7 @@ function Field({ form, path, label, type='text' }) {
     <div className="field">
       <label>{label} <span style={{color:'#58a6ff',fontWeight:'normal',textTransform:'none',fontSize:10}}>renders: {renders.current}</span></label>
       <input type={type} value={value ?? ''} onChange={e => set(e.target.value)} />
-      {touched && error && <div className="err">{error}</div>}
+      {(touched || showErrors) && error && <div className="err">{error}</div>}
     </div>
   );
 }
@@ -2023,71 +2105,137 @@ function Field({ form, path, label, type='text' }) {
 function App() {
   const renders = React.useRef(0);
   renders.current++;
-  const [sub, setSub] = React.useState(0);
-  React.useEffect(() => form.subscribe(() => setSub(n => n+1)), []);
+  const [validated, setValidated] = React.useState(false);
+  React.useEffect(() => form.subscribe(() => {}), []);
   return (
     <div style={{maxWidth:340}}>
       <div style={{fontSize:11,color:'#8b949e',marginBottom:10}}>
         App renders: <strong style={{color:'#f85149'}}>{renders.current}</strong> — each Field renders independently
       </div>
-      <Field form={form} path="firstName" label="First Name" />
-      <Field form={form} path="lastName"  label="Last Name" />
-      <Field form={form} path="email"     label="Email" type="email" />
-      <Field form={form} path="age"       label="Age"   type="number" />
-      <button className="primary" onClick={() => form.validate()}>Validate</button>
+      <Field form={form} path="firstName" label="First Name" showErrors={validated} />
+      <Field form={form} path="lastName"  label="Last Name"  showErrors={validated} />
+      <Field form={form} path="email"     label="Email" type="email" showErrors={validated} />
+      <Field form={form} path="age"       label="Age"   type="number" showErrors={validated} />
+      <button className="primary" onClick={() => { setValidated(true); form.validate(); }}>Validate all</button>
     </div>
   );
 }`)
 },
 {
 title: 'Array Fields',
-desc: 'Dynamic arrays with per-item fields. arrayAppend and arrayRemove keep field state in sync across indices automatically.',
-code: `function App() {
-  const { values, errors } = useForm(form);
-  const items = values.items ?? [];
-
-  return (
-    <div>
-      {items.map((item, i) => (
-        <div key={i} style={{display:'flex',gap:8}}>
-          <input value={item.text}
-            onChange={e => form.set(\`items.\${i}.text\`, e.target.value, {validate:true})} />
-          {errors[\`items.\${i}.text\`] && <span>{errors[\`items.\${i}.text\`]}</span>}
-          <button onClick={() => form.arrayRemove('items', i)}>✕</button>
-        </div>
-      ))}
-      <button onClick={() => form.arrayAppend('items', { text: '' })}>+ Add</button>
-    </div>
-  );
-}`,
-iframeHtml: makeReactIframe(`
+desc: 'arrayAppend, arrayRemove, and arrayMove keep values, errors, and touched in sync across indices. Use stable item IDs as React keys — never array indices.',
+code: `let nextId = 3;
 const form = createForm({
-  initialValues: { items: [{ text: 'First task', done: false }] },
+  initialValues: {
+    tasks: [
+      { id: 1, text: 'Buy groceries', done: false },
+      { id: 2, text: 'Write tests',   done: false },
+    ],
+  },
+  validator(values) {
+    const errors = {};
+    (values.tasks || []).forEach((t, i) => {
+      if (!t.text?.trim()) errors[\`tasks.\${i}.text\`] = 'Required';
+    });
+    return errors;
+  },
 });
 
 function App() {
   const { values, errors } = useForm(form);
-  const items = values.items ?? [];
+  const tasks = values.tasks ?? [];
+
   return (
-    <div style={{maxWidth:360}}>
-      {items.map((item, i) => (
-        <div key={i} className="arr">
-          <input type="checkbox" style={{width:'auto',flex:'none'}}
-            checked={!!item.done}
-            onChange={e => form.set('items.'+i+'.done', e.target.checked)} />
-          <input value={item.text ?? ''}
-            style={{flex:1, textDecoration: item.done ? 'line-through' : 'none'}}
-            onChange={e => form.set('items.'+i+'.text', e.target.value)} />
-          <button className="danger" onClick={() => form.arrayRemove('items', i)}>✕</button>
+    <div>
+      {tasks.map((task, i) => (
+        <div key={task.id}>
+          <div className="arr">
+            <input type="checkbox" style={{width:'auto',flex:'none'}}
+              checked={!!task.done}
+              onChange={e => form.set(\`tasks.\${i}.done\`, e.target.checked)} />
+            <input value={task.text ?? ''}
+              style={{flex:1, textDecoration: task.done ? 'line-through' : 'none'}}
+              onChange={e => form.set(\`tasks.\${i}.text\`, e.target.value, {validate:true})} />
+            <button disabled={i === 0}
+              onClick={() => form.arrayMove('tasks', i, i - 1)}>↑</button>
+            <button disabled={i === tasks.length - 1}
+              onClick={() => form.arrayMove('tasks', i, i + 1)}>↓</button>
+            <button className="danger"
+              onClick={() => form.arrayRemove('tasks', i)}>✕</button>
+          </div>
+          {errors[\`tasks.\${i}.text\`] && (
+            <div className="err" style={{paddingLeft:8}}>
+              {errors[\`tasks.\${i}.text\`]}
+            </div>
+          )}
         </div>
       ))}
       <div className="row">
         <button className="primary"
-          onClick={() => form.arrayAppend('items', {text:'',done:false})}>+ Add task</button>
-        <button onClick={() => form.reset()}>Clear all</button>
+          onClick={() => form.arrayAppend('tasks', {id: nextId++, text:'', done:false})}>
+          + Add
+        </button>
+        <button onClick={() => form.validate()}>Validate all</button>
+        <button onClick={() => form.reset()}>Reset</button>
+      </div>
+      <div className="hint">{tasks.filter(t => t.done).length}/{tasks.length} done</div>
+    </div>
+  );
+}`,
+iframeHtml: makeReactIframe(`
+let nextId = 3;
+const form = createForm({
+  initialValues: {
+    tasks: [
+      { id: 1, text: 'Buy groceries', done: false },
+      { id: 2, text: 'Write tests',   done: false },
+    ],
+  },
+  validator(values) {
+    const errors = {};
+    (values.tasks || []).forEach(function(t, i) {
+      if (!t.text || !t.text.trim()) errors['tasks.'+i+'.text'] = 'Required';
+    });
+    return errors;
+  },
+});
+
+function App() {
+  const { values, errors } = useForm(form);
+  const tasks = values.tasks ?? [];
+  return (
+    <div style={{maxWidth:390}}>
+      {tasks.map((task, i) => (
+        <div key={task.id}>
+          <div className="arr">
+            <input type="checkbox" style={{width:'auto',flex:'none'}}
+              checked={!!task.done}
+              onChange={e => form.set('tasks.'+i+'.done', e.target.checked)} />
+            <input value={task.text ?? ''}
+              style={{flex:1, textDecoration: task.done ? 'line-through' : 'none'}}
+              onChange={e => form.set('tasks.'+i+'.text', e.target.value, {validate:true})} />
+            <button style={{padding:'4px 7px'}} disabled={i===0}
+              onClick={() => form.arrayMove('tasks', i, i-1)}>↑</button>
+            <button style={{padding:'4px 7px'}} disabled={i===tasks.length-1}
+              onClick={() => form.arrayMove('tasks', i, i+1)}>↓</button>
+            <button className="danger" style={{padding:'4px 8px'}}
+              onClick={() => form.arrayRemove('tasks', i)}>✕</button>
+          </div>
+          {errors['tasks.'+i+'.text'] && (
+            <div className="err" style={{paddingLeft:8,marginTop:2}}>
+              {errors['tasks.'+i+'.text']}
+            </div>
+          )}
+        </div>
+      ))}
+      <div className="row">
+        <button className="primary"
+          onClick={() => form.arrayAppend('tasks', {id:nextId++, text:'', done:false})}>+ Add task</button>
+        <button onClick={() => form.validate()}>Validate all</button>
+        <button onClick={() => form.reset()}>Reset</button>
       </div>
       <div style={{fontSize:11,color:'#8b949e',marginTop:8}}>
-        {items.filter(x=>x.done).length}/{items.length} done
+        {tasks.filter(t=>t.done).length}/{tasks.length} done{" · "}arrayAppend{" · "}arrayRemove{" · "}arrayMove
       </div>
     </div>
   );
@@ -2095,29 +2243,69 @@ function App() {
 },
 {
 title: 'Async Validation in React',
-desc: 'The engine handles debounce and AbortSignal. The React component only subscribes to isValidating and errors — no useEffect timers needed.',
-code: `const form = createForm({
-  initialValues: { username: '' },
-  asyncDebounceMs: 400,
+desc: 'The engine handles debounce, AbortSignal cancellation, and stale result cleanup. Components only subscribe to state — zero useEffect timers or manual abort logic.',
+code: `const TAKEN = new Set(['admin','alice','bob','test','user','root']);
 
+const form = createForm({
+  initialValues: { username: '', email: '' },
+  rules: { email: ['required', 'email'] },
+  asyncDebounceMs: 450,
   async validator({ username }, _paths, signal) {
-    if (!username || username.length < 3) return {};
-    const taken = await api.checkUsername(username, signal);
-    return taken ? { username: username + ' is already taken' } : {};
+    if (!username) return { username: 'Required' };
+    if (username.length < 3) return { username: 'Min 3 chars' };
+    await new Promise(r => setTimeout(r, 700)); // simulate API
+    if (signal.aborted) return {};
+    return TAKEN.has(username.toLowerCase())
+      ? { username: username + ' is taken' } : {};
   },
 });
 
-function UsernameField() {
+function StatusBadge({ validating, ok, error }) {
+  if (validating) return <span className="spin" />;
+  if (ok)    return <span style={{color:'#3fb950',marginLeft:4}}>✓</span>;
+  if (error) return <span style={{color:'#f85149',marginLeft:4}}>✗</span>;
+  return null;
+}
+
+function App() {
   const { errors, touched, isValidating } = useForm(form);
-  const [value, , set] = useField(form, 'username');
+  const [uname, , setUname] = useField(form, 'username');
+  const [email, , setEmail] = useField(form, 'email');
+
+  const unameOk = touched.username && !errors.username && !isValidating && uname?.length >= 3;
+  const emailOk = touched.email && !errors.email && email?.length > 0;
 
   return (
-    <div>
-      <input value={value} onChange={e => set(e.target.value)} />
-      {isValidating && <span className="spin" />}
-      {touched.username && errors.username && (
-        <span className="err">{errors.username}</span>
-      )}
+    <div style={{maxWidth:340}}>
+      <div className="field">
+        <label style={{display:'flex',alignItems:'center',gap:4}}>
+          Username
+          <StatusBadge validating={isValidating} ok={unameOk}
+            error={touched.username && !!errors.username} />
+        </label>
+        <input value={uname ?? ''} onChange={e => setUname(e.target.value)}
+          placeholder="try: alice, admin…" />
+        {touched.username && errors.username && <div className="err">{errors.username}</div>}
+        {unameOk && <div className="ok">✓ Username available!</div>}
+      </div>
+      <div className="field">
+        <label style={{display:'flex',alignItems:'center',gap:4}}>
+          Email
+          <StatusBadge ok={emailOk} error={touched.email && !!errors.email} />
+        </label>
+        <input type="email" value={email ?? ''} onChange={e => setEmail(e.target.value)}
+          placeholder="you@example.com" />
+        {touched.email && errors.email && <div className="err">{errors.email}</div>}
+        {emailOk && <div className="ok">✓ Looks good</div>}
+      </div>
+      <div className="box">
+        {"isValidating: "}{String(isValidating)}{"\\n"}
+        {"username:    "}{errors.username || (unameOk ? "available" : "—")}{"\\n"}
+        {"email:       "}{errors.email    || (emailOk  ? "valid"     : "—")}
+      </div>
+      <div className="hint" style={{marginTop:6}}>
+        Taken: admin, alice, bob, test, user, root
+      </div>
     </div>
   );
 }`,
@@ -2125,42 +2313,63 @@ iframeHtml: makeReactIframe(`
 const TAKEN = new Set(['admin','alice','bob','test','user','root']);
 
 const form = createForm({
-  initialValues: { username: '' },
+  initialValues: { username: '', email: '' },
+  rules: { email: ['required', 'email'] },
   asyncDebounceMs: 450,
   async validator({ username }, _paths, signal) {
-    if (!username || username.length < 3) return {};
+    if (!username) return { username: 'Required' };
+    if (username.length < 3) return { username: 'Min 3 chars' };
     await new Promise(r => setTimeout(r, 700));
     if (signal.aborted) return {};
     return TAKEN.has(username.toLowerCase())
-      ? { username: '"'+username+'" is already taken' }
-      : {};
+      ? { username: '"'+username+'" is taken' } : {};
   },
 });
 
+function StatusBadge({ validating, ok, error }) {
+  if (validating) return <span className="spin" />;
+  if (ok)    return <span style={{color:'#3fb950',marginLeft:4}}>✓</span>;
+  if (error) return <span style={{color:'#f85149',marginLeft:4}}>✗</span>;
+  return null;
+}
+
 function App() {
   const { errors, touched, isValidating } = useForm(form);
-  const [value, , set] = useField(form, 'username');
-  const hasError = touched.username && errors.username;
-  const isOk = touched.username && !errors.username && !isValidating && value && value.length >= 3;
+  const [uname, , setUname] = useField(form, 'username');
+  const [email, , setEmail] = useField(form, 'email');
+
+  const unameOk = touched.username && !errors.username && !isValidating && uname && uname.length >= 3;
+  const emailOk = touched.email && !errors.email && email && email.length > 0;
 
   return (
     <div style={{maxWidth:340}}>
       <div className="field">
-        <label>Username</label>
-        <div style={{position:'relative'}}>
-          <input value={value ?? ''} onChange={e => set(e.target.value)}
-            placeholder="try: alice, bob, admin…" />
-          {isValidating && <span className="spin" style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)'}} />}
-        </div>
-        {hasError && <div className="err">{errors.username}</div>}
-        {isOk && <div className="ok">✓ Username available!</div>}
+        <label style={{display:'flex',alignItems:'center',gap:4}}>
+          Username
+          <StatusBadge validating={isValidating} ok={unameOk} error={touched.username && !!errors.username} />
+        </label>
+        <input value={uname ?? ''} onChange={e => setUname(e.target.value)}
+          placeholder="try: alice, admin..." />
+        {touched.username && errors.username && <div className="err">{errors.username}</div>}
+        {unameOk && <div className="ok">✓ Username available!</div>}
       </div>
-      <div style={{fontSize:11,color:'#8b949e',marginTop:4}}>
-        Taken: admin, alice, bob, test, user, root
+      <div className="field">
+        <label style={{display:'flex',alignItems:'center',gap:4}}>
+          Email
+          <StatusBadge ok={emailOk} error={touched.email && !!errors.email} />
+        </label>
+        <input type="email" value={email ?? ''} onChange={e => setEmail(e.target.value)}
+          placeholder="you@example.com" />
+        {touched.email && errors.email && <div className="err">{errors.email}</div>}
+        {emailOk && <div className="ok">✓ Looks good</div>}
       </div>
       <div className="box" style={{marginTop:10}}>
-        isValidating: {String(isValidating)}{"\\n"}
-        error: {errors.username || '(none)'}
+        {"isValidating: "}{String(isValidating)}{"\\n"}
+        {"username:    "}{errors.username || (unameOk ? "available" : "—")}{"\\n"}
+        {"email:       "}{errors.email    || (emailOk  ? "valid"     : "—")}
+      </div>
+      <div className="hint" style={{marginTop:6}}>
+        Taken: admin, alice, bob, test, user, root
       </div>
     </div>
   );
@@ -2198,27 +2407,32 @@ iframeHtml: makeVueIframe(`
     rules: { name: 'required', email: ['required','email'] },
   });
   const state = useVueForm(form);
+  const submitted = ref(false);
   const set = (path, val) => form.set(path, val, { touch: true, validate: true });
-  const submit = () => form.submit(async v => {
-    await new Promise(r => setTimeout(r, 800));
-    alert('Submitted: ' + JSON.stringify(v));
-  });
-  return { state, set, submit };
+  const submit = () => {
+    submitted.value = true;
+    form.submit(async v => {
+      await new Promise(r => setTimeout(r, 800));
+      alert('Submitted: ' + JSON.stringify(v));
+    });
+  };
+  const reset = () => { submitted.value = false; form.reset(); };
+  return { state, set, submit, reset, submitted };
 `, `
   <div style="max-width:340px">
     <div class="field">
       <label>Name</label>
-      <input :value="state.values.name" @input="set('name', $event.target.value)" />
-      <div class="err">{{ state.touched.name && state.errors.name }}</div>
+      <input :value="state.values.name" @input="set('name', \$event.target.value)" />
+      <div class="err">{{ ((state.touched.name || submitted) && state.errors.name) || '' }}</div>
     </div>
     <div class="field">
       <label>Email</label>
-      <input type="email" :value="state.values.email" @input="set('email', $event.target.value)" />
-      <div class="err">{{ state.touched.email && state.errors.email }}</div>
+      <input type="email" :value="state.values.email" @input="set('email', \$event.target.value)" />
+      <div class="err">{{ ((state.touched.email || submitted) && state.errors.email) || '' }}</div>
     </div>
     <div class="field">
       <label>Role</label>
-      <select :value="state.values.role" @change="set('role', $event.target.value)">
+      <select :value="state.values.role" @change="set('role', \$event.target.value)">
         <option value="user">User</option>
         <option value="admin">Admin</option>
       </select>
@@ -2227,7 +2441,7 @@ iframeHtml: makeVueIframe(`
       <button class="primary" :disabled="state.isSubmitting" @click="submit">
         {{ state.isSubmitting ? 'Saving…' : 'Save' }}
       </button>
-      <button @click="form.reset()">Reset</button>
+      <button @click="reset">Reset</button>
     </div>
     <div class="box">{{ JSON.stringify({values: state.values, dirty: Object.keys(state.dirty)}, null, 2) }}</div>
   </div>
@@ -2262,28 +2476,29 @@ iframeHtml: makeVueIframe(`
   const emailField  = useVueField(form, 'email');
   const bioField    = useVueField(form, 'bio');
 
-  const validate = () => form.validate();
-  return { firstField, lastField, emailField, bioField, validate };
+  const validated = ref(false);
+  const validate = () => { validated.value = true; form.validate(); };
+  return { firstField, lastField, emailField, bioField, validate, validated };
 `, `
   <div style="max-width:340px">
     <div class="field">
       <label>First Name</label>
-      <input :value="firstField.value.value" @input="firstField.set($event.target.value)" />
-      <div class="err">{{ firstField.touched.value && firstField.error.value }}</div>
+      <input :value="firstField.value.value" @input="firstField.set(\$event.target.value)" />
+      <div class="err">{{ ((firstField.touched.value || validated) && firstField.error.value) || '' }}</div>
     </div>
     <div class="field">
       <label>Last Name</label>
-      <input :value="lastField.value.value" @input="lastField.set($event.target.value)" />
-      <div class="err">{{ lastField.touched.value && lastField.error.value }}</div>
+      <input :value="lastField.value.value" @input="lastField.set(\$event.target.value)" />
+      <div class="err">{{ ((lastField.touched.value || validated) && lastField.error.value) || '' }}</div>
     </div>
     <div class="field">
       <label>Email</label>
-      <input :value="emailField.value.value" @input="emailField.set($event.target.value)" />
-      <div class="err">{{ emailField.touched.value && emailField.error.value }}</div>
+      <input :value="emailField.value.value" @input="emailField.set(\$event.target.value)" />
+      <div class="err">{{ ((emailField.touched.value || validated) && emailField.error.value) || '' }}</div>
     </div>
     <div class="field">
       <label>Bio (optional)</label>
-      <textarea :value="bioField.value.value" @input="bioField.set($event.target.value)"></textarea>
+      <textarea :value="bioField.value.value" @input="bioField.set(\$event.target.value)"></textarea>
     </div>
     <button class="primary" @click="validate">Validate all</button>
   </div>
@@ -2291,42 +2506,80 @@ iframeHtml: makeVueIframe(`
 },
 {
 title: 'v-for Array Fields',
-desc: 'Use Vue\'s v-for over form.get(\'items\') to render dynamic arrays. arrayAppend/arrayRemove automatically maintain correct errors and touched state.',
+desc: 'v-for with :key="task.id" (not index) for stable reconciliation. arrayAppend, arrayRemove, and arrayMove keep errors and touched in sync automatically.',
 code: `// In <script setup>
+let nextId = 3;
+const form = createForm({
+  initialValues: {
+    tasks: [
+      { id: 1, text: 'Buy groceries', done: false },
+      { id: 2, text: 'Write tests',   done: false },
+    ],
+  },
+  validator(values) {
+    const errors = {};
+    (values.tasks || []).forEach((t, i) => {
+      if (!t.text?.trim()) errors[\`tasks.\${i}.text\`] = 'Required';
+    });
+    return errors;
+  },
+});
 const state = useVueForm(form);
-const items = computed(() => state.value.values.items ?? []);
+const tasks = computed(() => state.value.values.tasks || []);
 
-function addItem()  { form.arrayAppend('items', { text: '', done: false }); }
-function removeItem(i) { form.arrayRemove('items', i); }
-function setItem(i, key, val) {
-  form.set(\`items.\${i}.\${key}\`, val, { touch: true });
-}`,
+const add    = () => form.arrayAppend('tasks', { id: nextId++, text: '', done: false });
+const remove = (i) => form.arrayRemove('tasks', i);
+const move   = (i, j) => form.arrayMove('tasks', i, j);`,
 iframeHtml: makeVueIframe(`
+  let nextId = 3;
   const form = createForm({
-    initialValues: { items: [{ text: 'Buy groceries', done: false }] },
+    initialValues: {
+      tasks: [
+        { id: 1, text: 'Buy groceries', done: false },
+        { id: 2, text: 'Write tests',   done: false },
+      ],
+    },
+    validator(values) {
+      const errors = {};
+      (values.tasks || []).forEach(function(t, i) {
+        if (!t.text || !t.text.trim()) errors['tasks.' + i + '.text'] = 'Required';
+      });
+      return errors;
+    },
   });
   const state = useVueForm(form);
-  const items = computed(() => state.value.values.items || []);
-  const add    = () => form.arrayAppend('items', { text: '', done: false });
-  const remove = (i) => form.arrayRemove('items', i);
-  const setText = (i, v) => form.set('items.' + i + '.text', v);
-  const setDone = (i, v) => form.set('items.' + i + '.done', v);
-  return { items, add, remove, setText, setDone };
+  const tasks = computed(() => state.value.values.tasks || []);
+  const add    = () => form.arrayAppend('tasks', { id: nextId++, text: '', done: false });
+  const remove = (i) => form.arrayRemove('tasks', i);
+  const move   = (i, j) => form.arrayMove('tasks', i, j);
+  const setText = (i, v) => form.set('tasks.' + i + '.text', v, { validate: true });
+  const setDone = (i, v) => form.set('tasks.' + i + '.done', v);
+  const validate = () => form.validate();
+  return { state, tasks, add, remove, move, setText, setDone, validate, form };
 `, `
-  <div style="max-width:360px">
-    <div v-for="(item, i) in items" :key="i" class="arr">
-      <input type="checkbox" style="width:auto;flex:none"
-        :checked="item.done" @change="setDone(i, $event.target.checked)" />
-      <input :value="item.text"
-        :style="{ flex: 1, textDecoration: item.done ? 'line-through' : 'none' }"
-        @input="setText(i, $event.target.value)" />
-      <button class="danger" @click="remove(i)">✕</button>
+  <div style="max-width:390px">
+    <div v-for="(task, i) in tasks" :key="task.id">
+      <div class="arr">
+        <input type="checkbox" style="width:auto;flex:none"
+          :checked="task.done" @change="setDone(i, \$event.target.checked)" />
+        <input :value="task.text"
+          :style="{ flex: 1, textDecoration: task.done ? 'line-through' : 'none' }"
+          @input="setText(i, \$event.target.value)" />
+        <button style="padding:4px 7px" :disabled="i === 0" @click="move(i, i-1)">&#x2191;</button>
+        <button style="padding:4px 7px" :disabled="i === tasks.length - 1" @click="move(i, i+1)">&#x2193;</button>
+        <button class="danger" style="padding:4px 8px" @click="remove(i)">&#x2715;</button>
+      </div>
+      <div v-if="state.errors['tasks.' + i + '.text']" class="err" style="padding-left:8px;margin-top:2px">
+        {{ state.errors['tasks.' + i + '.text'] }}
+      </div>
     </div>
     <div class="row" style="margin-top:8px">
-      <button class="primary" @click="add">+ Add</button>
+      <button class="primary" @click="add">+ Add task</button>
+      <button @click="validate">Validate all</button>
+      <button @click="form.reset()">Reset</button>
     </div>
     <div style="font-size:11px;color:#8b949e;margin-top:8px">
-      {{ items.filter(x=>x.done).length }}/{{ items.length }} done
+      {{ tasks.filter(t => t.done).length }}/{{ tasks.length }} done
     </div>
   </div>
 `)
@@ -2358,7 +2611,7 @@ iframeHtml: makeVueIframe(`
   const form = createForm({
     initialValues: { email: '', password: '' },
     rules: { email: ['required','email'], password: ['required', { minLength: 8 }] },
-    asyncDebounceMs: 300,
+    asyncDebounceMs: 0,
     async validator({ email }, _paths, signal) {
       if (!email || !/^[^@]+@[^@]+\\.[^@]+$/.test(email)) return {};
       await new Promise(r => setTimeout(r, 500));
@@ -2367,36 +2620,39 @@ iframeHtml: makeVueIframe(`
     },
   });
   const state = useVueForm(form);
+  const submitted = ref(false);
+  const loading = ref(false);
   const set = (p, v) => form.set(p, v, { touch: true, validate: true });
   const successMsg = ref('');
-  const onSubmit = (e) => {
-    e.preventDefault();
-    form.handleSubmit(
-      async (v) => { await new Promise(r => setTimeout(r, 800)); successMsg.value = 'Logged in as '+v.email; },
-      () => {}
-    )(e);
+  const login = async () => {
+    submitted.value = true;
+    const isValid = await form.validate();
+    if (isValid) {
+      loading.value = true;
+      await new Promise(r => setTimeout(r, 800));
+      successMsg.value = 'Logged in as ' + form.get('email');
+      loading.value = false;
+    }
   };
-  return { state, set, successMsg, onSubmit };
+  return { state, set, successMsg, login, submitted, loading };
 `, `
   <div style="max-width:340px">
-    <form @submit="onSubmit">
-      <div class="field">
-        <label>Email</label>
-        <input type="email" :value="state.values.email" @input="set('email', $event.target.value)" />
-        <div v-if="state.isValidating" class="hint"><span class="spin"/> checking…</div>
-        <div class="err">{{ state.touched.email && state.errors.email }}</div>
-        <div class="hint" style="font-size:10px">Try: demo@example.com</div>
-      </div>
-      <div class="field">
-        <label>Password</label>
-        <input type="password" :value="state.values.password" @input="set('password', $event.target.value)" />
-        <div class="err">{{ state.touched.password && state.errors.password }}</div>
-      </div>
-      <button type="submit" class="primary" :disabled="state.isSubmitting">
-        {{ state.isSubmitting ? 'Logging in…' : 'Log in' }}
-      </button>
-      <div v-if="successMsg" class="box" style="margin-top:10px;color:#3fb950">{{ successMsg }}</div>
-    </form>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" :value="state.values.email" @input="set('email', \$event.target.value)" />
+      <div v-if="state.isValidating && state.touched.email" class="hint"><span class="spin"></span> checking…</div>
+      <div class="err">{{ ((state.touched.email || submitted) && state.errors.email) || '' }}</div>
+      <div class="hint" style="font-size:10px">Try: demo@example.com</div>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" :value="state.values.password" @input="set('password', \$event.target.value)" />
+      <div class="err">{{ ((state.touched.password || submitted) && state.errors.password) || '' }}</div>
+    </div>
+    <button class="primary" :disabled="loading" @click="login">
+      {{ loading ? 'Logging in…' : 'Log in' }}
+    </button>
+    <div v-if="successMsg" class="box" style="margin-top:10px;color:#3fb950">{{ successMsg }}</div>
   </div>
 `)
 },
@@ -2434,6 +2690,7 @@ const form = createForm({
   initialValues: { name: '', email: '', plan: 'free' },
   rules: { name: 'required', email: ['required','email'] },
 });
+const [submitted, setSubmitted] = createSignal(false);
 
 function App() {
   const state = useSolidForm(form);
@@ -2445,13 +2702,13 @@ function App() {
         <label>Name</label>
         <input value=\${() => state().values.name || ''}
           onInput=\${e => set('name', e.target.value)} />
-        <div class="err">\${() => state().touched.name && state().errors.name}</div>
+        <div class="err">\${() => (state().touched.name || submitted()) && state().errors.name}</div>
       </div>
       <div class="field">
         <label>Email</label>
         <input type="email" value=\${() => state().values.email || ''}
           onInput=\${e => set('email', e.target.value)} />
-        <div class="err">\${() => state().touched.email && state().errors.email}</div>
+        <div class="err">\${() => (state().touched.email || submitted()) && state().errors.email}</div>
       </div>
       <div class="field">
         <label>Plan</label>
@@ -2463,10 +2720,10 @@ function App() {
       </div>
       <div class="row">
         <button class="primary"
-          onClick=\${() => form.submit(async v => { await new Promise(r=>setTimeout(r,600)); alert('Saved! Plan: '+v.plan); })}>
+          onClick=\${() => { setSubmitted(true); form.submit(async v => { await new Promise(r=>setTimeout(r,600)); alert('Saved! Plan: '+v.plan); }); }}>
           \${() => state().isSubmitting ? 'Saving…' : 'Save'}
         </button>
-        <button onClick=\${() => form.reset()}>Reset</button>
+        <button onClick=\${() => { setSubmitted(false); form.reset(); }}>Reset</button>
       </div>
       <div class="box">\${() => JSON.stringify(state().values, null, 2)}</div>
     </div>\`;
@@ -2502,6 +2759,7 @@ const form = createForm({
     age: ['required','integer',{min:18}],
   },
 });
+const [validated, setValidated] = createSignal(false);
 
 function Field({ path, label, type }) {
   const [value, fs, set] = useSolidField(form, path);
@@ -2509,7 +2767,7 @@ function Field({ path, label, type }) {
     <label>\${label}</label>
     <input type=\${type||'text'} value=\${value}
       onInput=\${e => set(e.target.value)} />
-    <div class="err">\${() => fs().touched && fs().error}</div>
+    <div class="err">\${() => (fs().touched || validated()) && fs().error}</div>
   </div>\`;
 }
 
@@ -2519,7 +2777,7 @@ function App() {
     <\${Field} path="last"  label="Last name" />
     <\${Field} path="email" label="Email" type="email" />
     <\${Field} path="age"   label="Age" type="number" />
-    <button class="primary" onClick=\${() => form.validate()}>Validate all</button>
+    <button class="primary" onClick=\${() => { setValidated(true); form.validate(); }}>Validate all</button>
   </div>\`;
 }
 
@@ -2551,8 +2809,6 @@ function TodoApp() {
   );
 }`,
 iframeHtml: makeSolidIframe(`
-const TAKEN = new Set(['admin','alice','bob','test']);
-
 const form = createForm({
   initialValues: { items: [{ text:'Buy milk',done:false },{ text:'Walk dog',done:false }] },
 });
@@ -2560,28 +2816,28 @@ const form = createForm({
 function App() {
   const state = useSolidForm(form);
   const items = createMemo(() => state().values.items || []);
-  const done  = createMemo(() => items().filter(x=>x.done).length);
+  const done  = createMemo(() => items().filter(x => x.done).length);
 
   return html\`<div style="max-width:360px">
-    <\${For} each=\${items}>\${(item, i) => html\`
+    <\${For} each=\${() => items().map((_, i) => i)}>\${idx => html\`
       <div class="arr">
         <input type="checkbox" style="width:auto;flex:none"
-          checked=\${() => item.done}
-          onChange=\${e => form.set('items.'+i()+'.done', e.target.checked)} />
-        <input value=\${() => item.text}
-          style=\${() => ({flex:1, textDecoration: item.done ? 'line-through':'none'})}
-          onInput=\${e => form.set('items.'+i()+'.text', e.target.value)} />
-        <button class="danger" onClick=\${() => form.arrayRemove('items', i())}>✕</button>
+          checked=\${() => !!items()[idx]?.done}
+          onChange=\${e => form.set('items.'+idx+'.done', e.target.checked)} />
+        <input value=\${() => items()[idx]?.text || ''}
+          style="flex:1"
+          onInput=\${e => form.set('items.'+idx+'.text', e.target.value)} />
+        <button class="danger" onClick=\${() => form.arrayRemove('items', idx)}>✕</button>
       </div>
-    \`}<\/\${For}>
-    <div class="row">
+    \`}<\/\/>
+    <div class="row" style="margin-top:8px">
       <button class="primary"
         onClick=\${() => form.arrayAppend('items', {text:'',done:false})}>+ Add</button>
       <button onClick=\${() => form.arraySwap('items', 0, items().length-1)}
         disabled=\${() => items().length < 2}>Swap first/last</button>
     </div>
     <div style="font-size:11px;color:#8b949e;margin-top:6px">
-      \${done}/\${() => items().length} done
+      \${() => done()}/\${() => items().length} done
     </div>
   </div>\`;
 }
@@ -2660,35 +2916,37 @@ iframeHtml: makeSvelteIframe(`<script>
     initialValues: { name: '', email: '' },
     rules: { name: 'required', email: ['required', 'email'] },
   });
+  let submitted = false;
   function handleSubmit() {
+    submitted = true;
     form.submit(function(v) { return new Promise(function(r) { setTimeout(r, 800); }); });
   }
 <\/script>
-<div>
-  <div class="field-row">
+<div style="max-width:340px">
+  <div class="field">
     <label>Name</label>
     <input value={$form.values.name}
       on:input={function(e) { form.set('name', e.target.value, { touch: true, validate: true }); }} />
-    {#if $form.touched.name && $form.errors.name}
-      <span class="error">{$form.errors.name}</span>
+    {#if (submitted || $form.touched.name) && $form.errors.name}
+      <div class="err">{$form.errors.name}</div>
     {/if}
   </div>
-  <div class="field-row">
+  <div class="field">
     <label>Email</label>
     <input value={$form.values.email}
       on:input={function(e) { form.set('email', e.target.value, { touch: true, validate: true }); }} />
-    {#if $form.touched.email && $form.errors.email}
-      <span class="error">{$form.errors.email}</span>
+    {#if (submitted || $form.touched.email) && $form.errors.email}
+      <div class="err">{$form.errors.email}</div>
     {/if}
   </div>
-  <div class="btn-row">
-    <button class="btn primary" on:click={handleSubmit} disabled={$form.isSubmitting}>
+  <div class="row">
+    <button class="primary" on:click={handleSubmit} disabled={$form.isSubmitting}>
       {$form.isSubmitting ? 'Saving...' : 'Submit'}
     </button>
-    <button class="btn" on:click={() => form.reset()}>Reset</button>
+    <button on:click={() => { submitted = false; form.reset(); }}>Reset</button>
   </div>
-  <div class="box" style="margin-top:10px;font-size:11px;">
-    isDirty: {$form.isDirty}
+  <div class="box" style="margin-top:8px">
+    dirty fields: {Object.keys($form.dirty).join(', ') || 'none'}
   </div>
 </div>`),
 },
@@ -2767,28 +3025,31 @@ iframeHtml: makeSvelteIframe(`<script>
   });
   const { value: nameVal, error: nameErr, touched: nameTouched } = useField(form, 'name');
   const { value: emailVal, error: emailErr, touched: emailTouched } = useField(form, 'email');
+  let submitted = false;
 <\/script>
-<div>
-  <div class="field-row">
+<div style="max-width:340px">
+  <div class="field">
     <label>Name</label>
     <input value={$nameVal}
       on:input={function(e) { form.set('name', e.target.value, { touch: true, validate: true }); }} />
-    {#if $nameTouched && $nameErr}
-      <span class="error">{$nameErr}</span>
+    {#if (submitted || $nameTouched) && $nameErr}
+      <div class="err">{$nameErr}</div>
     {/if}
   </div>
-  <div class="field-row">
+  <div class="field">
     <label>Email</label>
     <input value={$emailVal}
       on:input={function(e) { form.set('email', e.target.value, { touch: true, validate: true }); }} />
-    {#if $emailTouched && $emailErr}
-      <span class="error">{$emailErr}</span>
+    {#if (submitted || $emailTouched) && $emailErr}
+      <div class="err">{$emailErr}</div>
     {/if}
   </div>
-  <button class="btn primary"
-    on:click={() => form.submit(function(v) { return Promise.resolve(); })}>
-    Submit
-  </button>
+  <div class="row">
+    <button class="primary" on:click={() => { submitted = true; form.submit(function(v) { return new Promise(function(r) { setTimeout(r, 800); }); }); }}>
+      Submit
+    </button>
+    <button on:click={() => { submitted = false; form.reset(); }}>Reset</button>
+  </div>
 </div>`),
 },
 ];
@@ -3124,12 +3385,18 @@ function renderDemo(step) {
       'var(--side) 1fr 1fr var(--perf)';
 
     try {
+      // Auto-wrap createForm with withPerf so every vanilla step populates
+      // the Engine Internals panel without each step having to opt in.
+      const rawCF = agwForm.createForm;
+      createForm = (...a) => withPerf(rawCF(...a));
       activeForm = step.run(demoArea);
-      renderPerfPanel(activeForm);
-      startPerfPolling(activeForm);
     } catch (err) {
       demoArea.innerHTML = `<div class="alert err">Error: ${err.message}</div>`;
+    } finally {
+      createForm = agwForm.createForm; // always restore
     }
+    renderPerfPanel(activeForm);
+    startPerfPolling(activeForm);
   } else if (step.iframeHtml) {
     // Framework — render in iframe
     document.getElementById('demoLabel').textContent = 'Live Demo';

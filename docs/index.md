@@ -38,8 +38,8 @@ Most form libraries are coupled to a single framework or require a large runtime
 
 ```ts
 import { createForm } from '@neutro/form/core'
-// or
-import { createForm } from '@neutro/form/core'
+// or the scoped package directly:
+import { createForm } from '@neutro/form-core'
 
 const form = createForm({
   initialValues: { email: '', password: '' },

@@ -43,11 +43,27 @@ form.set('email', 'ali', { validate: true })
 
 ---
 
+## The Validator Signature
+
+Every `validator` function receives three arguments:
+
+```ts
+validator: async (values, scopePaths, signal) => { ... }
+```
+
+| Argument | Type | What it is |
+|---|---|---|
+| `values` | `T` | The full form values snapshot at the time validation runs |
+| `scopePaths` | `string[] \| undefined` | Which field paths triggered this validation run. `undefined` when the whole form is validated at once (e.g. on submit) |
+| `signal` | `AbortSignal` | Aborted automatically when a newer validation run supersedes this one |
+
+---
+
 ## AbortController Integration
 
 Each validation scope gets its own `AbortController`. When a field is re-validated before the previous run for that scope has completed, the engine aborts the previous controller immediately — before the debounce timer even expires.
 
-Pass the `signal` argument to `fetch` (or any abort-aware API) to benefit from this:
+Pass `signal` to `fetch` (or any abort-aware API) to cancel in-flight requests automatically:
 
 ```ts
 import { createForm } from '@neutro/form/core'
@@ -56,6 +72,9 @@ const form = createForm({
   initialValues: { username: '' },
   asyncDebounceMs: 400,
 
+  // scopePaths is not used here because this form only has one async field.
+  // When multiple fields need independent async checks, scopePaths tells you
+  // which field triggered the run so you can skip the others — see below.
   validator: async (values, _scopePaths, signal) => {
     const errors: Record<string, string> = {}
 
@@ -99,7 +118,7 @@ While async validation is in progress, `form.getState().isValidating` is `true`.
 ```tsx
 // React example
 function UsernameField({ form }) {
-  const username = useFormPath(form, 'username')         // the field value
+  const username = useFormPath(form, 'username')
   const { isValidating, errors, touched } = useForm(form)
 
   return (
@@ -121,9 +140,9 @@ function UsernameField({ form }) {
 
 ---
 
-## Scoping Async Checks to Specific Fields
+## Using scopePaths to Skip Redundant Requests
 
-The `scopePaths` argument tells the validator which fields triggered this run. Use it to skip expensive async checks when they aren't needed:
+When multiple fields each have their own async check, you don't want typing in the `username` field to fire the `email` uniqueness check and vice versa. `scopePaths` tells you exactly which field(s) triggered this run:
 
 ```ts
 const form = createForm({
@@ -133,7 +152,7 @@ const form = createForm({
   validator: async (values, scopePaths, signal) => {
     const errors: Record<string, string> = {}
 
-    // Always run cheap sync checks
+    // Always run cheap sync checks regardless of which field changed
     if (!values.email.includes('@')) errors.email = 'Invalid email'
     if (values.username.length < 3) errors.username = 'Too short'
 
@@ -156,4 +175,4 @@ const form = createForm({
 })
 ```
 
-This pattern cuts async requests dramatically on forms where only one or two fields have uniqueness requirements.
+Without the `scopePaths` guard, every keystroke in either field would fire both API calls. With it, each field only triggers its own network request. When `scopePaths` is `undefined` (full-form validation on submit), both checks run — which is correct, since the user is done editing.

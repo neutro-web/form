@@ -417,8 +417,15 @@ function applyBuiltInRules<T>(
         }
       } else if (rule === 'url') {
         if (present) {
-          try { new URL(str); }
-          catch { error = 'Must be a valid URL'; }
+          try {
+            const u = new URL(str);
+            const segs = u.hostname.split('.');
+            const validHost = u.hostname === 'localhost' ||
+              (segs.length >= 2 && segs.every(s => s.length > 0));
+            if (!['http:', 'https:'].includes(u.protocol) || !validHost) {
+              error = 'Must be a valid URL';
+            }
+          } catch { error = 'Must be a valid URL'; }
         }
       } else if (rule === 'numeric') {
         if (present && isNaN(Number(value))) error = 'Must be a number';
@@ -1090,6 +1097,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         setNestedValue(values, targetPath, copy);
         const shifted = shiftStateIndices(targetPath, index, 'remove');
         shifted.forEach((k) => notify(k));
+        // Always notify the parent array path so global subscribers fire even when
+        // no indices shifted (e.g. removing the last element with no touched/error state).
+        notify(targetPath);
       });
       runValidation([targetPath]);
     },
