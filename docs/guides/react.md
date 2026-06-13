@@ -200,3 +200,52 @@ export function ProfileForm() {
 - **`useForm`** when the component needs to render based on aggregate form state (`isSubmitting`, whether any errors exist, `values` for a preview, etc.).
 - **`useFormPath`** for individual field components that display their own value and error. Keeps re-renders scoped to the field.
 - **`useFormConnect`** for high-frequency inputs (phone masking, rich text, canvas drawing) where React re-renders on every keystroke would be too expensive, or for DOM elements you want to control imperatively.
+
+---
+
+## Handling Server Errors
+
+Use `form.setErrors()` inside your submit handler to feed API validation errors back into form state. They surface in `errors` and clear on the next validation run — no extra wiring required.
+
+```tsx
+import { createForm } from '@neutro/form/core'
+import { useForm } from '@neutro/form/adapters/react'
+
+const registerForm = createForm({
+  initialValues: { email: '', username: '' },
+  rules: { email: ['required', 'email'], username: 'required' },
+})
+
+export function RegisterForm() {
+  const { errors, touched, isSubmitting } = useForm(registerForm)
+
+  const handleSubmit = registerForm.handleSubmit(async (payload) => {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const { errors } = await res.json()
+      registerForm.setErrors(errors)
+    }
+  })
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        value={registerForm.get('email') as string}
+        onChange={(e) => registerForm.set('email', e.target.value, { touch: true })}
+      />
+      {touched.email && errors.email && <span>{errors.email}</span>}
+
+      <input
+        value={registerForm.get('username') as string}
+        onChange={(e) => registerForm.set('username', e.target.value, { touch: true })}
+      />
+      {touched.username && errors.username && <span>{errors.username}</span>}
+
+      <button type="submit" disabled={isSubmitting}>Register</button>
+    </form>
+  )
+}
+```

@@ -165,3 +165,58 @@ npm install @neutro/form
 - Both hooks register an `onDestroy` callback to call the form's unsubscribe function. This requires that they are called synchronously during component initialisation.
 - If you need to create the form and its stores lazily (e.g. based on a prop that arrives asynchronously), create the form instance outside the component and pass it in as a prop.
 - The returned stores are standard Svelte readable stores — you can derive from them with `derived()` exactly as you would any other store.
+
+---
+
+## Handling Server Errors
+
+Use `form.setErrors()` inside your submit handler to feed API validation errors back into form state.
+
+```svelte
+<script lang="ts">
+  import { createForm } from '@neutro/form/core'
+  import { useSvelteForm } from '@neutro/form/adapters/svelte'
+
+  const form = createForm({
+    initialValues: { email: '', username: '' },
+    rules: { email: ['required', 'email'], username: 'required' },
+  })
+
+  const { state } = useSvelteForm(form)
+
+  async function handleSubmit(e: SubmitEvent) {
+    e.preventDefault()
+    const valid = await form.validate()
+    if (!valid) return
+
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      body: JSON.stringify(form.getPayload()),
+    })
+    if (!res.ok) {
+      const { errors } = await res.json()
+      form.setErrors(errors)
+    }
+  }
+</script>
+
+<form on:submit={handleSubmit}>
+  <input
+    value={$state.values.email}
+    on:input={(e) => form.set('email', e.currentTarget.value, { touch: true })}
+  />
+  {#if $state.touched.email && $state.errors.email}
+    <span class="error">{$state.errors.email}</span>
+  {/if}
+
+  <input
+    value={$state.values.username}
+    on:input={(e) => form.set('username', e.currentTarget.value, { touch: true })}
+  />
+  {#if $state.touched.username && $state.errors.username}
+    <span class="error">{$state.errors.username}</span>
+  {/if}
+
+  <button type="submit" disabled={$state.isSubmitting}>Register</button>
+</form>
+```

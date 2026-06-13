@@ -202,3 +202,55 @@ const email = useVueFormPath(form, 'email')
 `useVueFormPath(form, path)` returns `{ value, fieldState }` — both are readonly refs. `value` holds the field's current value; `fieldState` holds `{ error?, touched?, dirty? }` or `null`. Access them as `field.value` and `field.fieldState?.error` in templates (Vue unwraps the refs automatically).
 
 Attempting to mutate either ref directly produces a Vue warning in development. All mutations go through the form methods — the refs are read-only so the engine remains the single source of truth.
+
+---
+
+## Handling Server Errors
+
+Use `form.setErrors()` inside your submit handler to feed API validation errors back into form state.
+
+```vue
+<script setup lang="ts">
+import { createForm } from '@neutro/form/core'
+import { useVueForm } from '@neutro/form/adapters/vue'
+
+const form = createForm({
+  initialValues: { email: '', username: '' },
+  rules: { email: ['required', 'email'], username: 'required' },
+})
+
+const { state } = useVueForm(form)
+
+async function handleSubmit() {
+  const valid = await form.validate()
+  if (!valid) return
+
+  const res = await fetch('/api/register', {
+    method: 'POST',
+    body: JSON.stringify(form.getPayload()),
+  })
+  if (!res.ok) {
+    const { errors } = await res.json()
+    form.setErrors(errors)
+  }
+}
+</script>
+
+<template>
+  <form @submit.prevent="handleSubmit">
+    <input
+      :value="state.values.email"
+      @input="form.set('email', ($event.target as HTMLInputElement).value, { touch: true })"
+    />
+    <span v-if="state.touched.email && state.errors.email">{{ state.errors.email }}</span>
+
+    <input
+      :value="state.values.username"
+      @input="form.set('username', ($event.target as HTMLInputElement).value, { touch: true })"
+    />
+    <span v-if="state.touched.username && state.errors.username">{{ state.errors.username }}</span>
+
+    <button type="submit" :disabled="state.isSubmitting">Register</button>
+  </form>
+</template>
+```
