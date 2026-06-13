@@ -3090,7 +3090,7 @@ const ANGULAR_SB_PROJECT = {
     'tsconfig.json': `{
   "compileOnSave": false,
   "compilerOptions": {
-    "baseUrl": "./",
+    "baseUrl": ".",
     "outDir": "./dist/out-tsc",
     "forceConsistentCasingInFileNames": true,
     "strict": true,
@@ -3106,7 +3106,11 @@ const ANGULAR_SB_PROJECT = {
     "target": "ES2022",
     "module": "ES2022",
     "useDefineForClassFields": false,
-    "lib": ["ES2022", "dom"]
+    "lib": ["ES2022", "dom"],
+    "paths": {
+      "@neutro/form/core": ["node_modules/@neutro/form/dist/core.d.ts"],
+      "@neutro/form/adapters/angular": ["node_modules/@neutro/form/dist/adapters/angular.d.ts"]
+    }
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
@@ -3114,6 +3118,15 @@ const ANGULAR_SB_PROJECT = {
     "strictInputAccessModifiers": true,
     "strictTemplates": true
   }
+}`,
+    'tsconfig.app.json': `{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/out-tsc",
+    "types": []
+  },
+  "files": ["src/main.ts"],
+  "include": ["src/**/*.d.ts"]
 }`,
     'src/index.html': `<!DOCTYPE html>
 <html lang="en">
