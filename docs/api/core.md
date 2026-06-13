@@ -257,7 +257,7 @@ Merges server-returned field errors into form state. Each injected error behaves
 **When to use:** inside your submit handler, after an API call returns field-level validation errors.
 
 ```ts
-form.handleSubmit(async (payload) => {
+form.submit(async (payload) => {
   const res = await fetch('/api/register', {
     method: 'POST',
     body: JSON.stringify(payload),
