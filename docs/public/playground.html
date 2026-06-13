@@ -3056,21 +3056,44 @@ iframeHtml: makeSvelteIframe(`<script>
 
 // ─── ANGULAR TUTORIALS ───────────────────────────────────────────────────────
 // Shared StackBlitz project — both steps open the same complete app.
-// form-core is loaded via JSDelivr CDN so no npm publish is required.
+// Uses @neutro/form from npm.
 const ANGULAR_SB_PROJECT = {
-  title: 'AGW Form — Angular 17 Demo',
-  description: 'Signal-based form service + standalone component (neutro/form)',
+  title: '@neutro/form — Angular 17 Demo',
+  description: 'Signal-based form service + standalone component (@neutro/form)',
   template: 'angular-cli',
   files: {
+    'package.json': `{
+  "name": "neutro-form-angular-demo",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "@angular/animations": "^17.0.0",
+    "@angular/common": "^17.0.0",
+    "@angular/compiler": "^17.0.0",
+    "@angular/core": "^17.0.0",
+    "@angular/forms": "^17.0.0",
+    "@angular/platform-browser": "^17.0.0",
+    "@angular/platform-browser-dynamic": "^17.0.0",
+    "@angular/router": "^17.0.0",
+    "@neutro/form": "latest",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.14.2"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^17.0.0",
+    "@angular/cli": "^17.0.0",
+    "@angular/compiler-cli": "^17.0.0",
+    "typescript": "~5.2.2"
+  }
+}`,
     'src/index.html': `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>AGW Form Angular Demo</title>
+  <title>@neutro/form Angular Demo</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <script src="https://cdn.jsdelivr.net/gh/neutro-web/form@main/docs/public/form-core.js"><\/script>
 </head>
 <body>
   <app-root></app-root>
@@ -3080,12 +3103,11 @@ const ANGULAR_SB_PROJECT = {
 import { AppComponent } from './app/app.component';
 bootstrapApplication(AppComponent).catch(err => console.error(err));`,
     'src/app/form.service.ts': `import { Injectable, signal } from '@angular/core';
-
-declare const agwForm: any;
+import { createForm } from '@neutro/form/core';
 
 @Injectable({ providedIn: 'root' })
 export class FormService {
-  private form = agwForm.createForm({
+  private form = createForm({
     initialValues: { name: '', email: '', message: '' },
     rules: {
       name: 'required',
@@ -3094,9 +3116,9 @@ export class FormService {
     },
   });
   state = signal(this.form.getState());
-  constructor() { this.form.subscribe((s: any) => this.state.set(s)); }
+  constructor() { this.form.subscribe(s => this.state.set(s)); }
   set(path: string, value: unknown) { this.form.set(path, value, { touch: true, validate: true }); }
-  submit(onValid: (v: any) => Promise<void>) { return this.form.submit(onValid); }
+  submit(onValid: (v: unknown) => Promise<void>) { return this.form.submit(onValid); }
   reset() { this.form.reset(); }
 }`,
     'src/app/app.component.ts': `import { Component, inject } from '@angular/core';
@@ -3126,7 +3148,7 @@ import { FormService } from './form.service';
   \`],
   template: \`
     <main>
-      <h2>Angular 17 + AGW Form</h2>
+      <h2>Angular 17 + @neutro/form</h2>
       <div class="field">
         <label>Name</label>
         <input [value]="svc.state().values.name"
