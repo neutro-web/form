@@ -99,10 +99,18 @@ function logAction(
   console.groupEnd();
 }
 
+const registeredForms = new WeakSet<FormInstance<any>>();
+
 export function devtools<T extends object>(
   form: FormInstance<T>,
   options: DevtoolsOptions = {}
 ): () => void {
+  if (registeredForms.has(form)) {
+    console.warn('[NeutroForm devtools] devtools() was called twice on the same form instance. Ignoring duplicate registration.');
+    return () => {};
+  }
+  registeredForms.add(form);
+
   const name = options.name ?? 'Form';
   const collapsed = options.collapsed ?? true;
   const groupFn = collapsed ? console.groupCollapsed.bind(console) : console.group.bind(console);
@@ -117,7 +125,7 @@ export function devtools<T extends object>(
   console.log('%c initial state', DIM_STYLE, form.getState());
   console.groupEnd();
 
-  return form._subscribeToActions((action, state) => {
+  const unsubscribe = form._subscribeToActions((action, state) => {
     if (action.type === 'BATCH_START') {
       inBatch = true;
       batchActions = [];
@@ -164,4 +172,9 @@ export function devtools<T extends object>(
     prevState = state;
     logAction(action, state, prev, name, groupFn, lastTimeRef);
   });
+
+  return () => {
+    registeredForms.delete(form);
+    unsubscribe();
+  };
 }
