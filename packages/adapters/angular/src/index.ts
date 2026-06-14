@@ -23,6 +23,7 @@ export interface AngularFormReturn<T extends object> {
   arrayMove: FormInstance<T>['arrayMove'];
   arraySwap: FormInstance<T>['arraySwap'];
   setErrors: FormInstance<T>['setErrors'];
+  clearErrors: FormInstance<T>['clearErrors'];
 }
 
 // Must be called inside an injection context (component constructor or inject() call site).
@@ -57,6 +58,7 @@ export function useAngularForm<T extends object>(form: FormInstance<T>): Angular
     arrayMove: form.arrayMove,
     arraySwap: form.arraySwap,
     setErrors: form.setErrors,
+    clearErrors: form.clearErrors,
   };
 }
 

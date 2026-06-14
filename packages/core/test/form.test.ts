@@ -2825,6 +2825,59 @@ describe('setErrors', () => {
   });
 });
 
+describe('clearErrors', () => {
+  it('clears all errors and notifies subscribers', async () => {
+    const form = createForm({
+      initialValues: { email: '', username: '' },
+      rules: { email: 'required', username: 'required' },
+    });
+    await form.validate();
+    expect(Object.keys(form.getState().errors).length).toBeGreaterThan(0);
+    const listener = vi.fn();
+    form.subscribe(listener);
+    listener.mockClear();
+
+    form.clearErrors();
+
+    expect(form.getState().errors).toEqual({});
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not affect values, touched, or dirty', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      rules: { email: 'required' },
+    });
+    form.set('email', 'x', { touch: true });
+    await form.validate();
+
+    form.clearErrors();
+
+    expect(form.getState().values.email).toBe('x');
+    expect(form.getState().touched.email).toBe(true);
+  });
+
+  it('is a no-op when there are no errors', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    const listener = vi.fn();
+    form.subscribe(listener);
+    listener.mockClear();
+
+    expect(() => form.clearErrors()).not.toThrow();
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('clears server-injected errors from setErrors', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    form.setErrors({ email: 'Already taken' });
+    expect(form.getState().errors.email).toBe('Already taken');
+
+    form.clearErrors();
+
+    expect(form.getState().errors).toEqual({});
+  });
+});
+
 describe('getFieldMode', () => {
   it('returns onTouched when no validationMode configured', () => {
     const form = createForm({ initialValues: { name: '' } });
