@@ -141,3 +141,17 @@ function PhoneField({ form }: { form: ReturnType<typeof createForm> }) {
 ```
 
 The hook returns a React `ref` that you attach to the DOM element. When the element mounts, `form.connect` is called; when it unmounts, the returned disconnect function is called.
+
+---
+
+## Automatic ARIA
+
+`connect()` manages the following ARIA attributes on the element automatically:
+
+| Attribute | Behaviour |
+|---|---|
+| `aria-invalid` | Set to `'true'` when the field has an error; `'false'` otherwise. Updated reactively whenever errors change. |
+| `aria-describedby` | Set once on connect when a `[data-error="${path}"]` element is found in the DOM. The element is given a generated `id` if it lacks one (`error-desc-${path-with-dashes}`). Not updated reactively — the error container must be present when `connect()` is called. |
+| `aria-required` | Set to `'true'` once on connect when the field's `rules` config includes `'required'`. Not reactive — field requiredness is treated as a static schema property. Only the built-in `'required'` string rule is detected; conditional rules (`requiredIf`, `requiredUnless`) are not. |
+
+For framework adapter contexts (React, Vue, Svelte) where `connect()` is not used, see [`getAriaProps()`](/api/core#getariaprops-path-options) instead.

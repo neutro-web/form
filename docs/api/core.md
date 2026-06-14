@@ -447,4 +447,72 @@ const form = createForm({
 })
 ```
 
+---
+
+## `getAriaProps(path, options?)`
+
+Returns a plain object of ARIA attributes for the given field that can be spread directly onto an input element. Reads current state as a snapshot — call it inside a subscription or reactive binding to keep attributes up to date.
+
+```ts
+getAriaProps(
+  path: Path<T> | string,
+  options?: AriaPropsOptions
+): AriaProps
+```
+
+### AriaPropsOptions
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `required` | `boolean` | — | `true` forces `aria-required`; `false` suppresses it even when `rules` includes `'required'`; omit to auto-detect from rules |
+| `errorId` | `string` | — | Override the generated `aria-describedby` target ID |
+
+### AriaProps
+
+```ts
+export interface AriaProps {
+  'aria-invalid': 'true' | 'false'
+  'aria-describedby': string | undefined
+  'aria-required': true | undefined
+}
+```
+
+`aria-required` is `undefined` (not `false`) when the field is not required, so spreading onto a DOM element omits the attribute entirely.
+
+`aria-describedby` uses the convention `error-${path.replace(/\./g, '-')}` (e.g. `error-email`, `error-billing-address`). Render your error element with the matching `id`:
+
+```html
+<span id="error-email">…</span>
+<span id="error-billing-address">…</span>
+```
+
+### Usage
+
+```tsx
+// React — spread inside a useForm/useFormPath subscription
+<input
+  value={email}
+  onChange={e => form.set('email', e.target.value)}
+  {...form.getAriaProps('email')}
+/>
+<span id="error-email">{state.errors.email}</span>
+
+// Inferred required from rules
+const form = createForm({
+  initialValues: { email: '' },
+  rules: { email: ['required', 'email'] },
+})
+form.getAriaProps('email')
+// → { 'aria-invalid': 'false', 'aria-describedby': undefined, 'aria-required': true }
+
+// Explicit required override (e.g. custom async validator, no built-in rule)
+form.getAriaProps('username', { required: true })
+
+// Custom error element ID
+form.getAriaProps('email', { errorId: 'my-email-error' })
+
+// Suppress aria-required even though rules include 'required'
+form.getAriaProps('email', { required: false })
+```
+
 See [Getting Started → Built-in Validation Rules](/getting-started#built-in-validation-rules) for the full rule reference table.
