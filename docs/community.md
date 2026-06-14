@@ -105,23 +105,54 @@ validator({ password, confirmPassword }) {
 
 #### Can I use Zod, Yup, or Valibot?
 
-Yes — wrap their parse result in your `validator` function and return a `Record<string, string>`.
+Yes — `@neutro/form/core` ships built-in adapters for all three. Pass the adapter as your `validator`:
 
 ```ts
+import { createForm, zodAdapter } from '@neutro/form/core'
 import { z } from 'zod'
 
-const schema = z.object({ email: z.string().email('Invalid email') })
-
 const form = createForm({
-  initialValues: { email: '' },
-  validator(values) {
-    const result = schema.safeParse(values)
-    if (result.success) return {}
-    return Object.fromEntries(
-      result.error.issues.map(i => [i.path.join('.'), i.message])
-    )
-  },
+  initialValues: { email: '', age: 0 },
+  validator: zodAdapter(
+    z.object({
+      email: z.string().email('Must be a valid email'),
+      age: z.number().min(18, 'Must be 18 or older'),
+    })
+  ),
 })
+```
+
+Swap `zodAdapter` for `valibotAdapter` or `yupAdapter` for those libraries — the API is identical. See the [Validation Adapters reference](/api/validation) for full details.
+
+For any schema library without a built-in adapter, wrap its parse result manually:
+
+```ts
+validator(values) {
+  const result = mySchema.safeParse(values)
+  if (result.success) return {}
+  return Object.fromEntries(
+    result.error.issues.map(i => [i.path.join('.'), i.message])
+  )
+}
+```
+
+#### Can I use `class-validator`?
+
+Not with a built-in adapter — `class-validator` is not included because it requires `class-transformer` as a companion package and relies on decorators, making it a heavier dependency pair that is primarily a NestJS/backend convention rather than a frontend form pattern.
+
+If you need it (common in Angular projects that share validation logic with a NestJS backend), write the wrapper manually:
+
+```ts
+import { validate } from 'class-validator'
+import { plainToInstance } from 'class-transformer'
+
+validator: async (values) => {
+  const instance = plainToInstance(MyDto, values)
+  const errs = await validate(instance)
+  return Object.fromEntries(
+    errs.map(e => [e.property, Object.values(e.constraints ?? {})[0]])
+  )
+}
 ```
 
 #### How do I handle async validation (e.g., check if a username is taken)?
