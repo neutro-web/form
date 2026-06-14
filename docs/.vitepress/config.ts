@@ -24,6 +24,7 @@ export default defineConfig({
             { text: 'DOM Connect Bridge', link: '/api/connect' },
             { text: 'Array Operations', link: '/api/array-operations' },
             { text: 'Validation Adapters', link: '/api/validation' },
+            { text: 'Devtools', link: '/api/devtools' },
           ],
         },
       ],
