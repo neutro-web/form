@@ -102,6 +102,13 @@ export type BuiltInRule =
   | { requiredIf: string; message?: string }                 // required when field at path is truthy
   | { requiredUnless: string; message?: string };            // required unless field at path is truthy
 
+export type ValidationMode = 'onChange' | 'onBlur' | 'onTouched' | 'onSubmitOnly';
+
+export interface ValidationModeConfig<T> {
+  default?: ValidationMode;
+  fields?: Partial<Record<Path<T> | (string & {}), ValidationMode>>;
+}
+
 export interface FormConfig<T> {
   initialValues: T;
   rules?: Partial<Record<Path<T> | (string & {}), BuiltInRule | BuiltInRule[]>>;
@@ -112,11 +119,14 @@ export interface FormConfig<T> {
   ) => Record<string, string> | Promise<Record<string, string>>;
   dependencies?: Record<string, string[]>;
   asyncDebounceMs?: number;
+  /** Per-field validation trigger mode. Defaults to 'onTouched'. */
+  validationMode?: ValidationMode | ValidationModeConfig<T>;
 }
 
 export interface ConnectOptions {
   persist?: boolean;
   format?: (val: string) => string;
+  validateOn?: ValidationMode;
 }
 
 export interface FormInstance<T extends object> {
@@ -145,6 +155,7 @@ export interface FormInstance<T extends object> {
   getConnectedCount: () => number;
   destroy: () => void;
   setErrors: (errors: Record<Path<T> | (string & {}), string>) => void;
+  getFieldMode: (path: string) => ValidationMode;
 }
 
 // ---------------------------------------------------------------------------
@@ -885,6 +896,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     });
   };
 
+  const resolveFieldMode = (path: string, connectOverride?: ValidationMode): ValidationMode => {
+    if (connectOverride) return connectOverride;
+    if (config.validationMode) {
+      if (typeof config.validationMode === 'string') return config.validationMode;
+      if (config.validationMode.fields?.[path]) return config.validationMode.fields[path]!;
+      if (config.validationMode.default) return config.validationMode.default;
+    }
+    return 'onTouched';
+  };
+
   const subscribeToPath = (path: Path<T> | '*' | string, fn: PathSubscriber) => {
     if (!pathSubscribers.has(path)) pathSubscribers.set(path, new Set());
     pathSubscribers.get(path)!.add(fn);
@@ -1077,6 +1098,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     getPayload: () => _getPayload(values, connectionRegistry, connectedPaths, persistedPaths),
     batch,
     setErrors,
+    getFieldMode: (path: string) => resolveFieldMode(path),
 
     arrayAppend: (path: Path<T> | string | string[], item: any) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;

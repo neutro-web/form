@@ -2792,3 +2792,47 @@ describe('setErrors', () => {
     expect(listener).not.toHaveBeenCalled();
   });
 });
+
+describe('getFieldMode', () => {
+  it('returns onTouched when no validationMode configured', () => {
+    const form = createForm({ initialValues: { name: '' } });
+    expect(form.getFieldMode('name')).toBe('onTouched');
+  });
+
+  it('string shorthand applies to all paths', () => {
+    const form = createForm({ initialValues: { name: '', email: '' }, validationMode: 'onBlur' });
+    expect(form.getFieldMode('name')).toBe('onBlur');
+    expect(form.getFieldMode('email')).toBe('onBlur');
+  });
+
+  it('object default applies when no field override', () => {
+    const form = createForm({ initialValues: { name: '' }, validationMode: { default: 'onChange' } });
+    expect(form.getFieldMode('name')).toBe('onChange');
+  });
+
+  it('field-level override beats object default', () => {
+    const form = createForm({
+      initialValues: { email: '', password: '' },
+      validationMode: { default: 'onTouched', fields: { password: 'onChange' } },
+    });
+    expect(form.getFieldMode('email')).toBe('onTouched');
+    expect(form.getFieldMode('password')).toBe('onChange');
+  });
+
+  it('unspecified field falls back to default then onTouched', () => {
+    const form = createForm({
+      initialValues: { email: '', terms: false },
+      validationMode: { fields: { terms: 'onSubmitOnly' } },
+    });
+    expect(form.getFieldMode('email')).toBe('onTouched');
+    expect(form.getFieldMode('terms')).toBe('onSubmitOnly');
+  });
+
+  it('object without default falls back to onTouched for unlisted paths', () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      validationMode: { default: 'onBlur' },
+    });
+    expect(form.getFieldMode('email')).toBe('onBlur');
+  });
+});
