@@ -53,3 +53,20 @@ const form = createForm({
 ```
 
 [Get Started](/getting-started) | [API Reference](/api/) | [Playground](/playground)
+
+---
+
+## Neutro Ecosystem
+
+`@neutro/form` is part of the Neutro collection — focused, zero-dependency primitives for the web.
+
+- **`@neutro/form`** — the library you're reading about now
+- **`@neutro/fluid`** *(coming soon)* — a physics-grounded glass material system for the web
+
+---
+
+## Support the Project
+
+If this library saves you time, consider [buying me a coffee](https://buymeacoffee.com/koficodedat). It keeps the packages maintained and the documentation up to date.
+
+Found a bug or have a feature request? [Open an issue on GitHub](https://github.com/neutro-web/form/issues) — see the [Community](/community) page for guidelines.
