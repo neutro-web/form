@@ -126,7 +126,7 @@ export type FormAction =
   | { type: 'ARRAY_MOVE'; path: string; from: number; to: number }
   | { type: 'ARRAY_SWAP'; path: string; i: number; j: number };
 
-export interface FormConfig<T> {
+export interface FormConfig<T extends object> {
   initialValues: T;
   rules?: Partial<Record<Path<T> | (string & {}), BuiltInRule | BuiltInRule[]>>;
   validator?: (
