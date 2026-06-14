@@ -1,7 +1,7 @@
 import { useSyncExternalStore, useCallback, useRef } from 'react';
 import type { FormInstance, FormState, Path, GetPathValue } from '@neutro/form-core';
 
-export function useForm<T extends object>(form: FormInstance<T>): FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState'> {
+export function useForm<T extends object>(form: FormInstance<T>): FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState' | '_subscribeToActions'> {
   const state = useSyncExternalStore(form.subscribe, form.getState, form.getState);
   return {
     ...state,
@@ -15,6 +15,8 @@ export function useForm<T extends object>(form: FormInstance<T>): FormState<T> &
     subscribeToPath: form.subscribeToPath,
     validate: form.validate,
     getPayload: form.getPayload,
+    getAriaProps: form.getAriaProps,
+    getFieldMode: form.getFieldMode,
     getConnectedCount: form.getConnectedCount,
     destroy: form.destroy,
     arrayAppend: form.arrayAppend,
@@ -23,7 +25,7 @@ export function useForm<T extends object>(form: FormInstance<T>): FormState<T> &
     arrayMove: form.arrayMove,
     arraySwap: form.arraySwap,
     setErrors: form.setErrors,
-  } as FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState'>;
+  } as FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState' | '_subscribeToActions'>;
 }
 
 export function useFormPath<T extends object, P extends Path<T>>(
