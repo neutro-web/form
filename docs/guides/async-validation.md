@@ -23,6 +23,8 @@ This means you never need to guard against stale results yourself. The engine ha
 
 `asyncDebounceMs` (default 300 ms) is the delay between the last `set` call and the actual `await` of the validator. Importantly, the timer is per-invocation — concurrent fields do not reset each other's timer.
 
+> **`onChange` mode + async validation:** When `validationMode` is `'onChange'`, validation fires on every keystroke. The debounce timer still applies, so the validator only awaits after the user pauses typing for `asyncDebounceMs` milliseconds — preventing server flooding automatically. No extra guard is needed.
+
 ```ts
 const form = createForm({
   initialValues: { username: '', email: '' },

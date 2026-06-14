@@ -219,6 +219,7 @@ Use `form.setErrors()` inside your submit handler to feed API validation errors 
 
   <button type="submit" disabled={$state.isSubmitting}>Register</button>
 </form>
+```
 
 ## Validation Modes
 
@@ -256,5 +257,4 @@ For Svelte reactive inputs, use `form.getFieldMode(path)` to wire the right even
   on:input={e => handleInput('email', e.target.value)}
   on:blur={() => handleBlur('email')}
 />
-```
 ```

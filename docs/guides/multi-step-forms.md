@@ -180,3 +180,17 @@ async function loadDraft(draftId: string) {
 3. Connect DOM elements with `persist: true` so values survive step transitions.
 4. Use `form.getPayload()` at submission to collect only the relevant field data.
 5. Use `form.reset(newValues?)` to support drafts or start-over flows.
+
+**Tip — validation modes:** Use `validationMode` to suppress inline validation noise in multi-step flows. For example, set `'onSubmitOnly'` globally and override only the fields where immediate feedback is valuable:
+
+```ts
+createForm({
+  initialValues: { ... },
+  validationMode: {
+    default: 'onSubmitOnly', // no inline errors by default
+    fields: {
+      email: 'onBlur',     // email checks on blur are useful everywhere
+    },
+  },
+})
+```

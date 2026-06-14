@@ -253,6 +253,7 @@ async function handleSubmit() {
     <button type="submit" :disabled="state.isSubmitting">Register</button>
   </form>
 </template>
+```
 
 ## Validation Modes
 
@@ -292,5 +293,4 @@ function handleBlur(path) {
     @blur="handleBlur('email')"
   />
 </template>
-```
 ```

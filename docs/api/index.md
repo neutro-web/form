@@ -17,7 +17,7 @@ Both return an unsubscribe function. Framework adapters call this automatically 
 
 ## Validation Lifecycle
 
-Validation is always initiated by `form.validate(paths?)` or implicitly by `form.set(path, value, { validate: true })`. The engine:
+Validation is always initiated by `form.validate(paths?)` or implicitly by `form.set(path, value, { validate: true })`. The `connect()` bridge also triggers validation automatically based on the form's `validationMode` (default `'onTouched'`) — call `form.getFieldMode(path)` from a framework adapter component to query the effective mode for a specific path. The engine:
 
 1. Expands `paths` into a full scope using the pre-computed dependency graph.
 2. Aborts any in-flight `AbortController` for those paths.
