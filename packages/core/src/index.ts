@@ -104,7 +104,7 @@ export type BuiltInRule =
 
 export type ValidationMode = 'onChange' | 'onBlur' | 'onTouched' | 'onSubmitOnly';
 
-export interface ValidationModeConfig<T> {
+export interface ValidationModeConfig<T extends object> {
   default?: ValidationMode;
   fields?: Partial<Record<Path<T> | (string & {}), ValidationMode>>;
 }
