@@ -207,7 +207,7 @@ Attempting to mutate either ref directly produces a Vue warning in development. 
 
 ## Handling Server Errors
 
-Use `form.setErrors()` inside your submit handler to feed API validation errors back into form state.
+Use `form.setErrors()` inside your submit handler to feed API validation errors back into form state. They surface in `state.value.errors` and clear on the next validation run — no extra wiring required.
 
 ```vue
 <script setup lang="ts">

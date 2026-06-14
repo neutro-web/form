@@ -282,13 +282,14 @@ form.reset({ email: 'new@ex.com' })   // re-seed with new values
 form.getFieldMode(path: string): ValidationMode
 ```
 
-Returns the effective validation mode for `path`. Useful in framework adapters to decide when to call `form.validate([path])` in event handlers.
+Returns the effective validation mode for `path`. Primarily useful for debugging — to see which mode a field resolved to when diagnosing unexpected validation timing.
 
 Resolution order (first match wins):
 
-1. `validationMode.fields[path]` in `FormConfig`
-2. `validationMode.default` in `FormConfig`
-3. `'onTouched'` (library default)
+1. `validationMode.fields[path]` in `FormConfig` — per-field config
+2. `validationMode` string shorthand in `FormConfig` — e.g. `validationMode: 'onBlur'` applies to all fields
+3. `validationMode.default` in `FormConfig` — the default inside an object config
+4. `'onTouched'` (library default)
 
 ```ts
 const mode = form.getFieldMode('email')
@@ -323,11 +324,11 @@ form.submit(async (payload) => {
 })
 ```
 
-**Merge semantics:** only the keys present in the argument are written. Existing errors for other fields are untouched.
+**Merge semantics:** only the keys present in the argument are written. Existing errors for other fields are untouched. Passing an empty object (`{}`) or `null`/`undefined` is a safe no-op — no subscribers are notified.
 
-**Touched:** each path in the argument is marked `touched: true` so the error displays immediately, regardless of whether the user has interacted with the field.
+**Touched:** each path in the argument is marked `touched: true` so the error displays immediately, regardless of whether the user has interacted with the field. Fields are **not** marked `dirty` — server errors reflect rejected server state, not a local edit.
 
-**Clearing:** server errors clear the same way client errors do — when `validate()` runs for a path and the validator returns no error for it. `reset()` clears all errors including server-injected ones.
+**Clearing:** server errors clear the same way client errors do — when `validate()` runs for a path and the validator returns no error for it. `reset()` clears all errors including server-injected ones. To clear all errors programmatically without resetting values, use `form.clearErrors()`.
 
 ---
 
