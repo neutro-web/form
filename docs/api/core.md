@@ -286,15 +286,16 @@ Returns the effective validation mode for `path`. Useful in framework adapters t
 
 Resolution order (first match wins):
 
-1. `validateOn` in the `ConnectOptions` passed to `form.connect()` for that element
-2. `validationMode.fields[path]` in `FormConfig`
-3. `validationMode.default` in `FormConfig`
-4. `'onTouched'` (library default)
+1. `validationMode.fields[path]` in `FormConfig`
+2. `validationMode.default` in `FormConfig`
+3. `'onTouched'` (library default)
 
 ```ts
 const mode = form.getFieldMode('email')
 // → 'onTouched' | 'onChange' | 'onBlur' | 'onSubmitOnly'
 ```
+
+> **Note:** Per-element `validateOn` overrides passed to `form.connect(path, el, { validateOn })` are consumed inside the DOM bridge and are not reflected by `getFieldMode`. This method only reflects `FormConfig`-level configuration.
 
 ---
 
