@@ -1,6 +1,6 @@
 import { createForm } from '@neutro/form-core';
-import { describe, expect, it } from 'vitest';
 import { blurField, fillForm, triggerValidation } from '@neutro/form-testing';
+import { describe, expect, it } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // fillForm
