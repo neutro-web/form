@@ -9,6 +9,7 @@ export default defineConfig({
     'adapters/vue': 'src/adapters/vue.ts',
     'adapters/solid': 'src/adapters/solid.ts',
     'adapters/angular': 'src/adapters/angular.ts',
+    testing: 'src/testing.ts',
   },
   format: ['esm', 'cjs'],
   dts: { resolve: true },
