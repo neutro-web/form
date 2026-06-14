@@ -86,3 +86,25 @@ describe('getAriaProps', () => {
     expect(form.getAriaProps('email')['aria-required']).toBeUndefined();
   });
 });
+
+describe('connect() aria-required', () => {
+  it('sets aria-required="true" when field has required rule', () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      rules: { email: ['required', 'email'] },
+    });
+    const el = document.createElement('input');
+    form.connect('email', el);
+    expect(el.getAttribute('aria-required')).toBe('true');
+  });
+
+  it('does not set aria-required when field has no required rule', () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      rules: { email: ['email'] },
+    });
+    const el = document.createElement('input');
+    form.connect('email', el);
+    expect(el.hasAttribute('aria-required')).toBe(false);
+  });
+});
