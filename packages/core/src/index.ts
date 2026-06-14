@@ -1068,6 +1068,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   const submit = async (onSubmitCallback: (payload: Partial<T>) => void | Promise<void>): Promise<boolean> => {
+    dispatchAction({ type: 'SUBMIT' });
     if (isSubmitting) return false;
     isSubmitting = true;
     extractAllPaths(values).forEach((p) => { touched[p] = true; });
@@ -1108,6 +1109,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     Object.assign(errors, incoming);
     paths.forEach(p => { touched[p] = true; });
     batch(() => paths.forEach(p => notify(p)));
+    dispatchAction({ type: 'SET_ERRORS', errors: { ...incoming } });
   };
 
   return {
@@ -1122,10 +1124,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     set: (path: Path<T> | string | string[], val: any, options?: { touch?: boolean; validate?: boolean }) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       setFieldValue(targetPath, val, options);
+      dispatchAction({ type: 'SET', path: targetPath, value: val, options });
     },
 
     validate: (scopePaths?: Path<T>[] | string[] | string[][]) => {
       const targets = scopePaths?.map(p => Array.isArray(p) ? p.join('.') : p);
+      dispatchAction({ type: 'VALIDATE', paths: targets });
       return runValidation(targets);
     },
 
@@ -1134,7 +1138,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     handleSubmit,
     getState,
     getPayload: () => _getPayload(values, connectionRegistry, connectedPaths, persistedPaths),
-    batch,
+    batch: (fn: () => void) => {
+      dispatchAction({ type: 'BATCH_START' });
+      batch(fn);
+      dispatchAction({ type: 'BATCH_END' });
+    },
     setErrors,
     getFieldMode: (path: string) => resolveFieldMode(path),
 
@@ -1143,6 +1151,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const arr = getNestedValue(values, targetPath) || [];
       if (!Array.isArray(arr)) return;
       setFieldValue(targetPath, [...arr, item]);
+      dispatchAction({ type: 'ARRAY_APPEND', path: targetPath, item });
     },
 
     arrayInsert: (path: Path<T> | string | string[], index: number, item: any) => {
@@ -1159,6 +1168,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         notify(targetPath);
       });
       runValidation([targetPath]);
+      dispatchAction({ type: 'ARRAY_INSERT', path: targetPath, index, item });
     },
 
     arrayRemove: (path: Path<T> | string | string[], index: number) => {
@@ -1176,6 +1186,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         notify(targetPath);
       });
       runValidation([targetPath]);
+      dispatchAction({ type: 'ARRAY_REMOVE', path: targetPath, index });
     },
 
     arrayMove: (path: Path<T> | string | string[], fromIndex: number, toIndex: number) => {
@@ -1197,6 +1208,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         for (let i = start; i <= end; i++) notify(`${targetPath}.${i}`);
       });
       runValidation([targetPath]);
+      dispatchAction({ type: 'ARRAY_MOVE', path: targetPath, from: fromIndex, to: toIndex });
     },
 
     arraySwap: (path: Path<T> | string | string[], indexA: number, indexB: number) => {
@@ -1241,6 +1253,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         notify(`${targetPath}.${indexB}`);
       });
       runValidation([targetPath]);
+      dispatchAction({ type: 'ARRAY_SWAP', path: targetPath, i: indexA, j: indexB });
     },
 
     reset: (newValues?: T) => {
@@ -1284,6 +1297,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const allValues = deepClone(values);
         wildcardListeners.forEach((cb) => cb(allValues, { error: undefined, touched: undefined, dirty: undefined }));
       }
+      dispatchAction({ type: 'RESET', newValues });
     },
 
     _subscribeToActions: (fn) => {
