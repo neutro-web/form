@@ -2,7 +2,8 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
   entry: ['src/index.ts', 'src/devtools.ts'],
-  format: ['esm', 'cjs'],
+  format: ['esm', 'cjs', 'iife'],
+  globalName: 'agwForm',
   dts: true,
   splitting: false,
   sourcemap: true,

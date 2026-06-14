@@ -33,6 +33,9 @@
       "@neutro/form/adapters/angular": [
         "packages/adapters/angular/src/index.ts"
       ],
+      "@neutro/form-core/devtools": [
+        "packages/core/src/devtools.ts"
+      ],
       "@neutro/form/devtools": [
         "packages/core/src/devtools.ts"
       ]
