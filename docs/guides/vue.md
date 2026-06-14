@@ -253,4 +253,44 @@ async function handleSubmit() {
     <button type="submit" :disabled="state.isSubmitting">Register</button>
   </form>
 </template>
+
+## Validation Modes
+
+Configure when validation triggers globally and per field via `validationMode` in `createForm`:
+
+```ts
+const form = createForm({
+  initialValues: { email: '', password: '' },
+  validationMode: {
+    default: 'onTouched',
+    fields: { password: 'onChange' },
+  },
+})
+```
+
+For Vue reactive inputs, use `form.getFieldMode(path)` to wire the right events:
+
+```vue
+<script setup>
+const { state, set, validate } = useVueForm(form)
+
+function handleChange(path, value) {
+  set(path, value)
+  if (form.getFieldMode(path) === 'onChange') validate([path])
+}
+
+function handleBlur(path) {
+  const mode = form.getFieldMode(path)
+  if (mode === 'onBlur' || mode === 'onTouched') validate([path])
+}
+</script>
+
+<template>
+  <input
+    :value="state.values.email"
+    @input="handleChange('email', $event.target.value)"
+    @blur="handleBlur('email')"
+  />
+</template>
+```
 ```

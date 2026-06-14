@@ -258,4 +258,40 @@ export function RegisterForm() {
     </form>
   )
 }
+
+## Validation Modes
+
+Configure when validation triggers globally and per field via `validationMode` in `createForm`:
+
+```ts
+const form = createForm({
+  initialValues: { email: '', password: '' },
+  validationMode: {
+    default: 'onTouched',
+    fields: { password: 'onChange' },
+  },
+})
+```
+
+For SolidJS reactive inputs, call `form.getFieldMode` directly (not through `actions`):
+
+```tsx
+const { state } = useSolidForm(form)
+
+function Field(props: { name: string }) {
+  const mode = form.getFieldMode(props.name)
+  return (
+    <input
+      value={state.values[props.name] as string ?? ''}
+      onInput={e => {
+        form.set(props.name, e.currentTarget.value)
+        if (mode === 'onChange') form.validate([props.name])
+      }}
+      onBlur={() => {
+        if (mode === 'onBlur' || mode === 'onTouched') form.validate([props.name])
+      }}
+    />
+  )
+}
+```
 ```

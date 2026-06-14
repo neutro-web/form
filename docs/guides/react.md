@@ -248,4 +248,46 @@ export function RegisterForm() {
     </form>
   )
 }
+
+## Validation Modes
+
+Configure when validation triggers globally and per field via `validationMode` in `createForm`:
+
+```ts
+const form = createForm({
+  initialValues: { email: '', password: '' },
+  validationMode: {
+    default: 'onTouched',
+    fields: { password: 'onChange' },
+  },
+})
+```
+
+For `useFormConnect`-wired inputs this is automatic. Pass `validateOn` to override for one element:
+
+```tsx
+const ref = useFormConnect(form, 'email', { validateOn: 'onBlur' })
+```
+
+For controlled inputs, call `form.getFieldMode(path)` to implement the right event wiring:
+
+```tsx
+function Field({ name }: { name: string }) {
+  const { get, set, validate } = useForm(form)
+  const mode = form.getFieldMode(name)
+
+  return (
+    <input
+      value={String(get(name) ?? '')}
+      onChange={e => {
+        set(name, e.target.value)
+        if (mode === 'onChange') validate([name])
+      }}
+      onBlur={() => {
+        if (mode === 'onBlur' || mode === 'onTouched') validate([name])
+      }}
+    />
+  )
+}
+```
 ```
