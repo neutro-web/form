@@ -1131,6 +1131,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   function isFieldRequired(path: string): boolean {
+    // Only checks for the built-in 'required' rule; requiredIf/requiredUnless object rules are intentionally excluded.
     const fieldRules = config.rules?.[path];
     if (!fieldRules) return false;
     return Array.isArray(fieldRules)

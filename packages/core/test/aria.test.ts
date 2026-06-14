@@ -107,4 +107,11 @@ describe('connect() aria-required', () => {
     form.connect('email', el);
     expect(el.hasAttribute('aria-required')).toBe(false);
   });
+
+  it('does not set aria-required when form has no rules config', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    const el = document.createElement('input');
+    form.connect('email', el);
+    expect(el.hasAttribute('aria-required')).toBe(false);
+  });
 });
