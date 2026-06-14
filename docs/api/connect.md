@@ -18,7 +18,7 @@ interface ConnectOptions {
    * Optional formatter applied to the raw value before it is written to
    * element.value. Useful for phone number masking, date formatting, etc.
    */
-  format?: (value: unknown) => string
+  format?: (val: string) => string
 
   /**
    * Overrides the form-level `validationMode` for this specific element.
