@@ -1018,6 +1018,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
     const handleBlur = () => {
       touched[stringPath] = true;
+      dispatchAction({ type: 'BLUR', path: stringPath });
       if (mode === 'onBlur' || mode === 'onTouched') {
         runValidation([stringPath]);
       } else {
@@ -1056,6 +1057,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     });
 
     notify(stringPath);
+    dispatchAction({ type: 'CONNECT', path: stringPath });
     return () => {
       element.removeEventListener('input', syncValueFromDOM);
       element.removeEventListener('change', syncValueFromDOM);
@@ -1063,6 +1065,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       unsubscribeA11y();
       connectionRegistry.delete(stringPath);
       connectedPaths.delete(stringPath);
+      dispatchAction({ type: 'DISCONNECT', path: stringPath });
       notify(stringPath);
     };
   };
