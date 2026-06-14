@@ -44,6 +44,21 @@
       ],
       "@neutro/form-testing": [
         "packages/testing/src/index.ts"
+      ],
+      "@neutro/form-react": [
+        "packages/adapters/react/src/index.ts"
+      ],
+      "@neutro/form-svelte": [
+        "packages/adapters/svelte/src/index.ts"
+      ],
+      "@neutro/form-vue": [
+        "packages/adapters/vue/src/index.ts"
+      ],
+      "@neutro/form-solid": [
+        "packages/adapters/solid/src/index.ts"
+      ],
+      "@neutro/form-angular": [
+        "packages/adapters/angular/src/index.ts"
       ]
     }
   },
