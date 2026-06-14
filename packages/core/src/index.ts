@@ -126,6 +126,17 @@ export type FormAction =
   | { type: 'ARRAY_MOVE'; path: string; from: number; to: number }
   | { type: 'ARRAY_SWAP'; path: string; i: number; j: number };
 
+export interface AriaPropsOptions {
+  required?: boolean;
+  errorId?: string;
+}
+
+export interface AriaProps {
+  'aria-invalid': 'true' | 'false';
+  'aria-describedby': string | undefined;
+  'aria-required': true | undefined;
+}
+
 export interface FormConfig<T extends object> {
   initialValues: T;
   rules?: Partial<Record<Path<T> | (string & {}), BuiltInRule | BuiltInRule[]>>;
@@ -162,6 +173,7 @@ export interface FormInstance<T extends object> {
   ) => (e?: Event) => void;
   getState: () => FormState<T>;
   getPayload: () => Partial<T>;
+  getAriaProps: (path: Path<T> | string, options?: AriaPropsOptions) => AriaProps;
   batch: (fn: () => void) => void;
   arrayAppend: (path: Path<T> | string | string[], item: any) => void;
   arrayInsert: (path: Path<T> | string | string[], index: number, item: any) => void;
@@ -1115,6 +1127,14 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     dispatchAction({ type: 'SET_ERRORS', errors: { ...incoming } });
   };
 
+  function isFieldRequired(path: string): boolean {
+    const fieldRules = config.rules?.[path];
+    if (!fieldRules) return false;
+    return Array.isArray(fieldRules)
+      ? (fieldRules as (string | object)[]).includes('required')
+      : fieldRules === 'required';
+  }
+
   return {
     subscribe,
     subscribeToPath,
@@ -1141,6 +1161,27 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     handleSubmit,
     getState,
     getPayload: () => _getPayload(values, connectionRegistry, connectedPaths, persistedPaths),
+
+    getAriaProps: (path: Path<T> | string, options?: AriaPropsOptions): AriaProps => {
+      const stringPath = Array.isArray(path) ? (path as string[]).join('.') : (path as string);
+      const state = getState();
+      const hasError = Boolean(state.errors[stringPath]);
+      const id = options?.errorId ?? `error-${stringPath.replace(/\./g, '-')}`;
+
+      let ariaRequired: true | undefined;
+      if (options?.required === true) {
+        ariaRequired = true;
+      } else if (options?.required !== false && isFieldRequired(stringPath)) {
+        ariaRequired = true;
+      }
+
+      return {
+        'aria-invalid': hasError ? 'true' : 'false',
+        'aria-describedby': hasError ? id : undefined,
+        'aria-required': ariaRequired,
+      };
+    },
+
     batch: (fn: () => void) => {
       dispatchAction({ type: 'BATCH_START' });
       try {
