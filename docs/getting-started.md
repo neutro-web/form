@@ -309,6 +309,54 @@ document.querySelector('form')?.addEventListener('submit', async (e) => {
 
 Server errors behave exactly like client errors: they appear in `state.errors`, fire all the same subscribers, and clear the next time that field is validated. Calling `form.reset()` wipes them along with everything else.
 
+## Validation Modes
+
+By default, `connect()` validates a field **on input, but only after the user has blurred it at least once** (`'onTouched'`). This avoids interrupting the user on first entry while providing immediate feedback during correction. You can change this globally or per field:
+
+```ts
+const form = createForm({
+  initialValues: { email: '', password: '', terms: false },
+  validationMode: {
+    default: 'onTouched',    // most fields: validate after first blur
+    fields: {
+      password: 'onChange',  // password: validate on every keystroke
+      terms: 'onSubmitOnly', // checkbox: only validate on submit
+    },
+  },
+})
+```
+
+The four modes:
+
+| Mode | When validation runs |
+|---|---|
+| `'onTouched'` | On input events, but only after the field has been blurred once. Also on every blur. **(default)** |
+| `'onChange'` | On every input event immediately. |
+| `'onBlur'` | On blur only. Never validates while typing. |
+| `'onSubmitOnly'` | Only when `form.submit()` runs. No inline validation. |
+
+Pass a single string to apply one mode to all fields:
+
+```ts
+const form = createForm({
+  initialValues: { email: '', name: '' },
+  validationMode: 'onBlur',
+})
+```
+
+Override per element at `connect()` time using `validateOn`:
+
+```ts
+// Global mode is onTouched, but this specific field validates on change
+form.connect('password', passwordEl, { validateOn: 'onChange' })
+```
+
+Framework adapter users can query the configured mode to implement the right event wiring:
+
+```ts
+const mode = form.getFieldMode('email') // → 'onTouched' | 'onChange' | 'onBlur' | 'onSubmitOnly'
+```
+
 ## Next Steps
 
 - **Framework adapters:** [React](/guides/react) | [Svelte 5](/guides/svelte) | [Vue 3](/guides/vue) | [SolidJS](/guides/solid) | [Angular](/guides/angular)

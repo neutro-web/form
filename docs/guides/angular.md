@@ -255,4 +255,47 @@ export class RegisterFormComponent {
     }
   }
 }
+
+## Validation Modes
+
+Configure when validation triggers globally and per field via `validationMode` in `createForm`:
+
+```ts
+const form = createForm({
+  initialValues: { email: '', password: '' },
+  validationMode: {
+    default: 'onTouched',
+    fields: { password: 'onChange' },
+  },
+})
+```
+
+For Angular template-driven inputs, use `this.form.getFieldMode(path)` in your component:
+
+```ts
+@Component({
+  template: `
+    <input
+      [value]="form.get('email')"
+      (input)="handleInput('email', $event.target.value)"
+      (blur)="handleBlur('email')"
+    />
+  `
+})
+export class FormComponent {
+  handleInput(path: string, value: string) {
+    this.form.set(path, value)
+    if (this.form.getFieldMode(path) === 'onChange') {
+      this.form.validate([path])
+    }
+  }
+
+  handleBlur(path: string) {
+    const mode = this.form.getFieldMode(path)
+    if (mode === 'onBlur' || mode === 'onTouched') {
+      this.form.validate([path])
+    }
+  }
+}
+```
 ```

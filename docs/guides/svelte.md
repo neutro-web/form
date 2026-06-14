@@ -219,4 +219,42 @@ Use `form.setErrors()` inside your submit handler to feed API validation errors 
 
   <button type="submit" disabled={$state.isSubmitting}>Register</button>
 </form>
+
+## Validation Modes
+
+Configure when validation triggers globally and per field via `validationMode` in `createForm`:
+
+```ts
+const form = createForm({
+  initialValues: { email: '', password: '' },
+  validationMode: {
+    default: 'onTouched',
+    fields: { password: 'onChange' },
+  },
+})
+```
+
+For Svelte reactive inputs, use `form.getFieldMode(path)` to wire the right events:
+
+```svelte
+<script>
+  const { state, set, validate } = useSvelteForm(form)
+
+  function handleInput(path, value) {
+    set(path, value)
+    if (form.getFieldMode(path) === 'onChange') validate([path])
+  }
+
+  function handleBlur(path) {
+    const mode = form.getFieldMode(path)
+    if (mode === 'onBlur' || mode === 'onTouched') validate([path])
+  }
+</script>
+
+<input
+  value={$state.values.email}
+  on:input={e => handleInput('email', e.target.value)}
+  on:blur={() => handleBlur('email')}
+/>
+```
 ```
