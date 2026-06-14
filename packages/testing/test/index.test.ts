@@ -1,5 +1,5 @@
 import { createForm } from '@neutro/form-core';
-import { blurField, fillForm, triggerValidation } from '@neutro/form-testing';
+import { blurField, createFormFixture, fillForm, triggerValidation } from '@neutro/form-testing';
 import { describe, expect, it } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -103,5 +103,102 @@ describe('triggerValidation', () => {
     const result = await triggerValidation(form);
     expect(result).toBe(false);
     expect(form.getState().errors.email).toBe('Required');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createFormFixture
+// ---------------------------------------------------------------------------
+
+describe('createFormFixture', () => {
+  it('defaults asyncDebounceMs to 0 so async validators resolve without fake timers', async () => {
+    // If asyncDebounceMs were 300 (the core default), this test would time out.
+    const fixture = createFormFixture({
+      initialValues: { email: '' },
+      validator: async (v) => (v.email ? {} : { email: 'Required' }),
+    });
+    const result = await fixture.validate();
+    expect(result).toBe(false);
+    fixture.cleanup();
+  });
+
+  it('respects an explicit asyncDebounceMs override', async () => {
+    const fixture = createFormFixture({
+      initialValues: { email: '' },
+      asyncDebounceMs: 0,
+      rules: { email: ['required'] },
+    });
+    const result = await fixture.validate();
+    expect(result).toBe(false);
+    fixture.cleanup();
+  });
+
+  it('fill sets multiple values on the form', () => {
+    const fixture = createFormFixture({ initialValues: { email: '', name: '' } });
+    fixture.fill({ email: 'alice@example.com', name: 'Alice' });
+    expect(fixture.form.get('email')).toBe('alice@example.com');
+    expect(fixture.form.get('name')).toBe('Alice');
+    fixture.cleanup();
+  });
+
+  it('blur marks a field as touched without changing its value', () => {
+    const fixture = createFormFixture({ initialValues: { email: 'x@example.com' } });
+    fixture.blur('email');
+    expect(fixture.form.getState().touched.email).toBe(true);
+    expect(fixture.form.get('email')).toBe('x@example.com');
+    fixture.cleanup();
+  });
+
+  it('validate returns false and sets errors for invalid fields', async () => {
+    const fixture = createFormFixture({
+      initialValues: { email: '' },
+      rules: { email: ['required'] },
+    });
+    const result = await fixture.validate();
+    expect(result).toBe(false);
+    expect(fixture.form.getState().errors.email).toBe('Required');
+    fixture.cleanup();
+  });
+
+  it('validate returns true after valid values are filled', async () => {
+    const fixture = createFormFixture({
+      initialValues: { email: '' },
+      rules: { email: ['required', 'email'] },
+    });
+    fixture.fill({ email: 'alice@example.com' });
+    const result = await fixture.validate();
+    expect(result).toBe(true);
+    expect(fixture.form.getState().errors).toEqual({});
+    fixture.cleanup();
+  });
+
+  it('validate accepts scoped paths', async () => {
+    const fixture = createFormFixture({
+      initialValues: { email: '', name: '' },
+      rules: { email: ['required'], name: ['required'] },
+    });
+    await fixture.validate(['email']);
+    expect(fixture.form.getState().errors.email).toBe('Required');
+    expect(fixture.form.getState().errors.name).toBeUndefined();
+    fixture.cleanup();
+  });
+
+  it('cleanup destroys the form — subscribers stop receiving updates', () => {
+    const fixture = createFormFixture({ initialValues: { email: '' } });
+    let callCount = 0;
+    fixture.form.subscribe(() => {
+      callCount++;
+    });
+    callCount = 0; // reset after initial subscribe fire
+    fixture.cleanup();
+    fixture.form.set('email', 'x'); // no-op after destroy
+    expect(callCount).toBe(0);
+  });
+
+  it('exposes the raw FormInstance on fixture.form', () => {
+    const fixture = createFormFixture({ initialValues: { email: '' } });
+    expect(typeof fixture.form.getState).toBe('function');
+    expect(typeof fixture.form.validate).toBe('function');
+    fixture.cleanup();
   });
 });
