@@ -109,6 +109,23 @@ export interface ValidationModeConfig<T extends object> {
   fields?: Partial<Record<Path<T> | (string & {}), ValidationMode>>;
 }
 
+export type FormAction =
+  | { type: 'SET'; path: string; value: unknown; options?: { touch?: boolean; validate?: boolean } }
+  | { type: 'VALIDATE'; paths?: string[] }
+  | { type: 'SUBMIT' }
+  | { type: 'RESET'; newValues?: unknown }
+  | { type: 'SET_ERRORS'; errors: Record<string, string> }
+  | { type: 'CONNECT'; path: string }
+  | { type: 'DISCONNECT'; path: string }
+  | { type: 'BLUR'; path: string }
+  | { type: 'BATCH_START' }
+  | { type: 'BATCH_END' }
+  | { type: 'ARRAY_APPEND'; path: string; item: unknown }
+  | { type: 'ARRAY_INSERT'; path: string; index: number; item: unknown }
+  | { type: 'ARRAY_REMOVE'; path: string; index: number }
+  | { type: 'ARRAY_MOVE'; path: string; from: number; to: number }
+  | { type: 'ARRAY_SWAP'; path: string; i: number; j: number };
+
 export interface FormConfig<T> {
   initialValues: T;
   rules?: Partial<Record<Path<T> | (string & {}), BuiltInRule | BuiltInRule[]>>;
@@ -156,6 +173,7 @@ export interface FormInstance<T extends object> {
   destroy: () => void;
   setErrors: (errors: Record<Path<T> | (string & {}), string>) => void;
   getFieldMode: (path: string) => ValidationMode;
+  _subscribeToActions: (fn: (action: FormAction, state: FormState<T>) => void) => () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -596,6 +614,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     isSubmitting,
     isValidating,
   });
+
+  const actionListeners = new Set<(action: FormAction, state: FormState<T>) => void>();
+  const dispatchAction = (action: FormAction): void => {
+    if (actionListeners.size === 0) return;
+    const snapshot = getState();
+    actionListeners.forEach(fn => fn(action, snapshot));
+  };
 
   // Shared path fan-out logic used by notify(), _flushNotifications(), and reset().
   const notifyPathSubscribers = (paths: string[]) => {
@@ -1259,6 +1284,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const allValues = deepClone(values);
         wildcardListeners.forEach((cb) => cb(allValues, { error: undefined, touched: undefined, dirty: undefined }));
       }
+    },
+
+    _subscribeToActions: (fn) => {
+      actionListeners.add(fn);
+      return () => { actionListeners.delete(fn); };
     },
 
     getConnectedCount: () => connectionRegistry.size,
