@@ -1140,8 +1140,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     getPayload: () => _getPayload(values, connectionRegistry, connectedPaths, persistedPaths),
     batch: (fn: () => void) => {
       dispatchAction({ type: 'BATCH_START' });
-      batch(fn);
-      dispatchAction({ type: 'BATCH_END' });
+      try {
+        batch(fn);
+      } finally {
+        dispatchAction({ type: 'BATCH_END' });
+      }
     },
     setErrors,
     getFieldMode: (path: string) => resolveFieldMode(path),
