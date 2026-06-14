@@ -10,6 +10,13 @@ export interface AngularFormReturn<T extends object> {
   handleSubmit: FormInstance<T>['handleSubmit'];
   reset: FormInstance<T>['reset'];
   batch: FormInstance<T>['batch'];
+  validate: FormInstance<T>['validate'];
+  subscribeToPath: FormInstance<T>['subscribeToPath'];
+  getPayload: FormInstance<T>['getPayload'];
+  getAriaProps: FormInstance<T>['getAriaProps'];
+  getFieldMode: FormInstance<T>['getFieldMode'];
+  getConnectedCount: FormInstance<T>['getConnectedCount'];
+  destroy: FormInstance<T>['destroy'];
   arrayAppend: FormInstance<T>['arrayAppend'];
   arrayInsert: FormInstance<T>['arrayInsert'];
   arrayRemove: FormInstance<T>['arrayRemove'];
@@ -37,6 +44,13 @@ export function useAngularForm<T extends object>(form: FormInstance<T>): Angular
     handleSubmit: form.handleSubmit,
     reset: form.reset,
     batch: form.batch,
+    validate: form.validate,
+    subscribeToPath: form.subscribeToPath,
+    getPayload: form.getPayload,
+    getAriaProps: form.getAriaProps,
+    getFieldMode: form.getFieldMode,
+    getConnectedCount: form.getConnectedCount,
+    destroy: form.destroy,
     arrayAppend: form.arrayAppend,
     arrayInsert: form.arrayInsert,
     arrayRemove: form.arrayRemove,

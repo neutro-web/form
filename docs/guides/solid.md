@@ -211,7 +211,7 @@ The adapter calls `reconcile(newState)` when producing store updates. This perfo
 
 ## Handling Server Errors
 
-Use `form.setErrors()` inside your submit handler to feed API validation errors back into form state. In SolidJS, `actions` is the second element returned by `useSolidForm` and holds the mutation methods. For methods not included in `actions` (like `setErrors`), use the raw `form` instance directly.
+Use `actions.setErrors()` inside your submit handler to feed API validation errors back into form state. In SolidJS, `actions` is the second element returned by `useSolidForm` and holds all form methods.
 
 ```tsx
 import { createForm } from '@neutro/form/core'
@@ -274,7 +274,7 @@ const form = createForm({
 })
 ```
 
-For SolidJS reactive inputs, call `form.getFieldMode` directly (not through `actions`):
+For SolidJS reactive inputs, call `actions.getFieldMode` (or `form.getFieldMode` directly on the raw instance):
 
 ```tsx
 const [state, actions] = useSolidForm(form)
