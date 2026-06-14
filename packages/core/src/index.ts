@@ -1298,6 +1298,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       activeAbortControllers.clear();
       globalSubscribers.clear();
       pathSubscribers.clear();
+      actionListeners.clear();
       connectionRegistry.clear();
       connectedPaths.clear();
       persistedPaths.clear();
