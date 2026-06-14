@@ -17,6 +17,11 @@
       "import": "./dist/core.js",
       "require": "./dist/core.cjs"
     },
+    "./devtools": {
+      "types": "./dist/devtools.d.ts",
+      "import": "./dist/devtools.js",
+      "require": "./dist/devtools.cjs"
+    },
     "./adapters/react": {
       "types": "./dist/adapters/react.d.ts",
       "import": "./dist/adapters/react.js",
@@ -46,6 +51,7 @@
   "typesVersions": {
     "*": {
       "core": ["./dist/core.d.ts"],
+      "devtools": ["./dist/devtools.d.ts"],
       "adapters/react": ["./dist/adapters/react.d.ts"],
       "adapters/svelte": ["./dist/adapters/svelte.d.ts"],
       "adapters/vue": ["./dist/adapters/vue.d.ts"],
