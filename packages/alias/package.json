@@ -59,6 +59,11 @@
       "types": "./dist/adapters/angular.d.ts",
       "import": "./dist/adapters/angular.js",
       "require": "./dist/adapters/angular.cjs"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js",
+      "require": "./dist/testing.cjs"
     }
   },
   "typesVersions": {
@@ -83,6 +88,9 @@
       ],
       "adapters/angular": [
         "./dist/adapters/angular.d.ts"
+      ],
+      "testing": [
+        "./dist/testing.d.ts"
       ]
     }
   },
@@ -124,6 +132,7 @@
     "@neutro/form-vue": "workspace:*",
     "@neutro/form-solid": "workspace:*",
     "@neutro/form-angular": "workspace:*",
+    "@neutro/form-testing": "workspace:*",
     "tsup": "^8.0.0"
   }
 }
