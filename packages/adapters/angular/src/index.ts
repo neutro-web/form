@@ -1,4 +1,4 @@
-import { type Signal, signal, DestroyRef, NgZone, inject } from '@angular/core';
+import { DestroyRef, inject, NgZone, type Signal, signal } from '@angular/core';
 import type { FormInstance, FormState } from '@neutro/form-core';
 
 export interface AngularFormReturn<T extends object> {
@@ -70,7 +70,10 @@ export function useAngularFormPath<T extends object>(form: FormInstance<T>, path
   const zone = inject(NgZone, { optional: true });
   const unsubscribe = form.subscribeToPath(path, (v, fs) => {
     if (zone) {
-      zone.run(() => { value.set(v); fieldState.set(fs); });
+      zone.run(() => {
+        value.set(v);
+        fieldState.set(fs);
+      });
     } else {
       value.set(v);
       fieldState.set(fs);

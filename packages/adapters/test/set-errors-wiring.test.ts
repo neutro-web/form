@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import { createForm } from '@neutro/form-core';
+import { describe, expect, it } from 'vitest';
 
 describe('core form exposes setErrors (React adapter cannot be tested without React runtime)', () => {
   it('form instance has setErrors as a function', () => {

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createForm } from '../src/index.js';
 
 describe('getAriaProps', () => {
@@ -46,7 +46,9 @@ describe('getAriaProps', () => {
       rules: { email: ['required'] },
     });
     await form.validate();
-    expect(form.getAriaProps('email', { errorId: 'my-email-error' })['aria-describedby']).toBe('my-email-error');
+    expect(form.getAriaProps('email', { errorId: 'my-email-error' })['aria-describedby']).toBe(
+      'my-email-error'
+    );
   });
 
   it('aria-required auto-detected from string rule', () => {

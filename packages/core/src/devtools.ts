@@ -1,4 +1,4 @@
-import type { FormInstance, FormAction, FormState } from './index.js';
+import type { FormAction, FormInstance, FormState } from './index.js';
 import { isDeepEqual } from './index.js';
 
 export interface DevtoolsOptions {
@@ -6,7 +6,8 @@ export interface DevtoolsOptions {
   collapsed?: boolean;
 }
 
-const BADGE_STYLE = 'background:#6366f1;color:#fff;padding:2px 6px;border-radius:3px;font-weight:bold;font-size:11px;';
+const BADGE_STYLE =
+  'background:#6366f1;color:#fff;padding:2px 6px;border-radius:3px;font-weight:bold;font-size:11px;';
 const DIM_STYLE = 'color:#888;font-weight:normal;';
 const ACTION_STYLE = 'color:#f59e0b;font-weight:bold;';
 const RESET_STYLE = 'color:inherit;font-weight:normal;';
@@ -17,23 +18,40 @@ function formatElapsed(ms: number): string {
 
 function describeAction(action: FormAction): string {
   switch (action.type) {
-    case 'SET': return `SET ${action.path}`;
-    case 'VALIDATE': return action.paths ? `VALIDATE [${action.paths.join(', ')}]` : 'VALIDATE';
-    case 'SUBMIT': return 'SUBMIT';
-    case 'RESET': return 'RESET';
-    case 'SET_ERRORS': return `SET_ERRORS [${Object.keys(action.errors).join(', ')}]`;
-    case 'CLEAR_ERRORS': return 'CLEAR_ERRORS';
-    case 'CONNECT': return `CONNECT ${action.path}`;
-    case 'DISCONNECT': return `DISCONNECT ${action.path}`;
-    case 'BLUR': return `BLUR ${action.path}`;
-    case 'BATCH_START': return 'BATCH_START';
-    case 'BATCH_END': return 'BATCH_END';
-    case 'ARRAY_APPEND': return `ARRAY_APPEND ${action.path}`;
-    case 'ARRAY_INSERT': return `ARRAY_INSERT ${action.path}[${action.index}]`;
-    case 'ARRAY_REMOVE': return `ARRAY_REMOVE ${action.path}[${action.index}]`;
-    case 'ARRAY_MOVE': return `ARRAY_MOVE ${action.path} ${action.from}→${action.to}`;
-    case 'ARRAY_SWAP': return `ARRAY_SWAP ${action.path} [${action.i}↔${action.j}]`;
-    default: return (action as any).type;
+    case 'SET':
+      return `SET ${action.path}`;
+    case 'VALIDATE':
+      return action.paths ? `VALIDATE [${action.paths.join(', ')}]` : 'VALIDATE';
+    case 'SUBMIT':
+      return 'SUBMIT';
+    case 'RESET':
+      return 'RESET';
+    case 'SET_ERRORS':
+      return `SET_ERRORS [${Object.keys(action.errors).join(', ')}]`;
+    case 'CLEAR_ERRORS':
+      return 'CLEAR_ERRORS';
+    case 'CONNECT':
+      return `CONNECT ${action.path}`;
+    case 'DISCONNECT':
+      return `DISCONNECT ${action.path}`;
+    case 'BLUR':
+      return `BLUR ${action.path}`;
+    case 'BATCH_START':
+      return 'BATCH_START';
+    case 'BATCH_END':
+      return 'BATCH_END';
+    case 'ARRAY_APPEND':
+      return `ARRAY_APPEND ${action.path}`;
+    case 'ARRAY_INSERT':
+      return `ARRAY_INSERT ${action.path}[${action.index}]`;
+    case 'ARRAY_REMOVE':
+      return `ARRAY_REMOVE ${action.path}[${action.index}]`;
+    case 'ARRAY_MOVE':
+      return `ARRAY_MOVE ${action.path} ${action.from}→${action.to}`;
+    case 'ARRAY_SWAP':
+      return `ARRAY_SWAP ${action.path} [${action.i}↔${action.j}]`;
+    default:
+      return (action as any).type;
   }
 }
 
@@ -55,10 +73,20 @@ function computeDiff(
     }
   }
   if (prev.isSubmitting !== next.isSubmitting) {
-    rows.push({ slice: 'meta', key: 'isSubmitting', prev: prev.isSubmitting, next: next.isSubmitting });
+    rows.push({
+      slice: 'meta',
+      key: 'isSubmitting',
+      prev: prev.isSubmitting,
+      next: next.isSubmitting,
+    });
   }
   if (prev.isValidating !== next.isValidating) {
-    rows.push({ slice: 'meta', key: 'isValidating', prev: prev.isValidating, next: next.isValidating });
+    rows.push({
+      slice: 'meta',
+      key: 'isValidating',
+      prev: prev.isValidating,
+      next: next.isValidating,
+    });
   }
   return rows;
 }
@@ -84,7 +112,13 @@ function logAction(
 
   groupFn(
     '%c NeutroForm: %s %c %s %c %s  %s',
-    BADGE_STYLE, name, RESET_STYLE, label, DIM_STYLE, timestamp, formatElapsed(elapsed)
+    BADGE_STYLE,
+    name,
+    RESET_STYLE,
+    label,
+    DIM_STYLE,
+    timestamp,
+    formatElapsed(elapsed)
   );
   console.log('%c action', ACTION_STYLE, action);
   const diff = computeDiff(prev, state);
@@ -106,7 +140,9 @@ export function devtools<T extends object>(
   options: DevtoolsOptions = {}
 ): () => void {
   if (registeredForms.has(form)) {
-    console.warn('[NeutroForm devtools] devtools() was called twice on the same form instance. Ignoring duplicate registration.');
+    console.warn(
+      '[NeutroForm devtools] devtools() was called twice on the same form instance. Ignoring duplicate registration.'
+    );
     return () => {};
   }
   registeredForms.add(form);
@@ -151,12 +187,18 @@ export function devtools<T extends object>(
 
       groupFn(
         '%c NeutroForm: %s %c BATCH (%d mutations) %c %s  %s',
-        BADGE_STYLE, name, RESET_STYLE, count, DIM_STYLE, timestamp, formatElapsed(elapsed)
+        BADGE_STYLE,
+        name,
+        RESET_STYLE,
+        count,
+        DIM_STYLE,
+        timestamp,
+        formatElapsed(elapsed)
       );
       const frozenTimeRef = { value: lastTimeRef.value };
-      batchActions.forEach(({ action: a, state: s, prev }: { action: FormAction; state: FormState<T>; prev: FormState<T> }) =>
-        logAction(a, s, prev, name, groupFn, frozenTimeRef)
-      );
+      for (const { action: a, state: s, prev } of batchActions) {
+        logAction(a, s, prev, name, groupFn, frozenTimeRef);
+      }
       console.groupEnd();
       batchActions = [];
       return;

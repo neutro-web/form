@@ -1,5 +1,15 @@
-import { type DeepReadonly, type ShallowRef, shallowRef, readonly, unref, watch, onUnmounted, getCurrentInstance, type MaybeRef } from 'vue';
 import type { FormInstance, FormState } from '@neutro/form-core';
+import {
+  type DeepReadonly,
+  getCurrentInstance,
+  type MaybeRef,
+  onUnmounted,
+  readonly,
+  type ShallowRef,
+  shallowRef,
+  unref,
+  watch,
+} from 'vue';
 
 export interface VueFormReturn<T extends object> {
   state: DeepReadonly<ShallowRef<FormState<T>>>;
@@ -28,7 +38,9 @@ export interface VueFormReturn<T extends object> {
 
 export function useVueForm<T extends object>(form: FormInstance<T>): VueFormReturn<T> {
   const state = shallowRef<FormState<T>>(form.getState());
-  const unsubscribe = form.subscribe((s) => { state.value = s; });
+  const unsubscribe = form.subscribe((s) => {
+    state.value = s;
+  });
   if (getCurrentInstance()) onUnmounted(unsubscribe);
   return {
     state: readonly(state),
@@ -59,7 +71,9 @@ export function useVueForm<T extends object>(form: FormInstance<T>): VueFormRetu
 // Accepts MaybeRef<string> so the path itself can be reactive (e.g. inside v-for).
 export function useVueFormPath<T extends object>(form: FormInstance<T>, path: MaybeRef<string>) {
   const value = shallowRef<unknown>(form.get(unref(path)));
-  const fieldState = shallowRef<{ error?: string; touched?: boolean; dirty?: boolean } | null>(null);
+  const fieldState = shallowRef<{ error?: string; touched?: boolean; dirty?: boolean } | null>(
+    null
+  );
 
   let unsubscribe = form.subscribeToPath(unref(path), (v: unknown, fs) => {
     value.value = v;
