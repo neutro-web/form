@@ -473,7 +473,7 @@ function applyBuiltInRules<T>(
 
       // ── Presence ──────────────────────────────────────────────────────────
       if (rule === 'required') {
-        if (!present) error = 'This field is required';
+        if (!present) error = 'Required';
       } else if (rule === 'accepted') {
         if (value !== true && value !== 1 && value !== 'yes' && value !== 'true') {
           error = 'This field must be accepted';
@@ -619,13 +619,13 @@ function applyBuiltInRules<T>(
           // ── Conditional presence ──────────────────────────────────────────
         } else if ('requiredIf' in rule) {
           const trigger = getNestedValue(values, (rule as { requiredIf: string }).requiredIf);
-          if (trigger && !present) error = rule.message ?? 'This field is required';
+          if (trigger && !present) error = rule.message ?? 'Required';
         } else if ('requiredUnless' in rule) {
           const trigger = getNestedValue(
             values,
             (rule as { requiredUnless: string }).requiredUnless
           );
-          if (!trigger && !present) error = rule.message ?? 'This field is required';
+          if (!trigger && !present) error = rule.message ?? 'Required';
         }
       }
 
