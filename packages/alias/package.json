@@ -2,15 +2,28 @@
   "name": "@neutro/form",
   "version": "0.0.5",
   "description": "High-performance, zero-dependency, framework-agnostic reactive form engine.",
-  "keywords": ["form", "validation", "react", "vue", "svelte", "solid", "angular", "framework-agnostic"],
+  "keywords": [
+    "form",
+    "validation",
+    "react",
+    "vue",
+    "svelte",
+    "solid",
+    "angular",
+    "framework-agnostic"
+  ],
   "license": "MIT",
   "homepage": "https://neutro-web.github.io/form/",
   "repository": {
     "type": "git",
     "url": "https://github.com/neutro-web/form.git"
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "type": "module",
+  "sideEffects": false,
   "exports": {
     "./core": {
       "types": "./dist/core.d.ts",
@@ -50,13 +63,27 @@
   },
   "typesVersions": {
     "*": {
-      "core": ["./dist/core.d.ts"],
-      "devtools": ["./dist/devtools.d.ts"],
-      "adapters/react": ["./dist/adapters/react.d.ts"],
-      "adapters/svelte": ["./dist/adapters/svelte.d.ts"],
-      "adapters/vue": ["./dist/adapters/vue.d.ts"],
-      "adapters/solid": ["./dist/adapters/solid.d.ts"],
-      "adapters/angular": ["./dist/adapters/angular.d.ts"]
+      "core": [
+        "./dist/core.d.ts"
+      ],
+      "devtools": [
+        "./dist/devtools.d.ts"
+      ],
+      "adapters/react": [
+        "./dist/adapters/react.d.ts"
+      ],
+      "adapters/svelte": [
+        "./dist/adapters/svelte.d.ts"
+      ],
+      "adapters/vue": [
+        "./dist/adapters/vue.d.ts"
+      ],
+      "adapters/solid": [
+        "./dist/adapters/solid.d.ts"
+      ],
+      "adapters/angular": [
+        "./dist/adapters/angular.d.ts"
+      ]
     }
   },
   "scripts": {
@@ -71,12 +98,24 @@
     "@angular/core": ">=16"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true },
-    "react-dom": { "optional": true },
-    "svelte": { "optional": true },
-    "vue": { "optional": true },
-    "solid-js": { "optional": true },
-    "@angular/core": { "optional": true }
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "svelte": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    },
+    "solid-js": {
+      "optional": true
+    },
+    "@angular/core": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@neutro/form-core": "workspace:*",
