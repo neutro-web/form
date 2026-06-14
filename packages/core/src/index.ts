@@ -976,6 +976,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       element.setAttribute('aria-describedby', errorContainer.id);
     }
     element.setAttribute('aria-invalid', errors[stringPath] ? 'true' : 'false');
+    if (isFieldRequired(stringPath)) {
+      element.setAttribute('aria-required', 'true');
+    }
 
     const syncValueFromDOM = (e: Event) => {
       const target = e.target as HTMLInputElement | HTMLSelectElement;
