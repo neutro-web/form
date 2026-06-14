@@ -19,6 +19,16 @@ interface ConnectOptions {
    * element.value. Useful for phone number masking, date formatting, etc.
    */
   format?: (value: unknown) => string
+
+  /**
+   * Overrides the form-level `validationMode` for this specific element.
+   * Useful when one field needs different validation timing than the global default.
+   *
+   * @example
+   * // Validate this field on blur even if the form default is 'onChange'
+   * form.connect('email', emailEl, { validateOn: 'onBlur' })
+   */
+  validateOn?: ValidationMode
 }
 
 form.connect(

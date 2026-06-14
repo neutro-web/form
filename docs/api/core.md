@@ -49,6 +49,36 @@ interface FormConfig<T> {
    * @default 300
    */
   asyncDebounceMs?: number
+
+  /**
+   * Validation trigger mode. Controls when validation runs for fields connected
+   * via `form.connect()`. Pass a bare string to apply one mode globally, or an
+   * object with `default` and per-field `fields` overrides.
+   *
+   * | Mode | Validates on |
+   * |---|---|
+   * | `'onTouched'` | input after first blur; always on blur (default) |
+   * | `'onChange'` | every input event |
+   * | `'onBlur'` | blur only |
+   * | `'onSubmitOnly'` | form submit only — no inline validation |
+   *
+   * @default 'onTouched'
+   *
+   * @example
+   * // Global mode
+   * validationMode: 'onBlur'
+   *
+   * @example
+   * // Mixed: default onTouched, password immediate, terms submit-only
+   * validationMode: {
+   *   default: 'onTouched',
+   *   fields: { password: 'onChange', terms: 'onSubmitOnly' }
+   * }
+   */
+  validationMode?: ValidationMode | {
+    default?: ValidationMode
+    fields?: Record<string, ValidationMode>
+  }
 }
 ```
 
@@ -242,6 +272,28 @@ Resets the form to its initial state. If `newValues` is provided, those values b
 ```ts
 form.reset()                          // back to original initialValues
 form.reset({ email: 'new@ex.com' })   // re-seed with new values
+```
+
+---
+
+### `form.getFieldMode(path)`
+
+```ts
+form.getFieldMode(path: string): ValidationMode
+```
+
+Returns the effective validation mode for `path`. Useful in framework adapters to decide when to call `form.validate([path])` in event handlers.
+
+Resolution order (first match wins):
+
+1. `validateOn` in the `ConnectOptions` passed to `form.connect()` for that element
+2. `validationMode.fields[path]` in `FormConfig`
+3. `validationMode.default` in `FormConfig`
+4. `'onTouched'` (library default)
+
+```ts
+const mode = form.getFieldMode('email')
+// → 'onTouched' | 'onChange' | 'onBlur' | 'onSubmitOnly'
 ```
 
 ---
