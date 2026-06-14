@@ -927,6 +927,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   ) => {
     if (!element || typeof window === 'undefined') return () => {};
     const stringPath = Array.isArray(path) ? path.join('.') : path;
+    const mode = resolveFieldMode(stringPath, options.validateOn);
     initMutationObserver();
     connectionRegistry.set(stringPath, new WeakRef(element));
     connectedPaths.add(stringPath);
@@ -979,12 +980,24 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
         rawVal = formatted;
       }
-      setFieldValue(stringPath, rawVal, { touch: true });
+      if (mode === 'onChange') {
+        setFieldValue(stringPath, rawVal, { touch: true });
+        runValidation([stringPath]);
+      } else if (mode === 'onTouched' && touched[stringPath]) {
+        setFieldValue(stringPath, rawVal);
+        runValidation([stringPath]);
+      } else {
+        setFieldValue(stringPath, rawVal);
+      }
     };
 
     const handleBlur = () => {
       touched[stringPath] = true;
-      runValidation([stringPath]);
+      if (mode === 'onBlur' || mode === 'onTouched') {
+        runValidation([stringPath]);
+      } else {
+        notify(stringPath);
+      }
     };
 
     element.addEventListener('input', syncValueFromDOM);
