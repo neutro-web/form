@@ -754,7 +754,7 @@ export function createForm<T extends object>(config: FormConfig<T>) {
       }
       return false;
     } catch (err) {
-      console.error('[Agnostic Form Submit Error]: ', err);
+      console.error('[NeutroForm Submit Error]: ', err);
       return false;
     } finally {
       isSubmitting = false;

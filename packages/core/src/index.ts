@@ -186,6 +186,11 @@ export interface FormInstance<T extends object> {
   destroy: () => void;
   setErrors: (errors: Record<Path<T> | (string & {}), string>) => void;
   clearErrors: () => void;
+  /**
+   * Returns the effective ValidationMode for a field. Useful for debugging
+   * validation timing; framework adapters should rely on this only in custom
+   * event handlers, not in render logic.
+   */
   getFieldMode: (path: string) => ValidationMode;
   _subscribeToActions: (fn: (action: FormAction, state: FormState<T>) => void) => () => void;
 }
@@ -637,7 +642,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       try {
         fn(action, snapshot);
       } catch (err) {
-        console.error('[Agnostic Form] _subscribeToActions listener threw:', err);
+        console.error('[NeutroForm] _subscribeToActions listener threw:', err);
       }
     });
   };
@@ -1108,7 +1113,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
       return false;
     } catch (err) {
-      console.error('[Agnostic Form Submit Error]: ', err);
+      console.error('[NeutroForm Submit Error]: ', err);
       return false;
     } finally {
       isSubmitting = false;
@@ -1185,8 +1190,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
     getAriaProps: (path: Path<T> | string, options?: AriaPropsOptions): AriaProps => {
       const stringPath = path as string;
-      const state = getState();
-      const hasError = Boolean(state.errors[stringPath]);
+      const hasError = Boolean(errors[stringPath]);
       const id = options?.errorId ?? `error-${stringPath.replace(/\./g, '-')}`;
 
       let ariaRequired: true | undefined;
