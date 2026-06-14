@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { get } from 'svelte/store';
 import { createForm } from '@neutro/form-core';
+import { get } from 'svelte/store';
+import { describe, expect, it } from 'vitest';
 import { useSvelteForm } from '../src/index';
 
 describe('useSvelteForm — setErrors', () => {

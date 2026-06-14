@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createForm } from '../src/index';
 
 function makeInput(): HTMLInputElement {
@@ -24,7 +24,11 @@ afterEach(() => {
 describe('connect() — onSubmitOnly', () => {
   it('does not validate on input', () => {
     const validator = vi.fn().mockReturnValue({});
-    const form = createForm({ initialValues: { email: '' }, validator, validationMode: 'onSubmitOnly' });
+    const form = createForm({
+      initialValues: { email: '' },
+      validator,
+      validationMode: 'onSubmitOnly',
+    });
     const el = makeInput();
     form.connect('email', el);
     fireInput(el, 'bad');
@@ -33,7 +37,11 @@ describe('connect() — onSubmitOnly', () => {
 
   it('does not validate on blur', () => {
     const validator = vi.fn().mockReturnValue({});
-    const form = createForm({ initialValues: { email: '' }, validator, validationMode: 'onSubmitOnly' });
+    const form = createForm({
+      initialValues: { email: '' },
+      validator,
+      validationMode: 'onSubmitOnly',
+    });
     const el = makeInput();
     form.connect('email', el);
     fireBlur(el);
@@ -90,7 +98,11 @@ describe('connect() — onBlur', () => {
 describe('connect() — onChange', () => {
   it('validates on input', () => {
     const validator = vi.fn().mockReturnValue({ email: 'Invalid' });
-    const form = createForm({ initialValues: { email: '' }, validator, validationMode: 'onChange' });
+    const form = createForm({
+      initialValues: { email: '' },
+      validator,
+      validationMode: 'onChange',
+    });
     const el = makeInput();
     form.connect('email', el);
     fireInput(el, 'bad');
@@ -108,7 +120,11 @@ describe('connect() — onChange', () => {
 
   it('does not re-validate on blur (only sets touched)', () => {
     const validator = vi.fn().mockReturnValue({});
-    const form = createForm({ initialValues: { email: '' }, validator, validationMode: 'onChange' });
+    const form = createForm({
+      initialValues: { email: '' },
+      validator,
+      validationMode: 'onChange',
+    });
     const el = makeInput();
     form.connect('email', el);
     fireBlur(el);
@@ -120,7 +136,11 @@ describe('connect() — onChange', () => {
 describe('connect() — onTouched (default)', () => {
   it('does not validate on input before first blur', () => {
     const validator = vi.fn().mockReturnValue({});
-    const form = createForm({ initialValues: { email: '' }, validator, validationMode: 'onTouched' });
+    const form = createForm({
+      initialValues: { email: '' },
+      validator,
+      validationMode: 'onTouched',
+    });
     const el = makeInput();
     form.connect('email', el);
     fireInput(el, 'bad');
@@ -137,7 +157,11 @@ describe('connect() — onTouched (default)', () => {
 
   it('validates and sets touched on first blur', () => {
     const validator = vi.fn().mockReturnValue({ email: 'Invalid' });
-    const form = createForm({ initialValues: { email: '' }, validator, validationMode: 'onTouched' });
+    const form = createForm({
+      initialValues: { email: '' },
+      validator,
+      validationMode: 'onTouched',
+    });
     const el = makeInput();
     form.connect('email', el);
     fireBlur(el);
@@ -148,7 +172,11 @@ describe('connect() — onTouched (default)', () => {
 
   it('validates on input after first blur', () => {
     const validator = vi.fn().mockReturnValue({});
-    const form = createForm({ initialValues: { email: '' }, validator, validationMode: 'onTouched' });
+    const form = createForm({
+      initialValues: { email: '' },
+      validator,
+      validationMode: 'onTouched',
+    });
     const el = makeInput();
     form.connect('email', el);
     fireBlur(el);

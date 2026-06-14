@@ -1,8 +1,9 @@
 // Svelte adapter — uses svelte/store primitives (readable) so this file
 // compiles with plain tsup without needing the Svelte preprocessor.
 // Consumers use the $ prefix in .svelte templates: $field.value, $field.fieldState
-import { type Readable, readable } from 'svelte/store';
+
 import type { FormInstance, FormState } from '@neutro/form-core';
+import { type Readable, readable } from 'svelte/store';
 
 export interface SvelteFormReturn<T extends object> {
   state: Readable<FormState<T>>;
@@ -63,12 +64,12 @@ export function useSvelteForm<T extends object>(form: FormInstance<T>): SvelteFo
 }
 
 export function useSvelteFormPath<T extends object>(form: FormInstance<T>, path: string) {
-  const field = readable<{ value: unknown; fieldState: { error?: string; touched?: boolean; dirty?: boolean } | null }>(
-    { value: form.get(path), fieldState: null },
-    (set) => {
-      set({ value: form.get(path), fieldState: null });
-      return form.subscribeToPath(path, (v, fs) => set({ value: v, fieldState: fs }));
-    }
-  );
+  const field = readable<{
+    value: unknown;
+    fieldState: { error?: string; touched?: boolean; dirty?: boolean } | null;
+  }>({ value: form.get(path), fieldState: null }, (set) => {
+    set({ value: form.get(path), fieldState: null });
+    return form.subscribeToPath(path, (v, fs) => set({ value: v, fieldState: fs }));
+  });
   return field;
 }

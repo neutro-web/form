@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createForm } from '../src/index';
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 // ---------------------------------------------------------------------------
 // _subscribeToActions infrastructure
@@ -177,7 +179,12 @@ describe('array operation actions', () => {
     const spy = vi.fn();
     form._subscribeToActions(spy);
     form.arrayInsert('items', 1, 'x');
-    expect(spy.mock.calls[0][0]).toEqual({ type: 'ARRAY_INSERT', path: 'items', index: 1, item: 'x' });
+    expect(spy.mock.calls[0][0]).toEqual({
+      type: 'ARRAY_INSERT',
+      path: 'items',
+      index: 1,
+      item: 'x',
+    });
   });
 
   it('ARRAY_REMOVE fires with path and index', () => {
@@ -226,7 +233,7 @@ describe('devtools()', () => {
 
   it('logs a groupCollapsed and diff table for a SET action', () => {
     vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
-    const tableSpy = vi.spyOn(console, 'table').mockImplementation(() => {});
+    const _tableSpy = vi.spyOn(console, 'table').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
 
@@ -271,7 +278,7 @@ describe('devtools()', () => {
 
     form.set('x', 5); // same value — SET dispatches but diff is empty
 
-    const noChangeCalled = logSpy.mock.calls.some(args =>
+    const noChangeCalled = logSpy.mock.calls.some((args) =>
       args.join('').includes('no state change')
     );
     expect(noChangeCalled).toBe(true);

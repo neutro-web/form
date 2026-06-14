@@ -1,15 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  compileDependencyScopes,
   createForm,
   deepClone,
+  extractAllPaths,
+  getNestedValue,
   isDeepEqual,
-  compileDependencyScopes,
-  zodAdapter,
+  setNestedValue,
   valibotAdapter,
   yupAdapter,
-  getNestedValue,
-  setNestedValue,
-  extractAllPaths,
+  zodAdapter,
 } from '../src/index';
 
 // ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ describe('get / set', () => {
   it('touch flag sets touched[path]', () => {
     const form = createForm({ initialValues: { x: 0 } });
     form.set('x', 1, { touch: true });
-    expect(form.getState().touched['x']).toBe(true);
+    expect(form.getState().touched.x).toBe(true);
   });
 
   it('validate:false skips runValidation', async () => {
@@ -80,14 +80,14 @@ describe('Dirty tracking', () => {
   it('marks dirty on change', () => {
     const form = createForm({ initialValues: { x: 0 } });
     form.set('x', 1);
-    expect(form.getState().dirty['x']).toBe(true);
+    expect(form.getState().dirty.x).toBe(true);
   });
 
   it('clears dirty when value returns to initial', () => {
     const form = createForm({ initialValues: { x: 0 } });
     form.set('x', 1);
     form.set('x', 0);
-    expect(form.getState().dirty['x']).toBeUndefined();
+    expect(form.getState().dirty.x).toBeUndefined();
   });
 });
 
@@ -112,7 +112,7 @@ describe('Sync validation', () => {
       validator: (v: any) => (v.email ? {} : { email: 'Required' }),
     });
     await form.validate();
-    expect(form.getState().errors['email']).toBe('Required');
+    expect(form.getState().errors.email).toBe('Required');
   });
 
   it('scoped merge leaves unrelated errors intact', async () => {
@@ -120,11 +120,13 @@ describe('Sync validation', () => {
       initialValues: { a: '', b: '' },
       validator: (v: any, scope) => {
         const e: Record<string, string> = {};
-        if (!v.a) e['a'] = 'Required';
-        if (!v.b) e['b'] = 'Required';
+        if (!v.a) e.a = 'Required';
+        if (!v.b) e.b = 'Required';
         if (scope) {
           const result: Record<string, string> = {};
-          scope.forEach((p: string) => { if (e[p]) result[p] = e[p]; });
+          scope.forEach((p: string) => {
+            if (e[p]) result[p] = e[p];
+          });
           return result;
         }
         return e;
@@ -132,7 +134,7 @@ describe('Sync validation', () => {
     });
     await form.validate(); // sets both a + b errors
     await form.validate(['a']); // re-validates only a — b error should survive
-    expect(form.getState().errors['b']).toBe('Required');
+    expect(form.getState().errors.b).toBe('Required');
   });
 });
 
@@ -163,7 +165,7 @@ describe('Async validation', () => {
       validator: async () => {
         callCount++;
         const n = callCount;
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise((r) => setTimeout(r, 50));
         return n === 1 ? { x: 'stale' } : {};
       },
       asyncDebounceMs: 0,
@@ -172,20 +174,26 @@ describe('Async validation', () => {
     const p2 = form.validate(['x']); // second call increments epoch; first result discarded
     await vi.runAllTimersAsync();
     await Promise.all([p1, p2]);
-    expect(form.getState().errors['x']).toBeUndefined();
+    expect(form.getState().errors.x).toBeUndefined();
     vi.useRealTimers();
   });
 
-  it('concurrent paths do not cancel each other\'s timers — bug #8 regression', async () => {
+  it("concurrent paths do not cancel each other's timers — bug #8 regression", async () => {
     vi.useFakeTimers();
     const results: string[] = [];
     const form = createForm({
       initialValues: { a: '', b: '' },
       validator: async (_v: any, scope: any) => {
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise((r) => setTimeout(r, 50));
         const errors: Record<string, string> = {};
-        if (scope?.includes('a')) { errors['a'] = 'a-error'; results.push('a'); }
-        if (scope?.includes('b')) { errors['b'] = 'b-error'; results.push('b'); }
+        if (scope?.includes('a')) {
+          errors.a = 'a-error';
+          results.push('a');
+        }
+        if (scope?.includes('b')) {
+          errors.b = 'b-error';
+          results.push('b');
+        }
         return errors;
       },
       asyncDebounceMs: 10,
@@ -206,7 +214,7 @@ describe('Async validation', () => {
     const form = createForm({
       initialValues: { x: '' },
       validator: async (_v: any, _scope: any, signal: any) => {
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 200));
         aborted.push(signal.aborted);
         return {};
       },
@@ -235,22 +243,22 @@ describe('Dependency graph', () => {
     });
     form.set('password', 'abc');
     await form.validate(['password']);
-    expect(form.getState().errors['confirmPassword']).toBe('Mismatch');
+    expect(form.getState().errors.confirmPassword).toBe('Mismatch');
   });
 
   it('transitive dependency chain resolves', async () => {
     const form = createForm({
       initialValues: { a: 1, b: 2, c: 3 },
       dependencies: { a: ['b'], b: ['c'] },
-      validator: (v: any, scope: any) => {
+      validator: (_v: any, scope: any) => {
         if (!scope) return {};
         const errors: Record<string, string> = {};
-        if (scope.includes('c')) errors['c'] = 'touched';
+        if (scope.includes('c')) errors.c = 'touched';
         return errors;
       },
     });
     await form.validate(['a']); // a → b → c
-    expect(form.getState().errors['c']).toBe('touched');
+    expect(form.getState().errors.c).toBe('touched');
   });
 
   it('circular dependency graph does not loop', async () => {
@@ -359,8 +367,8 @@ describe('Array — arrayInsert', () => {
     form.arrayInsert('items', 0, 'X');
     const state = form.getState();
     expect(state.touched['items.0']).toBeUndefined(); // new item, not touched
-    expect(state.touched['items.1']).toBe(true);      // was items.0
-    expect(state.touched['items.2']).toBe(true);      // was items.1
+    expect(state.touched['items.1']).toBe(true); // was items.0
+    expect(state.touched['items.2']).toBe(true); // was items.1
   });
 
   it('out-of-bounds index is a no-op', () => {
@@ -476,7 +484,9 @@ describe('notify() performance', () => {
     // We measure this indirectly: subscribe to a path, mutate, verify no global call.
     const form = createForm({ initialValues: { x: 0 } });
     let pathCallCount = 0;
-    form.subscribeToPath('x', () => { pathCallCount++; });
+    form.subscribeToPath('x', () => {
+      pathCallCount++;
+    });
     // Flush the immediate callback from subscribeToPath
     pathCallCount = 0;
     form.set('x', 1, { validate: false });
@@ -506,8 +516,10 @@ describe('isDeepEqual', () => {
   });
 
   it('returns false for different circular structures', () => {
-    const a: any = { x: 1 }; a.self = a;
-    const b: any = { x: 2 }; b.self = b;
+    const a: any = { x: 1 };
+    a.self = a;
+    const b: any = { x: 2 };
+    b.self = b;
     expect(isDeepEqual(a, b)).toBe(false);
   });
 });
@@ -532,18 +544,20 @@ describe('Reset', () => {
     const form = createForm({ initialValues: { x: 0 } });
     form.reset({ x: 10 } as any);
     // x is now 10 with new baseline of 10 — not dirty
-    expect(form.getState().dirty['x']).toBeUndefined();
+    expect(form.getState().dirty.x).toBeUndefined();
     form.set('x', 5);
-    expect(form.getState().dirty['x']).toBe(true);
+    expect(form.getState().dirty.x).toBe(true);
     form.set('x', 10); // back to new baseline
-    expect(form.getState().dirty['x']).toBeUndefined();
+    expect(form.getState().dirty.x).toBeUndefined();
   });
 
   it('path subscribers are notified after reset', () => {
     let lastValue: any;
     const form = createForm({ initialValues: { x: 0 } });
     form.set('x', 99, { validate: false });
-    form.subscribeToPath('x', (v) => { lastValue = v; });
+    form.subscribeToPath('x', (v) => {
+      lastValue = v;
+    });
     lastValue = undefined;
     form.reset();
     expect(lastValue).toBe(0);
@@ -586,7 +600,9 @@ describe('Subscriptions', () => {
   it('subscribeToPath fires immediately with current value', () => {
     const form = createForm({ initialValues: { x: 42 } });
     let received: any;
-    form.subscribeToPath('x', (v) => { received = v; });
+    form.subscribeToPath('x', (v) => {
+      received = v;
+    });
     expect(received).toBe(42);
   });
 
@@ -617,7 +633,9 @@ describe('Subscriptions', () => {
       initialValues: { email: '' },
       validator: (v: any) => (v.email ? {} : { email: 'Required' }),
     });
-    form.subscribeToPath('email', (_, fs) => { lastFieldState = fs; });
+    form.subscribeToPath('email', (_, fs) => {
+      lastFieldState = fs;
+    });
     lastFieldState = null;
     await form.validate(['email']);
     expect(lastFieldState?.error).toBe('Required');
@@ -698,10 +716,7 @@ describe('Validator adapters', () => {
 
 describe('compileDependencyScopes', () => {
   it('registers wildcard keys even when initialValues array is empty', () => {
-    const scopes = compileDependencyScopes(
-      { 'items.*.name': ['items.*.price'] },
-      { items: [] }
-    );
+    const scopes = compileDependencyScopes({ 'items.*.name': ['items.*.price'] }, { items: [] });
     expect(scopes['items.*.name']).toBeDefined();
     expect(scopes['items.*.name']).toContain('items.*.price');
   });
@@ -725,7 +740,10 @@ describe('built-in rules — presence', () => {
   });
 
   it('required — rejects empty array', async () => {
-    const form = createForm({ initialValues: { tags: [] as string[] }, rules: { tags: 'required' } });
+    const form = createForm({
+      initialValues: { tags: [] as string[] },
+      rules: { tags: 'required' },
+    });
     await form.validate();
     expect(form.getState().errors.tags).toBeTruthy();
   });
@@ -763,7 +781,10 @@ describe('built-in rules — format', () => {
   });
 
   it('url — passes valid URL', async () => {
-    const form = createForm({ initialValues: { site: 'https://example.com' }, rules: { site: 'url' } });
+    const form = createForm({
+      initialValues: { site: 'https://example.com' },
+      rules: { site: 'url' },
+    });
     await form.validate();
     expect(form.getState().errors.site).toBeUndefined();
   });
@@ -835,13 +856,19 @@ describe('built-in rules — format', () => {
   });
 
   it('alphanumeric — passes letters and numbers', async () => {
-    const form = createForm({ initialValues: { handle: 'user123' }, rules: { handle: 'alphanumeric' } });
+    const form = createForm({
+      initialValues: { handle: 'user123' },
+      rules: { handle: 'alphanumeric' },
+    });
     await form.validate();
     expect(form.getState().errors.handle).toBeUndefined();
   });
 
   it('alphanumeric — rejects spaces', async () => {
-    const form = createForm({ initialValues: { handle: 'user 123' }, rules: { handle: 'alphanumeric' } });
+    const form = createForm({
+      initialValues: { handle: 'user 123' },
+      rules: { handle: 'alphanumeric' },
+    });
     await form.validate();
     expect(form.getState().errors.handle).toBeTruthy();
   });
@@ -873,13 +900,19 @@ describe('built-in rules — length and size', () => {
   });
 
   it('maxLength — rejects too long', async () => {
-    const form = createForm({ initialValues: { bio: 'x'.repeat(201) }, rules: { bio: { maxLength: 200 } } });
+    const form = createForm({
+      initialValues: { bio: 'x'.repeat(201) },
+      rules: { bio: { maxLength: 200 } },
+    });
     await form.validate();
     expect(form.getState().errors.bio).toBeTruthy();
   });
 
   it('min/max — passes within range', async () => {
-    const form = createForm({ initialValues: { age: 25 }, rules: { age: [{ min: 18 }, { max: 120 }] } });
+    const form = createForm({
+      initialValues: { age: 25 },
+      rules: { age: [{ min: 18 }, { max: 120 }] },
+    });
     await form.validate();
     expect(form.getState().errors.age).toBeUndefined();
   });
@@ -893,37 +926,55 @@ describe('built-in rules — length and size', () => {
 
 describe('built-in rules — string content', () => {
   it('startsWith — passes matching prefix', async () => {
-    const form = createForm({ initialValues: { code: 'US-123' }, rules: { code: { startsWith: 'US-' } } });
+    const form = createForm({
+      initialValues: { code: 'US-123' },
+      rules: { code: { startsWith: 'US-' } },
+    });
     await form.validate();
     expect(form.getState().errors.code).toBeUndefined();
   });
 
   it('startsWith — rejects wrong prefix', async () => {
-    const form = createForm({ initialValues: { code: 'EU-123' }, rules: { code: { startsWith: 'US-' } } });
+    const form = createForm({
+      initialValues: { code: 'EU-123' },
+      rules: { code: { startsWith: 'US-' } },
+    });
     await form.validate();
     expect(form.getState().errors.code).toBeTruthy();
   });
 
   it('endsWith — passes matching suffix', async () => {
-    const form = createForm({ initialValues: { file: 'report.pdf' }, rules: { file: { endsWith: '.pdf' } } });
+    const form = createForm({
+      initialValues: { file: 'report.pdf' },
+      rules: { file: { endsWith: '.pdf' } },
+    });
     await form.validate();
     expect(form.getState().errors.file).toBeUndefined();
   });
 
   it('includes — rejects missing substring', async () => {
-    const form = createForm({ initialValues: { bio: 'hello world' }, rules: { bio: { includes: 'missing' } } });
+    const form = createForm({
+      initialValues: { bio: 'hello world' },
+      rules: { bio: { includes: 'missing' } },
+    });
     await form.validate();
     expect(form.getState().errors.bio).toBeTruthy();
   });
 
   it('pattern — passes matching regex', async () => {
-    const form = createForm({ initialValues: { code: 'ABC-123' }, rules: { code: { pattern: /^[A-Z]+-\d+$/ } } });
+    const form = createForm({
+      initialValues: { code: 'ABC-123' },
+      rules: { code: { pattern: /^[A-Z]+-\d+$/ } },
+    });
     await form.validate();
     expect(form.getState().errors.code).toBeUndefined();
   });
 
   it('pattern — rejects non-matching', async () => {
-    const form = createForm({ initialValues: { code: 'abc123' }, rules: { code: { pattern: /^[A-Z]+-\d+$/ } } });
+    const form = createForm({
+      initialValues: { code: 'abc123' },
+      rules: { code: { pattern: /^[A-Z]+-\d+$/ } },
+    });
     await form.validate();
     expect(form.getState().errors.code).toBeTruthy();
   });
@@ -931,31 +982,46 @@ describe('built-in rules — string content', () => {
 
 describe('built-in rules — array', () => {
   it('minItems — passes with enough items', async () => {
-    const form = createForm({ initialValues: { tags: ['a', 'b'] }, rules: { tags: { minItems: 1 } } });
+    const form = createForm({
+      initialValues: { tags: ['a', 'b'] },
+      rules: { tags: { minItems: 1 } },
+    });
     await form.validate();
     expect(form.getState().errors.tags).toBeUndefined();
   });
 
   it('minItems — rejects empty array', async () => {
-    const form = createForm({ initialValues: { tags: [] as string[] }, rules: { tags: { minItems: 1 } } });
+    const form = createForm({
+      initialValues: { tags: [] as string[] },
+      rules: { tags: { minItems: 1 } },
+    });
     await form.validate();
     expect(form.getState().errors.tags).toBeTruthy();
   });
 
   it('maxItems — rejects too many items', async () => {
-    const form = createForm({ initialValues: { tags: ['a', 'b', 'c', 'd', 'e', 'f'] }, rules: { tags: { maxItems: 5 } } });
+    const form = createForm({
+      initialValues: { tags: ['a', 'b', 'c', 'd', 'e', 'f'] },
+      rules: { tags: { maxItems: 5 } },
+    });
     await form.validate();
     expect(form.getState().errors.tags).toBeTruthy();
   });
 
   it('unique — passes distinct items', async () => {
-    const form = createForm({ initialValues: { tags: ['a', 'b', 'c'] }, rules: { tags: 'unique' } });
+    const form = createForm({
+      initialValues: { tags: ['a', 'b', 'c'] },
+      rules: { tags: 'unique' },
+    });
     await form.validate();
     expect(form.getState().errors.tags).toBeUndefined();
   });
 
   it('unique — rejects duplicate items', async () => {
-    const form = createForm({ initialValues: { tags: ['a', 'b', 'a'] }, rules: { tags: 'unique' } });
+    const form = createForm({
+      initialValues: { tags: ['a', 'b', 'a'] },
+      rules: { tags: 'unique' },
+    });
     await form.validate();
     expect(form.getState().errors.tags).toBeTruthy();
   });
@@ -963,20 +1029,26 @@ describe('built-in rules — array', () => {
   it('unique — works with objects using deep equality', async () => {
     const form = createForm({
       initialValues: { items: [{ id: 1 }, { id: 2 }, { id: 1 }] },
-      rules: { items: 'unique' }
+      rules: { items: 'unique' },
     });
     await form.validate();
     expect(form.getState().errors.items).toBeTruthy();
   });
 
   it('contains — passes when value is present', async () => {
-    const form = createForm({ initialValues: { roles: ['admin', 'user'] }, rules: { roles: { contains: 'admin' } } });
+    const form = createForm({
+      initialValues: { roles: ['admin', 'user'] },
+      rules: { roles: { contains: 'admin' } },
+    });
     await form.validate();
     expect(form.getState().errors.roles).toBeUndefined();
   });
 
   it('contains — rejects when value is absent', async () => {
-    const form = createForm({ initialValues: { roles: ['user'] }, rules: { roles: { contains: 'admin' } } });
+    const form = createForm({
+      initialValues: { roles: ['user'] },
+      rules: { roles: { contains: 'admin' } },
+    });
     await form.validate();
     expect(form.getState().errors.roles).toBeTruthy();
   });
@@ -984,25 +1056,37 @@ describe('built-in rules — array', () => {
 
 describe('built-in rules — enum', () => {
   it('oneOf — passes for allowed value', async () => {
-    const form = createForm({ initialValues: { role: 'admin' }, rules: { role: { oneOf: ['admin', 'user'] } } });
+    const form = createForm({
+      initialValues: { role: 'admin' },
+      rules: { role: { oneOf: ['admin', 'user'] } },
+    });
     await form.validate();
     expect(form.getState().errors.role).toBeUndefined();
   });
 
   it('oneOf — rejects disallowed value', async () => {
-    const form = createForm({ initialValues: { role: 'superuser' }, rules: { role: { oneOf: ['admin', 'user'] } } });
+    const form = createForm({
+      initialValues: { role: 'superuser' },
+      rules: { role: { oneOf: ['admin', 'user'] } },
+    });
     await form.validate();
     expect(form.getState().errors.role).toBeTruthy();
   });
 
   it('notOneOf — rejects blacklisted value', async () => {
-    const form = createForm({ initialValues: { name: 'admin' }, rules: { name: { notOneOf: ['admin', 'root'] } } });
+    const form = createForm({
+      initialValues: { name: 'admin' },
+      rules: { name: { notOneOf: ['admin', 'root'] } },
+    });
     await form.validate();
     expect(form.getState().errors.name).toBeTruthy();
   });
 
   it('notOneOf — passes non-blacklisted value', async () => {
-    const form = createForm({ initialValues: { name: 'alice' }, rules: { name: { notOneOf: ['admin', 'root'] } } });
+    const form = createForm({
+      initialValues: { name: 'alice' },
+      rules: { name: { notOneOf: ['admin', 'root'] } },
+    });
     await form.validate();
     expect(form.getState().errors.name).toBeUndefined();
   });
@@ -1250,25 +1334,37 @@ describe('built-in rules — accepted: all accepted values', () => {
   });
 
   it('passes for "yes"', async () => {
-    const form = createForm({ initialValues: { terms: 'yes' as any }, rules: { terms: 'accepted' } });
+    const form = createForm({
+      initialValues: { terms: 'yes' as any },
+      rules: { terms: 'accepted' },
+    });
     await form.validate();
     expect(form.getState().errors.terms).toBeUndefined();
   });
 
   it('passes for "true"', async () => {
-    const form = createForm({ initialValues: { terms: 'true' as any }, rules: { terms: 'accepted' } });
+    const form = createForm({
+      initialValues: { terms: 'true' as any },
+      rules: { terms: 'accepted' },
+    });
     await form.validate();
     expect(form.getState().errors.terms).toBeUndefined();
   });
 
   it('rejects undefined', async () => {
-    const form = createForm({ initialValues: { terms: undefined as any }, rules: { terms: 'accepted' } });
+    const form = createForm({
+      initialValues: { terms: undefined as any },
+      rules: { terms: 'accepted' },
+    });
     await form.validate();
     expect(form.getState().errors.terms).toBeTruthy();
   });
 
   it('rejects null', async () => {
-    const form = createForm({ initialValues: { terms: null as any }, rules: { terms: 'accepted' } });
+    const form = createForm({
+      initialValues: { terms: null as any },
+      rules: { terms: 'accepted' },
+    });
     await form.validate();
     expect(form.getState().errors.terms).toBeTruthy();
   });
@@ -1288,25 +1384,37 @@ describe('built-in rules — email: edge values', () => {
   });
 
   it('passes for email with plus alias', async () => {
-    const form = createForm({ initialValues: { email: 'user+tag@example.com' }, rules: { email: 'email' } });
+    const form = createForm({
+      initialValues: { email: 'user+tag@example.com' },
+      rules: { email: 'email' },
+    });
     await form.validate();
     expect(form.getState().errors.email).toBeUndefined();
   });
 
   it('passes for email with subdomain', async () => {
-    const form = createForm({ initialValues: { email: 'a@mail.example.co.uk' }, rules: { email: 'email' } });
+    const form = createForm({
+      initialValues: { email: 'a@mail.example.co.uk' },
+      rules: { email: 'email' },
+    });
     await form.validate();
     expect(form.getState().errors.email).toBeUndefined();
   });
 
   it('rejects email without domain TLD', async () => {
-    const form = createForm({ initialValues: { email: 'user@localhost' }, rules: { email: 'email' } });
+    const form = createForm({
+      initialValues: { email: 'user@localhost' },
+      rules: { email: 'email' },
+    });
     await form.validate();
     expect(form.getState().errors.email).toBeTruthy();
   });
 
   it('rejects email without @', async () => {
-    const form = createForm({ initialValues: { email: 'notanemail.com' }, rules: { email: 'email' } });
+    const form = createForm({
+      initialValues: { email: 'notanemail.com' },
+      rules: { email: 'email' },
+    });
     await form.validate();
     expect(form.getState().errors.email).toBeTruthy();
   });
@@ -1320,7 +1428,10 @@ describe('built-in rules — url: edge values', () => {
   });
 
   it('passes for http:// URL', async () => {
-    const form = createForm({ initialValues: { site: 'http://example.com' }, rules: { site: 'url' } });
+    const form = createForm({
+      initialValues: { site: 'http://example.com' },
+      rules: { site: 'url' },
+    });
     await form.validate();
     expect(form.getState().errors.site).toBeUndefined();
   });
@@ -1452,7 +1563,10 @@ describe('built-in rules — date: edge values', () => {
   });
 
   it('passes for a Date object', async () => {
-    const form = createForm({ initialValues: { d: new Date('2024-01-01') as any }, rules: { d: 'date' } });
+    const form = createForm({
+      initialValues: { d: new Date('2024-01-01') as any },
+      rules: { d: 'date' },
+    });
     await form.validate();
     expect(form.getState().errors.d).toBeUndefined();
   });
@@ -1496,19 +1610,28 @@ describe('built-in rules — minLength/maxLength: boundary and empty', () => {
   });
 
   it('maxLength — passes at exactly the boundary', async () => {
-    const form = createForm({ initialValues: { bio: 'x'.repeat(200) }, rules: { bio: { maxLength: 200 } } });
+    const form = createForm({
+      initialValues: { bio: 'x'.repeat(200) },
+      rules: { bio: { maxLength: 200 } },
+    });
     await form.validate();
     expect(form.getState().errors.bio).toBeUndefined();
   });
 
   it('maxLength — fails one character above boundary', async () => {
-    const form = createForm({ initialValues: { bio: 'x'.repeat(201) }, rules: { bio: { maxLength: 200 } } });
+    const form = createForm({
+      initialValues: { bio: 'x'.repeat(201) },
+      rules: { bio: { maxLength: 200 } },
+    });
     await form.validate();
     expect(form.getState().errors.bio).toBeTruthy();
   });
 
   it('minLength: 1 uses singular "character" in default message', async () => {
-    const form = createForm({ initialValues: { pw: '' }, rules: { pw: ['required', { minLength: 1 }] } });
+    const form = createForm({
+      initialValues: { pw: '' },
+      rules: { pw: ['required', { minLength: 1 }] },
+    });
     await form.validate();
     // required fires first, but if only minLength: 1 with a present-but-empty... skipped by present guard
     // test minLength message on non-empty too-short value
@@ -1550,19 +1673,28 @@ describe('built-in rules — min/max: boundary and empty', () => {
 
 describe('built-in rules — string content: edge values', () => {
   it('startsWith — skips empty string', async () => {
-    const form = createForm({ initialValues: { code: '' }, rules: { code: { startsWith: 'US-' } } });
+    const form = createForm({
+      initialValues: { code: '' },
+      rules: { code: { startsWith: 'US-' } },
+    });
     await form.validate();
     expect(form.getState().errors.code).toBeUndefined();
   });
 
   it('startsWith — passes when value equals the prefix exactly', async () => {
-    const form = createForm({ initialValues: { code: 'US-' }, rules: { code: { startsWith: 'US-' } } });
+    const form = createForm({
+      initialValues: { code: 'US-' },
+      rules: { code: { startsWith: 'US-' } },
+    });
     await form.validate();
     expect(form.getState().errors.code).toBeUndefined();
   });
 
   it('endsWith — rejects wrong suffix', async () => {
-    const form = createForm({ initialValues: { file: 'report.doc' }, rules: { file: { endsWith: '.pdf' } } });
+    const form = createForm({
+      initialValues: { file: 'report.doc' },
+      rules: { file: { endsWith: '.pdf' } },
+    });
     await form.validate();
     expect(form.getState().errors.file).toBeTruthy();
   });
@@ -1574,7 +1706,10 @@ describe('built-in rules — string content: edge values', () => {
   });
 
   it('includes — passes when substring present', async () => {
-    const form = createForm({ initialValues: { bio: 'hello world' }, rules: { bio: { includes: 'world' } } });
+    const form = createForm({
+      initialValues: { bio: 'hello world' },
+      rules: { bio: { includes: 'world' } },
+    });
     await form.validate();
     expect(form.getState().errors.bio).toBeUndefined();
   });
@@ -1586,13 +1721,19 @@ describe('built-in rules — string content: edge values', () => {
   });
 
   it('pattern — skips empty string', async () => {
-    const form = createForm({ initialValues: { code: '' }, rules: { code: { pattern: /^[A-Z]+$/ } } });
+    const form = createForm({
+      initialValues: { code: '' },
+      rules: { code: { pattern: /^[A-Z]+$/ } },
+    });
     await form.validate();
     expect(form.getState().errors.code).toBeUndefined();
   });
 
   it('pattern — accepts string pattern', async () => {
-    const form = createForm({ initialValues: { code: 'ABC' }, rules: { code: { pattern: '^[A-Z]+$' } } });
+    const form = createForm({
+      initialValues: { code: 'ABC' },
+      rules: { code: { pattern: '^[A-Z]+$' } },
+    });
     await form.validate();
     expect(form.getState().errors.code).toBeUndefined();
   });
@@ -1616,7 +1757,10 @@ describe('built-in rules — array: edge values', () => {
   });
 
   it('maxItems — passes at exactly the maximum', async () => {
-    const form = createForm({ initialValues: { tags: ['a', 'b', 'c'] }, rules: { tags: { maxItems: 3 } } });
+    const form = createForm({
+      initialValues: { tags: ['a', 'b', 'c'] },
+      rules: { tags: { maxItems: 3 } },
+    });
     await form.validate();
     expect(form.getState().errors.tags).toBeUndefined();
   });
@@ -1635,7 +1779,13 @@ describe('built-in rules — array: edge values', () => {
 
   it('unique — detects duplicate nested arrays', async () => {
     const form = createForm({
-      initialValues: { matrix: [[1, 2], [3, 4], [1, 2]] },
+      initialValues: {
+        matrix: [
+          [1, 2],
+          [3, 4],
+          [1, 2],
+        ],
+      },
       rules: { matrix: 'unique' },
     });
     await form.validate();
@@ -1644,7 +1794,13 @@ describe('built-in rules — array: edge values', () => {
 
   it('unique — passes for nested arrays that differ', async () => {
     const form = createForm({
-      initialValues: { matrix: [[1, 2], [3, 4], [5, 6]] },
+      initialValues: {
+        matrix: [
+          [1, 2],
+          [3, 4],
+          [5, 6],
+        ],
+      },
       rules: { matrix: 'unique' },
     });
     await form.validate();
@@ -1670,13 +1826,19 @@ describe('built-in rules — array: edge values', () => {
   });
 
   it('minItems: 1 uses singular "item" in default message', async () => {
-    const form = createForm({ initialValues: { items: [] as any[] }, rules: { items: { minItems: 1 } } });
+    const form = createForm({
+      initialValues: { items: [] as any[] },
+      rules: { items: { minItems: 1 } },
+    });
     await form.validate();
     expect(form.getState().errors.items).toContain('item');
   });
 
   it('minItems: 2 uses plural "items" in default message', async () => {
-    const form = createForm({ initialValues: { items: ['only'] }, rules: { items: { minItems: 2 } } });
+    const form = createForm({
+      initialValues: { items: ['only'] },
+      rules: { items: { minItems: 2 } },
+    });
     await form.validate();
     expect(form.getState().errors.items).toContain('items');
   });
@@ -1684,7 +1846,10 @@ describe('built-in rules — array: edge values', () => {
 
 describe('built-in rules — oneOf/notOneOf: edge values', () => {
   it('oneOf — skips when value is empty (bug fix: was failing on empty optional field)', async () => {
-    const form = createForm({ initialValues: { role: '' }, rules: { role: { oneOf: ['admin', 'user'] } } });
+    const form = createForm({
+      initialValues: { role: '' },
+      rules: { role: { oneOf: ['admin', 'user'] } },
+    });
     await form.validate();
     expect(form.getState().errors.role).toBeUndefined();
   });
@@ -1699,7 +1864,10 @@ describe('built-in rules — oneOf/notOneOf: edge values', () => {
   });
 
   it('oneOf — skips when value is undefined', async () => {
-    const form = createForm({ initialValues: {} as any, rules: { role: { oneOf: ['admin', 'user'] } } });
+    const form = createForm({
+      initialValues: {} as any,
+      rules: { role: { oneOf: ['admin', 'user'] } },
+    });
     await form.validate();
     expect(form.getState().errors.role).toBeUndefined();
   });
@@ -1707,14 +1875,24 @@ describe('built-in rules — oneOf/notOneOf: edge values', () => {
   it('oneOf — uses deep equality for object options', async () => {
     const form = createForm({
       initialValues: { tier: { level: 2, name: 'pro' } },
-      rules: { tier: { oneOf: [{ level: 1, name: 'free' }, { level: 2, name: 'pro' }] } },
+      rules: {
+        tier: {
+          oneOf: [
+            { level: 1, name: 'free' },
+            { level: 2, name: 'pro' },
+          ],
+        },
+      },
     });
     await form.validate();
     expect(form.getState().errors.tier).toBeUndefined();
   });
 
   it('notOneOf — passes for empty value (empty is not blacklisted)', async () => {
-    const form = createForm({ initialValues: { name: '' }, rules: { name: { notOneOf: ['admin', 'root'] } } });
+    const form = createForm({
+      initialValues: { name: '' },
+      rules: { name: { notOneOf: ['admin', 'root'] } },
+    });
     await form.validate();
     expect(form.getState().errors.name).toBeUndefined();
   });
@@ -2108,7 +2286,7 @@ describe('submit', () => {
     const form = createForm({ initialValues: { x: 1 } });
 
     const promise = form.submit(async () => {
-      await new Promise<void>(r => setTimeout(r, 50));
+      await new Promise<void>((r) => setTimeout(r, 50));
     });
 
     // isSubmitting is true synchronously after submit() starts (before any await)
@@ -2136,7 +2314,12 @@ describe('submit', () => {
   it('returns false (no callback) when called concurrently while already submitting', async () => {
     const form = createForm({ initialValues: { x: 1 } });
     let resolveFirst!: () => void;
-    const first = form.submit(() => new Promise<void>(r => { resolveFirst = r; }));
+    const first = form.submit(
+      () =>
+        new Promise<void>((r) => {
+          resolveFirst = r;
+        })
+    );
 
     // While first is running, second should bail immediately
     const second = form.submit(vi.fn());
@@ -2149,14 +2332,18 @@ describe('submit', () => {
   it('callback receives the getPayload result (empty when no DOM connections)', async () => {
     const form = createForm({ initialValues: { a: 1, b: 2 } });
     let receivedPayload: any;
-    await form.submit((p) => { receivedPayload = p; });
+    await form.submit((p) => {
+      receivedPayload = p;
+    });
     // No connected elements → payload is empty object
     expect(receivedPayload).toEqual({});
   });
 
   it('returns false and calls catch path when callback throws', async () => {
     const form = createForm({ initialValues: { x: 1 } });
-    const result = await form.submit(() => { throw new Error('oops'); });
+    const result = await form.submit(() => {
+      throw new Error('oops');
+    });
     expect(result).toBe(false);
   });
 });
@@ -2273,7 +2460,10 @@ describe('deepClone', () => {
   });
 
   it('Map entries are cloned', () => {
-    const map = new Map([['a', 1], ['b', 2]]);
+    const map = new Map([
+      ['a', 1],
+      ['b', 2],
+    ]);
     const clone = deepClone(map);
     expect(clone).toEqual(map);
     expect(clone).not.toBe(map);
@@ -2426,7 +2616,10 @@ describe('isValidating lifecycle', () => {
     const form = createForm({
       initialValues: { x: '' },
       asyncDebounceMs: 0,
-      validator: () => new Promise<Record<string, string>>(r => { resolveValidator = r; }),
+      validator: () =>
+        new Promise<Record<string, string>>((r) => {
+          resolveValidator = r;
+        }),
     });
     const p = form.validate();
     expect(form.getState().isValidating).toBe(true);
@@ -2891,7 +3084,10 @@ describe('getFieldMode', () => {
   });
 
   it('object default applies when no field override', () => {
-    const form = createForm({ initialValues: { name: '' }, validationMode: { default: 'onChange' } });
+    const form = createForm({
+      initialValues: { name: '' },
+      validationMode: { default: 'onChange' },
+    });
     expect(form.getFieldMode('name')).toBe('onChange');
   });
 

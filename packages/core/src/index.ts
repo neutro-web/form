@@ -8,10 +8,10 @@ export type Primitive = string | number | boolean | null | undefined | Date | Fi
 export type DeepPartial<T> = T extends Primitive
   ? T
   : T extends Array<infer U>
-  ? _DeepPartialArray<U>
-  : T extends object
-  ? _DeepPartialObject<T>
-  : T | undefined;
+    ? _DeepPartialArray<U>
+    : T extends object
+      ? _DeepPartialObject<T>
+      : T | undefined;
 
 interface _DeepPartialArray<T> extends Array<DeepPartial<T>> {}
 type _DeepPartialObject<T> = { [P in keyof T]?: DeepPartial<T[P]> };
@@ -21,29 +21,31 @@ type Prev = [never, 0, 1, 2, 3, 4, 5, ...any[]];
 export type PathImpl<T, K extends keyof T, Depth extends number = 5> = [Depth] extends [never]
   ? never
   : K extends string
-  ? T[K] extends Primitive
-    ? K
-    : T[K] extends Array<infer U>
-    ? K | `${K}.${number}` | (U extends object ? `${K}.${number}.${PathImpl<U, keyof U, Prev[Depth]>}` : never)
-    : NonNullable<T[K]> extends object
-    ? K | `${K}.${PathImpl<NonNullable<T[K]>, keyof NonNullable<T[K]>, Prev[Depth]>}`
-    : K
-  : never;
+    ? T[K] extends Primitive
+      ? K
+      : T[K] extends Array<infer U>
+        ?
+            | K
+            | `${K}.${number}`
+            | (U extends object ? `${K}.${number}.${PathImpl<U, keyof U, Prev[Depth]>}` : never)
+        : NonNullable<T[K]> extends object
+          ? K | `${K}.${PathImpl<NonNullable<T[K]>, keyof NonNullable<T[K]>, Prev[Depth]>}`
+          : K
+    : never;
 
 export type Path<T> = PathImpl<T, keyof T> & string;
 
-type _GetPathValue<T, P extends string> =
-  P extends `${infer K}.${infer Rest}`
-    ? K extends keyof T
-      ? _GetPathValue<NonNullable<T[K]>, Rest>
-      : T extends readonly any[]
-        ? _GetPathValue<NonNullable<T[number]>, Rest>
-        : unknown
-    : P extends keyof T
-      ? T[P]
-      : T extends readonly any[]
-        ? T[number]
-        : unknown;
+type _GetPathValue<T, P extends string> = P extends `${infer K}.${infer Rest}`
+  ? K extends keyof T
+    ? _GetPathValue<NonNullable<T[K]>, Rest>
+    : T extends readonly any[]
+      ? _GetPathValue<NonNullable<T[number]>, Rest>
+      : unknown
+  : P extends keyof T
+    ? T[P]
+    : T extends readonly any[]
+      ? T[number]
+      : unknown;
 
 export type GetPathValue<T, P extends string> = _GetPathValue<T, P>;
 
@@ -57,50 +59,53 @@ export interface FormState<T> {
 }
 
 export type FormSubscriber<T> = (state: FormState<T>) => void;
-export type PathSubscriber<V = any> = (value: V, fieldState: { error?: string; touched?: boolean; dirty?: boolean }) => void;
+export type PathSubscriber<V = any> = (
+  value: V,
+  fieldState: { error?: string; touched?: boolean; dirty?: boolean }
+) => void;
 
 export type BuiltInRule =
   // Presence
-  | 'required'                                               // non-empty value
-  | 'accepted'                                               // must be true (checkboxes, terms)
+  | 'required' // non-empty value
+  | 'accepted' // must be true (checkboxes, terms)
   // Format
-  | 'email'                                                  // valid email
-  | 'url'                                                    // valid URL
-  | 'numeric'                                                // is a number
-  | 'integer'                                                // whole number only
-  | 'positive'                                               // number > 0
-  | 'nonNegative'                                            // number >= 0
-  | 'alpha'                                                  // letters only
-  | 'alphanumeric'                                           // letters and numbers
-  | 'date'                                                   // parseable date string
+  | 'email' // valid email
+  | 'url' // valid URL
+  | 'numeric' // is a number
+  | 'integer' // whole number only
+  | 'positive' // number > 0
+  | 'nonNegative' // number >= 0
+  | 'alpha' // letters only
+  | 'alphanumeric' // letters and numbers
+  | 'date' // parseable date string
   // Length / size
-  | { minLength: number; message?: string }                  // string length >= n
-  | { maxLength: number; message?: string }                  // string length <= n
-  | { min: number; message?: string }                        // number >= n
-  | { max: number; message?: string }                        // number <= n
+  | { minLength: number; message?: string } // string length >= n
+  | { maxLength: number; message?: string } // string length <= n
+  | { min: number; message?: string } // number >= n
+  | { max: number; message?: string } // number <= n
   // String content
   | { startsWith: string; message?: string }
   | { endsWith: string; message?: string }
-  | { includes: string; message?: string }                   // string contains substring
-  | { pattern: string | RegExp; message?: string }           // matches regex
+  | { includes: string; message?: string } // string contains substring
+  | { pattern: string | RegExp; message?: string } // matches regex
   // Array
-  | { minItems: number; message?: string }                   // array.length >= n
-  | { maxItems: number; message?: string }                   // array.length <= n
-  | 'unique'                                                 // all array items distinct
-  | { contains: unknown; message?: string }                  // array includes value (deep equal)
+  | { minItems: number; message?: string } // array.length >= n
+  | { maxItems: number; message?: string } // array.length <= n
+  | 'unique' // all array items distinct
+  | { contains: unknown; message?: string } // array includes value (deep equal)
   // Enum
-  | { oneOf: unknown[]; message?: string }                   // value is in the list
-  | { notOneOf: unknown[]; message?: string }                // value is not in the list
+  | { oneOf: unknown[]; message?: string } // value is in the list
+  | { notOneOf: unknown[]; message?: string } // value is not in the list
   // Cross-field comparisons (all accept a dot-path string)
-  | { matches: string; message?: string }                    // deep-equals value at path
-  | { doesNotMatch: string; message?: string }               // does NOT deep-equal value at path
-  | { greaterThan: string; message?: string }                // numeric > value at path
-  | { lessThan: string; message?: string }                   // numeric < value at path
-  | { after: string; message?: string }                      // date/time after value at path
-  | { before: string; message?: string }                     // date/time before value at path
+  | { matches: string; message?: string } // deep-equals value at path
+  | { doesNotMatch: string; message?: string } // does NOT deep-equal value at path
+  | { greaterThan: string; message?: string } // numeric > value at path
+  | { lessThan: string; message?: string } // numeric < value at path
+  | { after: string; message?: string } // date/time after value at path
+  | { before: string; message?: string } // date/time before value at path
   // Conditional presence
-  | { requiredIf: string; message?: string }                 // required when field at path is truthy
-  | { requiredUnless: string; message?: string };            // required unless field at path is truthy
+  | { requiredIf: string; message?: string } // required when field at path is truthy
+  | { requiredUnless: string; message?: string }; // required unless field at path is truthy
 
 export type ValidationMode = 'onChange' | 'onBlur' | 'onTouched' | 'onSubmitOnly';
 
@@ -164,7 +169,11 @@ export interface FormInstance<T extends object> {
   subscribeToPath(path: string, fn: PathSubscriber): () => void;
   get<P extends Path<T>>(path: P): GetPathValue<T, P>;
   get(path: string | string[]): any;
-  set: (path: Path<T> | string | string[], val: any, options?: { touch?: boolean; validate?: boolean }) => void;
+  set: (
+    path: Path<T> | string | string[],
+    val: any,
+    options?: { touch?: boolean; validate?: boolean }
+  ) => void;
   validate: (scopePaths?: Path<T>[] | string[] | string[][]) => Promise<boolean>;
   connect: (path: Path<T> | string, el: HTMLElement, options?: ConnectOptions) => () => void;
   submit: (onValid: (payload: Partial<T>) => void | Promise<void>) => Promise<boolean>;
@@ -279,13 +288,13 @@ export function deepClone<T>(val: T, hash = new WeakMap()): T {
   if (val instanceof Set) {
     const cloneSet = new Set();
     hash.set(val, cloneSet);
-    val.forEach(item => cloneSet.add(deepClone(item, hash)));
+    for (const item of val) cloneSet.add(deepClone(item, hash));
     return cloneSet as any;
   }
   if (val instanceof Map) {
     const cloneMap = new Map();
     hash.set(val, cloneMap);
-    val.forEach((value, key) => cloneMap.set(key, deepClone(value, hash)));
+    for (const [key, value] of val) cloneMap.set(key, deepClone(value, hash));
     return cloneMap as any;
   }
   if (Array.isArray(val)) {
@@ -298,7 +307,8 @@ export function deepClone<T>(val: T, hash = new WeakMap()): T {
   hash.set(val, cloneObj);
   for (const key of Reflect.ownKeys(val)) {
     const desc = Object.getOwnPropertyDescriptor(val, key);
-    if (desc) Object.defineProperty(cloneObj, key, { ...desc, value: deepClone((val as any)[key], hash) });
+    if (desc)
+      Object.defineProperty(cloneObj, key, { ...desc, value: deepClone((val as any)[key], hash) });
   }
   return cloneObj;
 }
@@ -320,7 +330,7 @@ export function setNestedValue(obj: any, path: string, value: any): void {
     const part = parts[i];
     const nextPart = parts[i + 1];
     if (!(part in current) || current[part] === null || typeof current[part] !== 'object') {
-      current[part] = !isNaN(Number(nextPart)) ? [] : {};
+      current[part] = !Number.isNaN(Number(nextPart)) ? [] : {};
     }
     current = current[part];
   }
@@ -357,13 +367,18 @@ export function isDeepEqual(a: any, b: any, hash = new WeakMap()): boolean {
 }
 
 export function extractAllPaths(obj: any, prefix = ''): string[] {
-  if (obj === null || typeof obj !== 'object' || obj instanceof Date || (typeof File !== 'undefined' && obj instanceof File)) {
+  if (
+    obj === null ||
+    typeof obj !== 'object' ||
+    obj instanceof Date ||
+    (typeof File !== 'undefined' && obj instanceof File)
+  ) {
     return prefix ? [prefix] : [];
   }
   const paths: string[] = [];
   if (prefix) paths.push(prefix);
   for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+    if (Object.hasOwn(obj, key)) {
       const currentPath = prefix ? `${prefix}.${key}` : key;
       if (Array.isArray(obj[key])) {
         paths.push(currentPath);
@@ -391,7 +406,7 @@ export function compileDependencyScopes(
     visited.add(currentPath);
     const directDependents = dependencies[currentPath];
     if (directDependents) {
-      directDependents.forEach((dep) => resolveTransitiveClosure(dep, visited));
+      for (const dep of directDependents) resolveTransitiveClosure(dep, visited);
     }
   };
 
@@ -418,16 +433,20 @@ export function compileDependencyScopes(
 // ---------------------------------------------------------------------------
 
 function isEmpty(v: unknown): boolean {
-  return v === undefined || v === null || v === '' ||
+  return (
+    v === undefined ||
+    v === null ||
+    v === '' ||
     (typeof v === 'string' && !v.trim()) ||
-    (Array.isArray(v) && v.length === 0);
+    (Array.isArray(v) && v.length === 0)
+  );
 }
 
 function toDate(v: unknown): Date | null {
-  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
   if (typeof v === 'string' || typeof v === 'number') {
     const d = new Date(v);
-    return isNaN(d.getTime()) ? null : d;
+    return Number.isNaN(d.getTime()) ? null : d;
   }
   return null;
 }
@@ -455,13 +474,12 @@ function applyBuiltInRules<T>(
       // ── Presence ──────────────────────────────────────────────────────────
       if (rule === 'required') {
         if (!present) error = 'This field is required';
-
       } else if (rule === 'accepted') {
         if (value !== true && value !== 1 && value !== 'yes' && value !== 'true') {
           error = 'This field must be accepted';
         }
 
-      // ── Format ────────────────────────────────────────────────────────────
+        // ── Format ────────────────────────────────────────────────────────────
       } else if (rule === 'email') {
         if (present && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)) {
           error = 'Must be a valid email address';
@@ -471,15 +489,17 @@ function applyBuiltInRules<T>(
           try {
             const u = new URL(str);
             const segs = u.hostname.split('.');
-            const validHost = u.hostname === 'localhost' ||
-              (segs.length >= 2 && segs.every(s => s.length > 0));
+            const validHost =
+              u.hostname === 'localhost' || (segs.length >= 2 && segs.every((s) => s.length > 0));
             if (!['http:', 'https:'].includes(u.protocol) || !validHost) {
               error = 'Must be a valid URL';
             }
-          } catch { error = 'Must be a valid URL'; }
+          } catch {
+            error = 'Must be a valid URL';
+          }
         }
       } else if (rule === 'numeric') {
-        if (present && isNaN(Number(value))) error = 'Must be a number';
+        if (present && Number.isNaN(Number(value))) error = 'Must be a number';
       } else if (rule === 'integer') {
         if (present && !Number.isInteger(Number(value))) error = 'Must be a whole number';
       } else if (rule === 'positive') {
@@ -493,22 +513,24 @@ function applyBuiltInRules<T>(
       } else if (rule === 'date') {
         if (present && toDate(value) === null) error = 'Must be a valid date';
 
-      // ── Unique (array) ────────────────────────────────────────────────────
+        // ── Unique (array) ────────────────────────────────────────────────────
       } else if (rule === 'unique') {
         if (arr) {
           const seen = new Set(arr.map((item) => JSON.stringify(item)));
           if (seen.size !== arr.length) error = 'All items must be unique';
         }
-
       } else if (typeof rule === 'object') {
-
         // ── Length / size ────────────────────────────────────────────────────
         if ('minLength' in rule) {
           if (present && str.length < rule.minLength)
-            error = rule.message ?? `Must be at least ${rule.minLength} character${rule.minLength === 1 ? '' : 's'}`;
+            error =
+              rule.message ??
+              `Must be at least ${rule.minLength} character${rule.minLength === 1 ? '' : 's'}`;
         } else if ('maxLength' in rule) {
           if (present && str.length > rule.maxLength)
-            error = rule.message ?? `Must be at most ${rule.maxLength} character${rule.maxLength === 1 ? '' : 's'}`;
+            error =
+              rule.message ??
+              `Must be at most ${rule.maxLength} character${rule.maxLength === 1 ? '' : 's'}`;
         } else if ('min' in rule) {
           if (present && Number(value) < (rule as { min: number; message?: string }).min)
             error = rule.message ?? `Must be at least ${(rule as { min: number }).min}`;
@@ -516,10 +538,11 @@ function applyBuiltInRules<T>(
           if (present && Number(value) > (rule as { max: number; message?: string }).max)
             error = rule.message ?? `Must be at most ${(rule as { max: number }).max}`;
 
-        // ── String content ────────────────────────────────────────────────
+          // ── String content ────────────────────────────────────────────────
         } else if ('startsWith' in rule) {
           if (present && !str.startsWith((rule as { startsWith: string }).startsWith))
-            error = rule.message ?? `Must start with "${(rule as { startsWith: string }).startsWith}"`;
+            error =
+              rule.message ?? `Must start with "${(rule as { startsWith: string }).startsWith}"`;
         } else if ('endsWith' in rule) {
           if (present && !str.endsWith((rule as { endsWith: string }).endsWith))
             error = rule.message ?? `Must end with "${(rule as { endsWith: string }).endsWith}"`;
@@ -527,31 +550,45 @@ function applyBuiltInRules<T>(
           if (present && !str.includes((rule as { includes: string }).includes))
             error = rule.message ?? `Must contain "${(rule as { includes: string }).includes}"`;
         } else if ('pattern' in rule) {
-          const re = typeof rule.pattern === 'string' ? new RegExp(rule.pattern) : rule.pattern as RegExp;
+          const re =
+            typeof rule.pattern === 'string' ? new RegExp(rule.pattern) : (rule.pattern as RegExp);
           if (present && !re.test(str)) error = rule.message ?? 'Invalid format';
 
-        // ── Array ─────────────────────────────────────────────────────────
+          // ── Array ─────────────────────────────────────────────────────────
         } else if ('minItems' in rule) {
           const len = arr ? arr.length : 0;
           if (len < (rule as { minItems: number }).minItems)
-            error = rule.message ?? `Must have at least ${(rule as { minItems: number }).minItems} item${(rule as { minItems: number }).minItems === 1 ? '' : 's'}`;
+            error =
+              rule.message ??
+              `Must have at least ${(rule as { minItems: number }).minItems} item${(rule as { minItems: number }).minItems === 1 ? '' : 's'}`;
         } else if ('maxItems' in rule) {
           const len = arr ? arr.length : 0;
           if (len > (rule as { maxItems: number }).maxItems)
-            error = rule.message ?? `Must have at most ${(rule as { maxItems: number }).maxItems} item${(rule as { maxItems: number }).maxItems === 1 ? '' : 's'}`;
+            error =
+              rule.message ??
+              `Must have at most ${(rule as { maxItems: number }).maxItems} item${(rule as { maxItems: number }).maxItems === 1 ? '' : 's'}`;
         } else if ('contains' in rule) {
-          if (!arr || !arr.some((item) => isDeepEqual(item, (rule as { contains: unknown }).contains)))
+          if (!arr?.some((item) => isDeepEqual(item, (rule as { contains: unknown }).contains)))
             error = rule.message ?? 'Must contain the required value';
 
-        // ── Enum ──────────────────────────────────────────────────────────
+          // ── Enum ──────────────────────────────────────────────────────────
         } else if ('oneOf' in rule) {
-          if (present && !(rule as { oneOf: unknown[] }).oneOf.some((opt) => isDeepEqual(value, opt)))
-            error = rule.message ?? `Must be one of: ${(rule as { oneOf: unknown[] }).oneOf.join(', ')}`;
+          if (
+            present &&
+            !(rule as { oneOf: unknown[] }).oneOf.some((opt) => isDeepEqual(value, opt))
+          )
+            error =
+              rule.message ?? `Must be one of: ${(rule as { oneOf: unknown[] }).oneOf.join(', ')}`;
         } else if ('notOneOf' in rule) {
-          if (present && (rule as { notOneOf: unknown[] }).notOneOf.some((opt) => isDeepEqual(value, opt)))
-            error = rule.message ?? `Must not be one of: ${(rule as { notOneOf: unknown[] }).notOneOf.join(', ')}`;
+          if (
+            present &&
+            (rule as { notOneOf: unknown[] }).notOneOf.some((opt) => isDeepEqual(value, opt))
+          )
+            error =
+              rule.message ??
+              `Must not be one of: ${(rule as { notOneOf: unknown[] }).notOneOf.join(', ')}`;
 
-        // ── Cross-field comparisons ───────────────────────────────────────
+          // ── Cross-field comparisons ───────────────────────────────────────
         } else if ('matches' in rule) {
           const other = getNestedValue(values, (rule as { matches: string }).matches);
           if (!isDeepEqual(value, other)) error = rule.message ?? 'Values do not match';
@@ -559,7 +596,9 @@ function applyBuiltInRules<T>(
           const other = getNestedValue(values, (rule as { doesNotMatch: string }).doesNotMatch);
           if (isDeepEqual(value, other)) error = rule.message ?? 'Values must not match';
         } else if ('greaterThan' in rule) {
-          const other = Number(getNestedValue(values, (rule as { greaterThan: string }).greaterThan));
+          const other = Number(
+            getNestedValue(values, (rule as { greaterThan: string }).greaterThan)
+          );
           if (present && Number(value) <= other)
             error = rule.message ?? `Must be greater than ${other}`;
         } else if ('lessThan' in rule) {
@@ -577,17 +616,23 @@ function applyBuiltInRules<T>(
           if (thisDate && otherDate && thisDate >= otherDate)
             error = rule.message ?? 'Must be before the reference date';
 
-        // ── Conditional presence ──────────────────────────────────────────
+          // ── Conditional presence ──────────────────────────────────────────
         } else if ('requiredIf' in rule) {
           const trigger = getNestedValue(values, (rule as { requiredIf: string }).requiredIf);
           if (trigger && !present) error = rule.message ?? 'This field is required';
         } else if ('requiredUnless' in rule) {
-          const trigger = getNestedValue(values, (rule as { requiredUnless: string }).requiredUnless);
+          const trigger = getNestedValue(
+            values,
+            (rule as { requiredUnless: string }).requiredUnless
+          );
           if (!trigger && !present) error = rule.message ?? 'This field is required';
         }
       }
 
-      if (error !== null) { errors[path] = error; break; }
+      if (error !== null) {
+        errors[path] = error;
+        break;
+      }
     }
   }
   return errors;
@@ -638,7 +683,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   const dispatchAction = (action: FormAction): void => {
     if (actionListeners.size === 0) return;
     const snapshot = getState();
-    actionListeners.forEach(fn => {
+    actionListeners.forEach((fn) => {
       try {
         fn(action, snapshot);
       } catch (err) {
@@ -657,12 +702,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         accum = accum ? `${accum}.${part}` : part;
         candidatePaths.push(accum);
       }
-      candidatePaths.forEach((p) => {
+      for (const p of candidatePaths) {
         const listeners = pathSubscribers.get(p);
-        if (!listeners) return;
+        if (!listeners) continue;
         const val = p === '*' ? deepClone(values) : deepClone(getNestedValue(values, p));
-        listeners.forEach((cb) => cb(val, { error: errors[p], touched: touched[p], dirty: dirty[p] }));
-      });
+        for (const cb of listeners)
+          cb(val, { error: errors[p], touched: touched[p], dirty: dirty[p] });
+      }
     });
   };
 
@@ -670,7 +716,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   const _flushNotifications = (paths: Array<string | undefined>) => {
     if (globalSubscribers.size > 0) {
       const snapshot = getState();
-      globalSubscribers.forEach((fn) => fn(snapshot));
+      for (const fn of globalSubscribers) fn(snapshot);
     }
     const unique = [...new Set(paths.filter((p): p is string => p !== undefined))];
     notifyPathSubscribers(unique);
@@ -685,14 +731,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
     if (globalSubscribers.size > 0) {
       const snapshot = getState();
-      globalSubscribers.forEach((fn) => fn(snapshot));
+      for (const fn of globalSubscribers) fn(snapshot);
     }
     if (mutatedPath) notifyPathSubscribers([mutatedPath]);
   };
 
   const batch = (fn: () => void) => {
     batchDepth++;
-    try { fn(); } finally {
+    try {
+      fn();
+    } finally {
       batchDepth--;
       if (batchDepth === 0 && pendingPaths.size > 0) {
         const paths = [...pendingPaths];
@@ -705,19 +753,24 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   const subscribe = (fn: FormSubscriber<T>) => {
     globalSubscribers.add(fn);
     fn(getState());
-    return () => { globalSubscribers.delete(fn); };
+    return () => {
+      globalSubscribers.delete(fn);
+    };
   };
 
   const runValidation = async (scopePaths?: string[]): Promise<boolean> => {
     if (!config.validator && !config.rules) return true;
     isValidating = true;
     // isValidating is a global flag — only global subscribers need this notification.
-    if (globalSubscribers.size > 0) globalSubscribers.forEach((fn) => fn(getState()));
+    if (globalSubscribers.size > 0) {
+      const validatingSnapshot = getState();
+      for (const fn of globalSubscribers) fn(validatingSnapshot);
+    }
 
     let expandedScope: string[] | undefined;
     if (scopePaths && Object.keys(preComputedScopes).length > 0) {
       const expandedSet = new Set<string>();
-      scopePaths.forEach((path) => {
+      for (const path of scopePaths) {
         let resolved = preComputedScopes[path];
         if (!resolved && /\.(\d+)\./.test(path)) {
           const wildcardPath = path.replace(/\.(\d+)\./g, '.*.');
@@ -725,12 +778,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           if (wildcardDependents) {
             const match = path.match(/\.(\d+)\./);
             const idx = match ? match[1] : '';
-            resolved = wildcardDependents.map(dep => dep.replace(/\.\*\./g, `.${idx}.`));
+            resolved = wildcardDependents.map((dep) => dep.replace(/\.\*\./g, `.${idx}.`));
           }
         }
-        if (resolved) resolved.forEach((p) => expandedSet.add(p));
-        else expandedSet.add(path);
-      });
+        if (resolved) {
+          for (const p of resolved) expandedSet.add(p);
+        } else {
+          expandedSet.add(path);
+        }
+      }
       expandedScope = Array.from(expandedSet);
     } else if (scopePaths) {
       expandedScope = scopePaths;
@@ -740,51 +796,64 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const activeEpoch = ++asyncEpoch;
 
       if (expandedScope) {
-        expandedScope.forEach((path) => {
+        for (const path of expandedScope) {
           activeAbortControllers.get(path)?.abort();
           activeAbortControllers.delete(path);
-        });
+        }
       }
       const abortController = new AbortController();
       if (expandedScope) {
-        expandedScope.forEach((path) => activeAbortControllers.set(path, abortController));
+        for (const path of expandedScope) activeAbortControllers.set(path, abortController);
       }
 
       // Built-in rules run synchronously first; custom validator errors override on conflict.
       const builtInErrors: Record<string, string> = config.rules
-        ? applyBuiltInRules(values, config.rules as Record<string, BuiltInRule | BuiltInRule[]>, expandedScope)
+        ? applyBuiltInRules(
+            values,
+            config.rules as Record<string, BuiltInRule | BuiltInRule[]>,
+            expandedScope
+          )
         : {};
 
       if (config.validator) {
         // Bug #13: pass snapshot so mid-await mutations can't corrupt validation state.
         const valuesSnapshot = deepClone(values);
-        const validationResult = config.validator(valuesSnapshot, expandedScope, abortController.signal);
+        const validationResult = config.validator(
+          valuesSnapshot,
+          expandedScope,
+          abortController.signal
+        );
 
         if (validationResult instanceof Promise) {
           // Bug #8: per-invocation debounce — uses a local timer, not a shared one.
           const resolvedErrors = await new Promise<Record<string, string>>((resolve) => {
             let localTimer: any;
-            const onAbort = () => { clearTimeout(localTimer); resolve(errors); };
+            const onAbort = () => {
+              clearTimeout(localTimer);
+              resolve(errors);
+            };
             abortController.signal.addEventListener('abort', onAbort, { once: true });
             localTimer = setTimeout(async () => {
               abortController.signal.removeEventListener('abort', onAbort);
-              if (abortController.signal.aborted) { resolve(errors); return; }
-              try { resolve(await validationResult); }
-              catch { resolve({ _global: 'Asynchronous validation transaction failed.' }); }
+              if (abortController.signal.aborted) {
+                resolve(errors);
+                return;
+              }
+              try {
+                resolve(await validationResult);
+              } catch {
+                resolve({ _global: 'Asynchronous validation transaction failed.' });
+              }
             }, config.asyncDebounceMs ?? 300);
           });
 
           if (activeEpoch === asyncEpoch && !abortController.signal.aborted) {
             const combined = { ...builtInErrors, ...resolvedErrors };
-            errors = expandedScope
-              ? mergeScopedErrors(errors, combined, expandedScope)
-              : combined;
+            errors = expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined;
           }
         } else {
           const combined = { ...builtInErrors, ...validationResult };
-          errors = expandedScope
-            ? mergeScopedErrors(errors, combined, expandedScope)
-            : combined;
+          errors = expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined;
         }
       } else {
         errors = expandedScope
@@ -792,12 +861,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           : builtInErrors;
       }
     } finally {
-      if (expandedScope) expandedScope.forEach((path) => activeAbortControllers.delete(path));
+      if (expandedScope) {
+        for (const path of expandedScope) activeAbortControllers.delete(path);
+      }
       isValidating = false;
-      if (globalSubscribers.size > 0) globalSubscribers.forEach((fn) => fn(getState()));
+      if (globalSubscribers.size > 0) {
+        const finalSnapshot = getState();
+        for (const fn of globalSubscribers) fn(finalSnapshot);
+      }
       // Notify path subscribers so they see updated error state.
-      const pathsToNotify = expandedScope
-        ?? [...pathSubscribers.keys()].filter(p => p !== '*');
+      const pathsToNotify = expandedScope ?? [...pathSubscribers.keys()].filter((p) => p !== '*');
       notifyPathSubscribers(pathsToNotify);
     }
 
@@ -812,11 +885,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     const updated = { ...currentErrors };
     scopePaths.forEach((path) => {
       Object.keys(updated).forEach((key) => {
-        if (key === path || key.startsWith(path + '.')) delete updated[key];
+        if (key === path || key.startsWith(`${path}.`)) delete updated[key];
       });
     });
     Object.keys(nextErrors).forEach((key) => {
-      if (scopePaths.some((scope) => key === scope || key.startsWith(scope + '.')))
+      if (scopePaths.some((scope) => key === scope || key.startsWith(`${scope}.`)))
         updated[key] = nextErrors[key];
     });
     return updated;
@@ -843,7 +916,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   const initMutationObserver = () => {
-    if (mutationObserver || typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (mutationObserver || typeof window === 'undefined' || typeof document === 'undefined')
+      return;
     mutationObserver = new MutationObserver((mutations) => {
       const clearedPaths: string[] = [];
       mutations.forEach((mutation) => {
@@ -865,7 +939,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         });
       });
       if (clearedPaths.length > 0) {
-        if (globalSubscribers.size > 0) globalSubscribers.forEach((fn) => fn(getState()));
+        if (globalSubscribers.size > 0) {
+          const obsSnapshot = getState();
+          for (const fn of globalSubscribers) fn(obsSnapshot);
+        }
         notifyPathSubscribers(clearedPaths);
       }
     });
@@ -883,10 +960,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const updated: Record<string, any> = {};
       const prefix = `${basePath}.`;
       Object.keys(stateMap).forEach((key) => {
-        if (!key.startsWith(prefix)) { updated[key] = stateMap[key]; return; }
+        if (!key.startsWith(prefix)) {
+          updated[key] = stateMap[key];
+          return;
+        }
         const remaining = key.substring(prefix.length);
         const match = remaining.match(/^(\d+)(.*)$/);
-        if (!match) { updated[key] = stateMap[key]; return; }
+        if (!match) {
+          updated[key] = stateMap[key];
+          return;
+        }
         const index = parseInt(match[1], 10);
         const tail = match[2];
         if (action === 'remove') {
@@ -924,10 +1007,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const updated: Record<string, any> = {};
       const affectedKeys: { index: number; tail: string; key: string }[] = [];
       Object.keys(stateMap).forEach((key) => {
-        if (!key.startsWith(prefix)) { updated[key] = stateMap[key]; return; }
+        if (!key.startsWith(prefix)) {
+          updated[key] = stateMap[key];
+          return;
+        }
         const remaining = key.substring(prefix.length);
         const match = remaining.match(/^(\d+)(.*)$/);
-        if (!match) { updated[key] = stateMap[key]; return; }
+        if (!match) {
+          updated[key] = stateMap[key];
+          return;
+        }
         affectedKeys.push({ index: parseInt(match[1], 10), tail: match[2], key });
       });
       affectedKeys.forEach(({ index, tail, key }) => {
@@ -950,15 +1039,20 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     if (connectOverride) return connectOverride;
     if (config.validationMode) {
       if (typeof config.validationMode === 'string') return config.validationMode;
-      if (config.validationMode.fields?.[path]) return config.validationMode.fields[path]!;
+      const fieldMode = config.validationMode.fields?.[path];
+      if (fieldMode) return fieldMode;
       if (config.validationMode.default) return config.validationMode.default;
     }
     return 'onTouched';
   };
 
   const subscribeToPath = (path: Path<T> | '*' | string, fn: PathSubscriber) => {
-    if (!pathSubscribers.has(path)) pathSubscribers.set(path, new Set());
-    pathSubscribers.get(path)!.add(fn);
+    let pathSet = pathSubscribers.get(path);
+    if (!pathSet) {
+      pathSet = new Set();
+      pathSubscribers.set(path, pathSet);
+    }
+    pathSet.add(fn);
     const currentVal = path === '*' ? values : getNestedValue(values, path);
     fn(deepClone(currentVal), { error: errors[path], touched: touched[path], dirty: dirty[path] });
     return () => {
@@ -1009,7 +1103,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         rawVal = Array.from((target as HTMLSelectElement).selectedOptions).map((opt) => opt.value);
       } else {
         const inputType = target.type;
-        if (inputType === 'number') rawVal = target.value === '' ? undefined : parseFloat(target.value);
+        if (inputType === 'number')
+          rawVal = target.value === '' ? undefined : parseFloat(target.value);
         else if (inputType === 'range') rawVal = parseFloat(target.value);
         else if (inputType === 'date' || inputType === 'datetime-local')
           rawVal = target.value === '' ? undefined : new Date(target.value);
@@ -1017,9 +1112,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
 
       if (options.format && typeof rawVal === 'string' && target instanceof HTMLInputElement) {
-        const supportsSelection = ['text', 'search', 'tel', 'url', 'password'].includes(target.type);
-        let start = 0, end = 0;
-        if (supportsSelection) { start = target.selectionStart || 0; end = target.selectionEnd || 0; }
+        const supportsSelection = ['text', 'search', 'tel', 'url', 'password'].includes(
+          target.type
+        );
+        let start = 0,
+          end = 0;
+        if (supportsSelection) {
+          start = target.selectionStart || 0;
+          end = target.selectionEnd || 0;
+        }
         const formatted = options.format(rawVal);
         target.value = formatted;
         const diff = formatted.length - rawVal.length;
@@ -1063,7 +1164,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         element.checked = element.value === cachedValue;
       } else if (element instanceof HTMLSelectElement && element.multiple) {
         const arr = Array.isArray(cachedValue) ? cachedValue : [];
-        Array.from(element.options).forEach((opt) => (opt.selected = arr.includes(opt.value)));
+        for (const opt of element.options) opt.selected = arr.includes(opt.value);
       } else if (
         element instanceof HTMLInputElement &&
         (element.type === 'date' || element.type === 'datetime-local') &&
@@ -1098,11 +1199,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     };
   };
 
-  const submit = async (onSubmitCallback: (payload: Partial<T>) => void | Promise<void>): Promise<boolean> => {
+  const submit = async (
+    onSubmitCallback: (payload: Partial<T>) => void | Promise<void>
+  ): Promise<boolean> => {
     dispatchAction({ type: 'SUBMIT' });
     if (isSubmitting) return false;
     isSubmitting = true;
-    extractAllPaths(values).forEach((p) => { touched[p] = true; });
+    extractAllPaths(values).forEach((p) => {
+      touched[p] = true;
+    });
     notify();
     try {
       const isValid = await runValidation();
@@ -1139,16 +1244,20 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     const paths = Object.keys(incoming);
     if (paths.length === 0) return;
     Object.assign(errors, incoming);
-    paths.forEach(p => { touched[p] = true; });
-    batch(() => paths.forEach(p => notify(p)));
+    for (const p of paths) touched[p] = true;
+    batch(() => {
+      for (const p of paths) notify(p);
+    });
     dispatchAction({ type: 'SET_ERRORS', errors: { ...incoming } });
   };
 
   const clearErrors = (): void => {
     const paths = Object.keys(errors);
     if (paths.length === 0) return;
-    paths.forEach(p => { delete errors[p]; });
-    batch(() => paths.forEach(p => notify(p)));
+    for (const p of paths) delete errors[p];
+    batch(() => {
+      for (const p of paths) notify(p);
+    });
     dispatchAction({ type: 'CLEAR_ERRORS' });
   };
 
@@ -1170,14 +1279,18 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       return getNestedValue(values, targetPath);
     },
 
-    set: (path: Path<T> | string | string[], val: any, options?: { touch?: boolean; validate?: boolean }) => {
+    set: (
+      path: Path<T> | string | string[],
+      val: any,
+      options?: { touch?: boolean; validate?: boolean }
+    ) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       setFieldValue(targetPath, val, options);
       dispatchAction({ type: 'SET', path: targetPath, value: val, options });
     },
 
     validate: (scopePaths?: Path<T>[] | string[] | string[][]) => {
-      const targets = scopePaths?.map(p => Array.isArray(p) ? p.join('.') : p);
+      const targets = scopePaths?.map((p) => (Array.isArray(p) ? p.join('.') : p));
       dispatchAction({ type: 'VALIDATE', paths: targets });
       return runValidation(targets);
     },
@@ -1236,7 +1349,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       batch(() => {
         setNestedValue(values, targetPath, copy);
         const shifted = shiftStateIndices(targetPath, index, 'insert', index);
-        shifted.forEach((k) => notify(k));
+        for (const k of shifted) notify(k);
         notify(`${targetPath}.${index}`);
         notify(targetPath);
       });
@@ -1253,7 +1366,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       batch(() => {
         setNestedValue(values, targetPath, copy);
         const shifted = shiftStateIndices(targetPath, index, 'remove');
-        shifted.forEach((k) => notify(k));
+        for (const k of shifted) notify(k);
         // Always notify the parent array path so global subscribers fire even when
         // no indices shifted (e.g. removing the last element with no touched/error state).
         notify(targetPath);
@@ -1267,9 +1380,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const arr = getNestedValue(values, targetPath) || [];
       if (
         !Array.isArray(arr) ||
-        fromIndex < 0 || fromIndex >= arr.length ||
-        toIndex < 0 || toIndex >= arr.length
-      ) return;
+        fromIndex < 0 ||
+        fromIndex >= arr.length ||
+        toIndex < 0 ||
+        toIndex >= arr.length
+      )
+        return;
       const copy = [...arr];
       const [movedItem] = copy.splice(fromIndex, 1);
       copy.splice(toIndex, 0, movedItem);
@@ -1289,9 +1405,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const arr = getNestedValue(values, targetPath) || [];
       if (
         !Array.isArray(arr) ||
-        indexA < 0 || indexA >= arr.length ||
-        indexB < 0 || indexB >= arr.length
-      ) return;
+        indexA < 0 ||
+        indexA >= arr.length ||
+        indexB < 0 ||
+        indexB >= arr.length
+      )
+        return;
       const copy = [...arr];
       [copy[indexA], copy[indexB]] = [copy[indexB], copy[indexA]];
       batch(() => {
@@ -1303,8 +1422,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           const prefixB = `${prefix}${indexB}`;
           Object.keys(stateMap).forEach((key) => {
             // Use exact-or-dot-child match to avoid "items.1" matching "items.10", "items.11", etc.
-            const matchesA = key === prefixA || key.startsWith(prefixA + '.');
-            const matchesB = key === prefixB || key.startsWith(prefixB + '.');
+            const matchesA = key === prefixA || key.startsWith(`${prefixA}.`);
+            const matchesB = key === prefixB || key.startsWith(`${prefixB}.`);
             if (matchesA) {
               const tail = key.substring(prefixA.length);
               const bKey = `${prefixB}${tail}`;
@@ -1351,7 +1470,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           el.checked = el.value === fresh;
         } else if (el instanceof HTMLSelectElement && el.multiple) {
           const arr = Array.isArray(fresh) ? fresh : [];
-          Array.from(el.options).forEach((opt) => (opt.selected = arr.includes(opt.value)));
+          for (const opt of el.options) opt.selected = arr.includes(opt.value);
         } else if (
           el instanceof HTMLInputElement &&
           (el.type === 'date' || el.type === 'datetime-local') &&
@@ -1363,25 +1482,32 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
       });
       // Notify all subscribers with reset state.
-      if (globalSubscribers.size > 0) globalSubscribers.forEach((fn) => fn(getState()));
-      notifyPathSubscribers([...pathSubscribers.keys()].filter(p => p !== '*'));
+      if (globalSubscribers.size > 0) {
+        const resetSnapshot = getState();
+        for (const fn of globalSubscribers) fn(resetSnapshot);
+      }
+      notifyPathSubscribers([...pathSubscribers.keys()].filter((p) => p !== '*'));
       const wildcardListeners = pathSubscribers.get('*');
       if (wildcardListeners) {
         const allValues = deepClone(values);
-        wildcardListeners.forEach((cb) => cb(allValues, { error: undefined, touched: undefined, dirty: undefined }));
+        for (const cb of wildcardListeners) {
+          cb(allValues, { error: undefined, touched: undefined, dirty: undefined });
+        }
       }
       dispatchAction({ type: 'RESET', newValues });
     },
 
     _subscribeToActions: (fn) => {
       actionListeners.add(fn);
-      return () => { actionListeners.delete(fn); };
+      return () => {
+        actionListeners.delete(fn);
+      };
     },
 
     getConnectedCount: () => connectionRegistry.size,
 
     destroy: () => {
-      activeAbortControllers.forEach((ctrl) => ctrl.abort());
+      for (const ctrl of activeAbortControllers.values()) ctrl.abort();
       activeAbortControllers.clear();
       globalSubscribers.clear();
       pathSubscribers.clear();

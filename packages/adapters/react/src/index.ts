@@ -1,7 +1,9 @@
-import { useSyncExternalStore, useCallback, useRef } from 'react';
-import type { FormInstance, FormState, Path, GetPathValue } from '@neutro/form-core';
+import type { FormInstance, FormState, GetPathValue, Path } from '@neutro/form-core';
+import { useCallback, useRef, useSyncExternalStore } from 'react';
 
-export function useForm<T extends object>(form: FormInstance<T>): FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState' | '_subscribeToActions'> {
+export function useForm<T extends object>(
+  form: FormInstance<T>
+): FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState' | '_subscribeToActions'> {
   const state = useSyncExternalStore(form.subscribe, form.getState, form.getState);
   return {
     ...state,
@@ -47,16 +49,15 @@ export function useFormPath<T extends object, P extends Path<T>>(
 export function useFormConnect(form: any) {
   const cleanups = useRef(new Map<string, () => void>());
   return useCallback(
-    (path: string, options?: any) =>
-      (el: HTMLElement | null) => {
-        if (el) {
-          cleanups.current.get(path)?.();
-          cleanups.current.set(path, form.connect(path, el, options));
-        } else {
-          cleanups.current.get(path)?.();
-          cleanups.current.delete(path);
-        }
-      },
+    (path: string, options?: any) => (el: HTMLElement | null) => {
+      if (el) {
+        cleanups.current.get(path)?.();
+        cleanups.current.set(path, form.connect(path, el, options));
+      } else {
+        cleanups.current.get(path)?.();
+        cleanups.current.delete(path);
+      }
+    },
     [form]
   );
 }

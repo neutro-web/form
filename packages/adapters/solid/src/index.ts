@@ -1,6 +1,6 @@
-import { createSignal, onCleanup } from 'solid-js';
-import { type Store, createStore, reconcile } from 'solid-js/store';
 import type { FormInstance, FormState } from '@neutro/form-core';
+import { createSignal, onCleanup } from 'solid-js';
+import { createStore, reconcile, type Store } from 'solid-js/store';
 
 export interface SolidFormActions<T extends object> {
   get: FormInstance<T>['get'];
@@ -29,7 +29,9 @@ export interface SolidFormActions<T extends object> {
 // Bug fix: use createStore + reconcile instead of createSignal so Solid's
 // fine-grained reactivity can track individual field changes rather than
 // replacing the entire state signal on every mutation.
-export function useSolidForm<T extends object>(form: FormInstance<T>): [Store<FormState<T>>, SolidFormActions<T>] {
+export function useSolidForm<T extends object>(
+  form: FormInstance<T>
+): [Store<FormState<T>>, SolidFormActions<T>] {
   const [state, setState] = createStore<FormState<T>>(form.getState());
   const unsubscribe = form.subscribe((s) => {
     setState(reconcile(s));
@@ -68,7 +70,11 @@ export function useSolidForm<T extends object>(form: FormInstance<T>): [Store<Fo
 // instance gets its own subscription — one per array item.
 export function useSolidFormPath<T extends object>(form: FormInstance<T>, path: string) {
   const [value, setValue] = createSignal<unknown>(form.get(path));
-  const [fieldState, setFieldState] = createSignal<{ error?: string; touched?: boolean; dirty?: boolean } | null>(null);
+  const [fieldState, setFieldState] = createSignal<{
+    error?: string;
+    touched?: boolean;
+    dirty?: boolean;
+  } | null>(null);
   const unsubscribe = form.subscribeToPath(path, (v, fs) => {
     setValue(() => v);
     setFieldState(() => fs);
