@@ -1,5 +1,5 @@
-import type { FormInstance, FormAction, FormState } from './index';
-import { isDeepEqual } from './index';
+import type { FormInstance, FormAction, FormState } from './index.js';
+import { isDeepEqual } from './index.js';
 
 export interface DevtoolsOptions {
   name?: string;
@@ -145,7 +145,7 @@ export function devtools<T extends object>(
         BADGE_STYLE, name, RESET_STYLE, count, DIM_STYLE, timestamp, formatElapsed(elapsed)
       );
       const frozenTimeRef = { value: lastTimeRef.value };
-      batchActions.forEach(({ action: a, state: s, prev }) =>
+      batchActions.forEach(({ action: a, state: s, prev }: { action: FormAction; state: FormState<T>; prev: FormState<T> }) =>
         logAction(a, s, prev, name, groupFn, frozenTimeRef)
       );
       console.groupEnd();
