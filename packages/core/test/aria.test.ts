@@ -87,6 +87,42 @@ describe('getAriaProps', () => {
   });
 });
 
+describe('getAriaProps — additional cases', () => {
+  it('aria-invalid flips back to false after errors are cleared', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      rules: { email: ['required'] },
+      validator: (values) => (values.email ? {} : { email: 'Required' }),
+    });
+    await form.validate();
+    expect(form.getAriaProps('email')['aria-invalid']).toBe('true');
+
+    form.set('email', 'x@example.com');
+    await form.validate();
+
+    expect(form.getAriaProps('email')['aria-invalid']).toBe('false');
+    expect(form.getAriaProps('email')['aria-describedby']).toBeUndefined();
+  });
+
+  it('numeric array path produces correct aria-describedby id', async () => {
+    const form = createForm({
+      initialValues: { items: [{ name: '' }] },
+      rules: { 'items.0.name': ['required'] },
+    });
+    await form.validate();
+    expect(form.getAriaProps('items.0.name')['aria-describedby']).toBe('error-items-0-name');
+  });
+
+  it('aria-invalid is true after setErrors injects a server error', () => {
+    const form = createForm({ initialValues: { email: '' } });
+
+    form.setErrors({ email: 'Already taken' });
+
+    expect(form.getAriaProps('email')['aria-invalid']).toBe('true');
+    expect(form.getAriaProps('email')['aria-describedby']).toBe('error-email');
+  });
+});
+
 describe('connect() aria-required', () => {
   it('sets aria-required="true" when field has required rule', () => {
     const form = createForm({
@@ -113,5 +149,29 @@ describe('connect() aria-required', () => {
     const el = document.createElement('input');
     form.connect('email', el);
     expect(el.hasAttribute('aria-required')).toBe(false);
+  });
+
+  it('sets aria-required="true" when field has required rule as a string (not array)', () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      rules: { email: 'required' },
+    });
+    const el = document.createElement('input');
+    form.connect('email', el);
+    expect(el.getAttribute('aria-required')).toBe('true');
+  });
+
+  it('aria-invalid updates reactively via subscribeToPath when an error appears', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      rules: { email: ['required'] },
+    });
+    const el = document.createElement('input');
+    form.connect('email', el);
+    expect(el.getAttribute('aria-invalid')).toBe('false');
+
+    await form.validate();
+
+    expect(el.getAttribute('aria-invalid')).toBe('true');
   });
 });
