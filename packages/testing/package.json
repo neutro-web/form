@@ -19,10 +19,11 @@
   "scripts": {
     "build": "tsup"
   },
-  "dependencies": {
+  "peerDependencies": {
     "@neutro/form-core": "workspace:*"
   },
   "devDependencies": {
+    "@neutro/form-core": "workspace:*",
     "tsup": "^8.0.0"
   },
   "private": true

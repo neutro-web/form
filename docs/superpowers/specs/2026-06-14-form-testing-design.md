@@ -21,7 +21,7 @@ Exported independently for integration tests where the form is created outside a
 fillForm<T extends object>(form: FormInstance<T>, values: Partial<Record<string, unknown>>): void
 
 // Marks a field as touched at its current value via set(..., { touch: true }).
-// Triggers onTouched-mode validation; does NOT trigger onBlur-only validation.
+// Does NOT trigger validation — call triggerValidation() afterwards to assert errors.
 blurField<T extends object>(form: FormInstance<T>, path: string): void
 
 // Awaits form.validate() — thin wrapper for discoverability

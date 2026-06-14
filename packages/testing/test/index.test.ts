@@ -30,6 +30,18 @@ describe('fillForm', () => {
     fillForm(form, { 'user.email': 'alice@example.com' });
     expect(form.get('user.email')).toBe('alice@example.com');
   });
+
+  it('is a no-op and fires no notification when called with an empty object', () => {
+    const form = createForm({ initialValues: { email: 'alice@example.com' } });
+    let notifyCount = 0;
+    form.subscribe(() => {
+      notifyCount++;
+    });
+    notifyCount = 0;
+    fillForm(form, {});
+    expect(notifyCount).toBe(0);
+    expect(form.get('email')).toBe('alice@example.com');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -54,6 +66,26 @@ describe('blurField', () => {
     blurField(form, 'email');
     expect(form.getState().touched.email).toBe(true);
     expect(form.getState().touched.name).toBeUndefined();
+  });
+
+  it('is idempotent — touched stays true when called twice', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    blurField(form, 'email');
+    blurField(form, 'email');
+    expect(form.getState().touched.email).toBe(true);
+  });
+
+  it('does not trigger validation — errors are not set until validate() is called', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      asyncDebounceMs: 0,
+      rules: { email: ['required'] },
+    });
+    blurField(form, 'email');
+    // touched is set, but errors must not appear without an explicit validate()
+    expect(form.getState().errors.email).toBeUndefined();
+    await form.validate(['email']);
+    expect(form.getState().errors.email).toBe('Required');
   });
 });
 
