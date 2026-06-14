@@ -79,37 +79,59 @@ packages/testing/
 // Fixture path — 90% case
 import { createFormFixture } from '@neutro/form-testing';
 
-const fixture = createFormFixture({
-  initialValues: { email: '', name: '' },
-  rules: { email: ['required', 'email'], name: ['required'] },
+// Create fixture fresh per test via beforeEach — cleanup() calls form.destroy(),
+// which makes the form inert; a new fixture is required for each test.
+let fixture: ReturnType<typeof createFormFixture<{ email: string; name: string }>>;
+
+beforeEach(() => {
+  fixture = createFormFixture({
+    initialValues: { email: '', name: '' },
+    rules: { email: ['required', 'email'], name: ['required'] },
+  });
 });
 afterEach(() => fixture.cleanup());
 
-it('validates required fields', async () => {
+it('required rules fire on empty submit', async () => {
   await fixture.validate();
-  expect(fixture.form.getState().errors.email).toBe('Must be a valid email address');
+  // Both fields are empty — required rule fires first on each
+  expect(fixture.form.getState().errors.email).toBe('Required');
+  expect(fixture.form.getState().errors.name).toBe('Required');
 });
 
-it('clears errors after filling', async () => {
+it('email format rule fires when value is present but malformed', async () => {
+  fixture.fill({ email: 'not-an-email', name: 'Alice' });
+  await fixture.validate();
+  expect(fixture.form.getState().errors.email).toBe('Must be a valid email address');
+  expect(fixture.form.getState().errors.name).toBeUndefined();
+});
+
+it('clears errors after valid values are filled', async () => {
   await fixture.validate();
   fixture.fill({ email: 'alice@example.com', name: 'Alice' });
   await fixture.validate();
   expect(fixture.form.getState().errors).toEqual({});
 });
 
-it('onTouched mode only shows error after blur', async () => {
+it('blurField marks field touched; await validate to see resulting errors', async () => {
+  // blur fires internal validation (unawaited); the explicit validate() below
+  // is what we actually await — epoch tracking ensures it wins.
   fixture.blur('email');
   await fixture.validate(['email']);
-  expect(fixture.form.getState().errors.email).toBeDefined();
+  expect(fixture.form.getState().errors.email).toBe('Required');
 });
 
-// Standalone path — integration tests
+// Standalone path — integration tests where form is created elsewhere
 import { fillForm, triggerValidation } from '@neutro/form-testing';
 
-const form = myAppFormFactory();
+const form = createForm({
+  initialValues: { email: '' },
+  asyncDebounceMs: 0,  // set explicitly when using standalone functions
+  validator: (v) => (v.email.includes('@') ? {} : { email: 'Invalid email' }),
+});
 fillForm(form, { email: 'bad' });
 const valid = await triggerValidation(form);
 expect(valid).toBe(false);
+expect(form.getState().errors.email).toBe('Invalid email');
 ```
 
 ## Package metadata
