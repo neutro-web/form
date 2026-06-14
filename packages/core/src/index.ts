@@ -1163,7 +1163,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     getPayload: () => _getPayload(values, connectionRegistry, connectedPaths, persistedPaths),
 
     getAriaProps: (path: Path<T> | string, options?: AriaPropsOptions): AriaProps => {
-      const stringPath = Array.isArray(path) ? (path as string[]).join('.') : (path as string);
+      const stringPath = path as string;
       const state = getState();
       const hasError = Boolean(state.errors[stringPath]);
       const id = options?.errorId ?? `error-${stringPath.replace(/\./g, '-')}`;
