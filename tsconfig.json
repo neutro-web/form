@@ -15,8 +15,17 @@
     "declaration": true,
     "baseUrl": ".",
     "paths": {
+      "@neutro/form-core": [
+        "packages/core/src/index.ts"
+      ],
+      "@neutro/form-core/devtools": [
+        "packages/core/src/devtools.ts"
+      ],
       "@neutro/form/core": [
         "packages/core/src/index.ts"
+      ],
+      "@neutro/form/devtools": [
+        "packages/core/src/devtools.ts"
       ],
       "@neutro/form/adapters/react": [
         "packages/adapters/react/src/index.ts"
@@ -33,16 +42,15 @@
       "@neutro/form/adapters/angular": [
         "packages/adapters/angular/src/index.ts"
       ],
-      "@neutro/form-core/devtools": [
-        "packages/core/src/devtools.ts"
-      ],
-      "@neutro/form/devtools": [
-        "packages/core/src/devtools.ts"
+      "@neutro/form-testing": [
+        "packages/testing/src/index.ts"
       ]
     }
   },
   "exclude": [
     "**/dist/**",
-    "**/node_modules/**"
+    "**/node_modules/**",
+    "**/*.test.ts",
+    "vitest.config.ts"
   ]
 }
