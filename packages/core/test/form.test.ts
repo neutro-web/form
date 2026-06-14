@@ -730,7 +730,7 @@ describe('built-in rules — presence', () => {
   it('required — rejects empty string', async () => {
     const form = createForm({ initialValues: { name: '' }, rules: { name: 'required' } });
     await form.validate();
-    expect(form.getState().errors.name).toBe('This field is required');
+    expect(form.getState().errors.name).toBe('Required');
   });
 
   it('required — rejects whitespace-only string', async () => {
@@ -1277,7 +1277,7 @@ describe('built-in rules — composition with custom validator', () => {
       rules: { pw: ['required', { minLength: 8 }] },
     });
     await form.validate();
-    expect(form.getState().errors.pw).toBe('This field is required');
+    expect(form.getState().errors.pw).toBe('Required');
   });
 
   it('passes through all rules when all pass — no false short-circuit', async () => {
@@ -1860,7 +1860,7 @@ describe('built-in rules — oneOf/notOneOf: edge values', () => {
       rules: { role: ['required', { oneOf: ['admin', 'user'] }] },
     });
     await form.validate();
-    expect(form.getState().errors.role).toBe('This field is required');
+    expect(form.getState().errors.role).toBe('Required');
   });
 
   it('oneOf — skips when value is undefined', async () => {
