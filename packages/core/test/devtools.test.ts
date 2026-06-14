@@ -362,3 +362,68 @@ describe('CONNECT / DISCONNECT / BLUR actions', () => {
     expect(state.touched.email).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// devtools() console output — non-SET action types
+// ---------------------------------------------------------------------------
+
+describe('devtools() — SET_ERRORS console output', () => {
+  it('logs a group with SET_ERRORS label when setErrors is called', () => {
+    const groupSpy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'table').mockImplementation(() => {});
+    vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+
+    const form = createForm({ initialValues: { email: '' } });
+    devtools(form, { name: 'TestForm' });
+    groupSpy.mockClear();
+
+    form.setErrors({ email: 'Already taken' });
+
+    const label = groupSpy.mock.calls[0]?.join(' ') ?? '';
+    expect(label).toContain('SET_ERRORS');
+    expect(label).toContain('email');
+  });
+});
+
+describe('devtools() — ARRAY_APPEND console output', () => {
+  it('logs a group with ARRAY_APPEND label when arrayAppend is called', () => {
+    const groupSpy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'table').mockImplementation(() => {});
+    vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+
+    const form = createForm({ initialValues: { items: [] as string[] } });
+    devtools(form, { name: 'TestForm' });
+    groupSpy.mockClear();
+
+    form.arrayAppend('items', 'first');
+
+    const label = groupSpy.mock.calls[0]?.join(' ') ?? '';
+    expect(label).toContain('ARRAY_APPEND');
+    expect(label).toContain('items');
+  });
+});
+
+describe('devtools() — BLUR console output', () => {
+  it('logs a group with BLUR label when a connected element is blurred', () => {
+    const groupSpy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'table').mockImplementation(() => {});
+    vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+
+    const form = createForm({ initialValues: { email: '' } });
+    devtools(form, { name: 'TestForm' });
+    const el = document.createElement('input');
+    document.body.appendChild(el);
+    form.connect('email', el);
+    groupSpy.mockClear();
+
+    el.dispatchEvent(new FocusEvent('blur'));
+    document.body.removeChild(el);
+
+    const label = groupSpy.mock.calls[0]?.join(' ') ?? '';
+    expect(label).toContain('BLUR');
+    expect(label).toContain('email');
+  });
+});

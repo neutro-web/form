@@ -2791,6 +2791,38 @@ describe('setErrors', () => {
     expect(() => form.setErrors({})).not.toThrow();
     expect(listener).not.toHaveBeenCalled();
   });
+
+  it('does not mark injected paths as dirty', () => {
+    const form = createForm({ initialValues: { email: '' } });
+
+    form.setErrors({ email: 'Already taken' });
+
+    expect(form.getState().dirty.email).toBeFalsy();
+  });
+
+  it('accepts a path not present in initialValues', () => {
+    const form = createForm({ initialValues: { email: '' } });
+
+    expect(() => form.setErrors({ unknownField: 'Server error' })).not.toThrow();
+    expect(form.getState().errors.unknownField).toBe('Server error');
+    expect(form.getState().touched.unknownField).toBe(true);
+  });
+
+  it('inside batch() defers subscriber notification until batch completes', () => {
+    const form = createForm({ initialValues: { email: '', username: '' } });
+    const listener = vi.fn();
+    form.subscribe(listener);
+    listener.mockClear();
+
+    form.batch(() => {
+      form.setErrors({ email: 'Already taken' });
+      form.setErrors({ username: 'Unavailable' });
+    });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][0].errors.email).toBe('Already taken');
+    expect(listener.mock.calls[0][0].errors.username).toBe('Unavailable');
+  });
 });
 
 describe('getFieldMode', () => {
@@ -2834,5 +2866,27 @@ describe('getFieldMode', () => {
       validationMode: { default: 'onBlur' },
     });
     expect(form.getFieldMode('email')).toBe('onBlur');
+  });
+
+  it('3-level precedence: fields[path] > default > library onTouched', () => {
+    const form = createForm({
+      initialValues: { password: '', email: '', terms: false },
+      validationMode: {
+        default: 'onBlur',
+        fields: { password: 'onChange' },
+      },
+    });
+    // Level 1: field-level override
+    expect(form.getFieldMode('password')).toBe('onChange');
+    // Level 2: config default
+    expect(form.getFieldMode('email')).toBe('onBlur');
+    // Level 3: library default (path not in fields, no validationMode.default... but we have default here)
+    // To test the library fallback, use a form with only fields (no default):
+    const form2 = createForm({
+      initialValues: { password: '', email: '' },
+      validationMode: { fields: { password: 'onChange' } },
+    });
+    expect(form2.getFieldMode('password')).toBe('onChange');
+    expect(form2.getFieldMode('email')).toBe('onTouched');
   });
 });
