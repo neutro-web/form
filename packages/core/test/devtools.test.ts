@@ -206,6 +206,114 @@ describe('array operation actions', () => {
 });
 
 // ---------------------------------------------------------------------------
+// devtools() console utility
+// ---------------------------------------------------------------------------
+
+import { devtools } from '../src/devtools';
+
+describe('devtools()', () => {
+  it('logs an init group when called', () => {
+    const groupSpy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+
+    const form = createForm({ initialValues: { x: 0 } });
+    devtools(form, { name: 'TestForm' });
+
+    expect(groupSpy).toHaveBeenCalledOnce();
+    expect(groupSpy.mock.calls[0].join(' ')).toContain('init');
+  });
+
+  it('logs a groupCollapsed and diff table for a SET action', () => {
+    vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+    const tableSpy = vi.spyOn(console, 'table').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+
+    const form = createForm({ initialValues: { email: '' } });
+    devtools(form, { name: 'TestForm' });
+    vi.mocked(console.groupCollapsed).mockClear();
+
+    form.set('email', 'alice@example.com');
+
+    expect(console.groupCollapsed).toHaveBeenCalledTimes(2); // action group + full state group
+    const tableArg: any[] = vi.mocked(console.table).mock.calls[0][0];
+    expect(tableArg).toContainEqual(
+      expect.objectContaining({ slice: 'values', key: 'email', next: 'alice@example.com' })
+    );
+  });
+
+  it('uses console.group when collapsed: false', () => {
+    const groupSpy = vi.spyOn(console, 'group').mockImplementation(() => {});
+    vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+
+    const form = createForm({ initialValues: { x: 0 } });
+    devtools(form, { name: 'TestForm', collapsed: false });
+    groupSpy.mockClear();
+
+    form.set('x', 1);
+
+    expect(groupSpy).toHaveBeenCalled();
+  });
+
+  it('shows "no state change" log when value is unchanged', () => {
+    vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'table').mockImplementation(() => {});
+    vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+
+    const form = createForm({ initialValues: { x: 5 } });
+    devtools(form, { name: 'TestForm' });
+    logSpy.mockClear();
+
+    form.set('x', 5); // same value — SET dispatches but diff is empty
+
+    const noChangeCalled = logSpy.mock.calls.some(args =>
+      args.join('').includes('no state change')
+    );
+    expect(noChangeCalled).toBe(true);
+  });
+
+  it('groups batch mutations under a BATCH header and logs count', () => {
+    const groupSpy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'table').mockImplementation(() => {});
+    vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+
+    const form = createForm({ initialValues: { a: 0, b: 0 } });
+    devtools(form, { name: 'TestForm' });
+    groupSpy.mockClear();
+
+    form.batch(() => {
+      form.set('a', 1);
+      form.set('b', 2);
+    });
+
+    // First groupCollapsed call is the BATCH wrapper
+    const batchCall = groupSpy.mock.calls[0].join(' ');
+    expect(batchCall).toContain('BATCH');
+    expect(batchCall).toContain('2');
+  });
+
+  it('stops all console output after disconnect()', () => {
+    const groupSpy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+
+    const form = createForm({ initialValues: { x: 0 } });
+    const disconnect = devtools(form, { name: 'TestForm' });
+    groupSpy.mockClear();
+
+    disconnect();
+    form.set('x', 99);
+
+    expect(groupSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Action dispatch — DOM bridge (requires jsdom)
 // ---------------------------------------------------------------------------
 
