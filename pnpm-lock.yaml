@@ -141,6 +141,16 @@ importers:
         specifier: ^8.0.0
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)
 
+  packages/testing:
+    dependencies:
+      '@neutro/form-core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)
+
 packages:
 
   '@algolia/abtesting@1.19.0':
