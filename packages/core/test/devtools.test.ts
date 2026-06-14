@@ -204,3 +204,52 @@ describe('array operation actions', () => {
     expect(spy.mock.calls[0][0]).toEqual({ type: 'ARRAY_SWAP', path: 'items', i: 0, j: 2 });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Action dispatch — DOM bridge (requires jsdom)
+// ---------------------------------------------------------------------------
+
+describe('CONNECT / DISCONNECT / BLUR actions', () => {
+  it('CONNECT fires when connect() is called', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    const spy = vi.fn();
+    form._subscribeToActions(spy);
+
+    const el = document.createElement('input');
+    document.body.appendChild(el);
+    form.connect('email', el);
+    document.body.removeChild(el);
+
+    expect(spy.mock.calls[0][0]).toEqual({ type: 'CONNECT', path: 'email' });
+  });
+
+  it('DISCONNECT fires when the cleanup function is called', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    const el = document.createElement('input');
+    document.body.appendChild(el);
+    const disconnect = form.connect('email', el);
+
+    const spy = vi.fn();
+    form._subscribeToActions(spy);
+    disconnect();
+
+    document.body.removeChild(el);
+    expect(spy.mock.calls[0][0]).toEqual({ type: 'DISCONNECT', path: 'email' });
+  });
+
+  it('BLUR fires with path after touched is set to true', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    const el = document.createElement('input');
+    document.body.appendChild(el);
+    form.connect('email', el);
+
+    const spy = vi.fn();
+    form._subscribeToActions(spy);
+    el.dispatchEvent(new FocusEvent('blur'));
+
+    document.body.removeChild(el);
+    const [action, state] = spy.mock.calls[0];
+    expect(action).toEqual({ type: 'BLUR', path: 'email' });
+    expect(state.touched.email).toBe(true);
+  });
+});
