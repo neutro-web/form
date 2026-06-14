@@ -85,13 +85,15 @@ describe('VALIDATE action', () => {
 });
 
 describe('SUBMIT action', () => {
-  it('fires even when isSubmitting guard blocks the submit', async () => {
+  it('fires on each submit call, including concurrent calls', async () => {
     const form = createForm({ initialValues: { x: '' } });
     const spy = vi.fn();
     form._subscribeToActions(spy);
-    await form.submit(() => {});
+    // Both calls dispatch SUBMIT — even though the second is blocked by isSubmitting guard
+    const [, p2] = [form.submit(() => {}), form.submit(() => {})];
+    await p2;
     const submitCalls = spy.mock.calls.filter(([a]) => a.type === 'SUBMIT');
-    expect(submitCalls).toHaveLength(1);
+    expect(submitCalls).toHaveLength(2);
   });
 });
 
