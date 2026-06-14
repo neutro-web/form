@@ -432,42 +432,25 @@ Swaps the items at indices `i` and `j`, swapping their field state as well.
 
 ---
 
-## `BuiltInRule`
+### `form.getAriaProps(path, options?)`
 
-The full union type accepted by the `rules` config. Single rules or arrays of rules can be assigned per field path.
-
-```ts
-const form = createForm({
-  initialValues: { email: '', age: 0, confirmEmail: '' },
-  rules: {
-    email:        ['required', 'email'],
-    age:          [{ min: 18 }, { max: 120 }],
-    confirmEmail: { matches: 'email', message: 'Emails do not match' },
-  },
-})
-```
-
----
-
-## `getAriaProps(path, options?)`
-
-Returns a plain object of ARIA attributes for the given field that can be spread directly onto an input element. Reads current state as a snapshot — call it inside a subscription or reactive binding to keep attributes up to date.
+Returns a plain object of ARIA attributes for the given field. Spread the result directly onto an input element. Reads the current state as a snapshot — call it inside a subscription or reactive binding to keep attributes up to date.
 
 ```ts
-getAriaProps(
+form.getAriaProps(
   path: Path<T> | string,
   options?: AriaPropsOptions
 ): AriaProps
 ```
 
-### AriaPropsOptions
+#### AriaPropsOptions
 
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `required` | `boolean` | — | `true` forces `aria-required`; `false` suppresses it even when `rules` includes `'required'`; omit to auto-detect from rules |
 | `errorId` | `string` | — | Override the generated `aria-describedby` target ID |
 
-### AriaProps
+#### AriaProps
 
 ```ts
 export interface AriaProps {
@@ -477,16 +460,16 @@ export interface AriaProps {
 }
 ```
 
-`aria-required` is `undefined` (not `false`) when the field is not required, so spreading onto a DOM element omits the attribute entirely.
+`aria-required` is `undefined` (not `false`) when the field is not required, so spreading produces no attribute.
 
-`aria-describedby` uses the convention `error-${path.replace(/\./g, '-')}` (e.g. `error-email`, `error-billing-address`). Render your error element with the matching `id`:
+`aria-describedby` is included only when the field currently has an error; it is `undefined` otherwise, so spreading produces no attribute. When present, it defaults to `error-${path.replace(/\./g, '-')}` (e.g. `error-email`, `error-billing-address`); use `errorId` to override. Render your error element with the matching `id`:
 
 ```html
 <span id="error-email">…</span>
 <span id="error-billing-address">…</span>
 ```
 
-### Usage
+#### Usage
 
 ```tsx
 // React — spread inside a useForm/useFormPath subscription
@@ -496,8 +479,10 @@ export interface AriaProps {
   {...form.getAriaProps('email')}
 />
 <span id="error-email">{state.errors.email}</span>
+```
 
-// Inferred required from rules
+```ts
+// Required inferred from rules
 const form = createForm({
   initialValues: { email: '' },
   rules: { email: ['required', 'email'] },
@@ -513,6 +498,23 @@ form.getAriaProps('email', { errorId: 'my-email-error' })
 
 // Suppress aria-required even though rules include 'required'
 form.getAriaProps('email', { required: false })
+```
+
+---
+
+## `BuiltInRule`
+
+The full union type accepted by the `rules` config. Single rules or arrays of rules can be assigned per field path.
+
+```ts
+const form = createForm({
+  initialValues: { email: '', age: 0, confirmEmail: '' },
+  rules: {
+    email:        ['required', 'email'],
+    age:          [{ min: 18 }, { max: 120 }],
+    confirmEmail: { matches: 'email', message: 'Emails do not match' },
+  },
+})
 ```
 
 See [Getting Started → Built-in Validation Rules](/getting-started#built-in-validation-rules) for the full rule reference table.

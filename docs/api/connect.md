@@ -154,4 +154,4 @@ The hook returns a React `ref` that you attach to the DOM element. When the elem
 | `aria-describedby` | Set once on connect when a `[data-error="${path}"]` element is found in the DOM. The element is given a generated `id` if it lacks one (`error-desc-${path-with-dashes}`). Not updated reactively — the error container must be present when `connect()` is called. |
 | `aria-required` | Set to `'true'` once on connect when the field's `rules` config includes `'required'`. Not reactive — field requiredness is treated as a static schema property. Only the built-in `'required'` string rule is detected; conditional rules (`requiredIf`, `requiredUnless`) are not. |
 
-For framework adapter contexts (React, Vue, Svelte) where `connect()` is not used, see [`getAriaProps()`](/api/core#getariaprops-path-options) instead.
+When building with framework-controlled components (React controlled inputs, Vue `v-model`, Svelte `bind:value`) rather than DOM bridge connections, see [`getAriaProps()`](/api/core#form-getariaprops-path-options) instead.
