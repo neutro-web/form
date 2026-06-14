@@ -277,7 +277,7 @@ const form = createForm({
 For SolidJS reactive inputs, call `form.getFieldMode` directly (not through `actions`):
 
 ```tsx
-const { state } = useSolidForm(form)
+const [state, actions] = useSolidForm(form)
 
 function Field(props: { name: string }) {
   const mode = form.getFieldMode(props.name)
