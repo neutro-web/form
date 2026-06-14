@@ -247,6 +247,7 @@ describe('devtools()', () => {
     const groupSpy = vi.spyOn(console, 'group').mockImplementation(() => {});
     vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'table').mockImplementation(() => {});
     vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
 
     const form = createForm({ initialValues: { x: 0 } });
