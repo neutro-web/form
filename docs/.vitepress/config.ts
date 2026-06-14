@@ -5,6 +5,11 @@ export default defineConfig({
   description: 'Zero-dependency reactive form engine for every framework.',
   base: '/form/',
 
+  vite: {
+    server: { port: 7000 },
+    preview: { port: 7001 },
+  },
+
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
@@ -42,6 +47,7 @@ export default defineConfig({
         {
           text: 'Advanced',
           items: [
+            { text: 'Validation Modes', link: '/guides/validation-modes' },
             { text: 'Async Validation', link: '/guides/async-validation' },
             { text: 'Dependency Graph', link: '/guides/dependency-graph' },
             { text: 'Multi-Step Forms', link: '/guides/multi-step-forms' },
