@@ -170,7 +170,7 @@ npm install @neutro/form
 
 ## Handling Server Errors
 
-Use `form.setErrors()` inside your submit handler to feed API validation errors back into form state.
+Use `form.setErrors()` inside your submit handler to feed API validation errors back into form state. They surface in `$state.errors` and clear on the next validation run — no extra wiring required.
 
 ```svelte
 <script lang="ts">

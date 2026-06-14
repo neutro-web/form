@@ -201,7 +201,7 @@ Both hooks inject `DestroyRef` and register an `onDestroy` callback to unsubscri
 
 ## Handling Server Errors
 
-Use `this.form.setErrors()` inside your submit handler to feed API validation errors back into form state.
+Use `this.form.setErrors()` inside your submit handler to feed API validation errors back into form state. They surface in `state().errors` and clear on the next validation run — no extra wiring required.
 
 ```ts
 import { Component } from '@angular/core'
