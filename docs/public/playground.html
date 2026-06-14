@@ -268,7 +268,7 @@ function makeReactIframe(jsx, extraSetup = '') {
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"><\/script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"><\/script>
 <script type="module">
-import { createForm } from 'https://esm.sh/@neutro/form@0.0.5/core';
+import { createForm } from 'https://esm.sh/@neutro/form@0.1.0/core';
 window.createForm = createForm;
 <\/script>
 <script>
@@ -297,7 +297,7 @@ function makeVueIframe(setup, template) {
 <div id="app"><\/div>
 <script src="https://unpkg.com/vue@3.4.31/dist/vue.global.prod.js"><\/script>
 <script type="module">
-import { createForm } from 'https://esm.sh/@neutro/form@0.0.5/core';
+import { createForm } from 'https://esm.sh/@neutro/form@0.1.0/core';
 const { createApp, ref, shallowRef, computed, onUnmounted, readonly } = Vue;
 function useVueForm(form) {
   const state = shallowRef(form.getState());
@@ -376,7 +376,7 @@ function makeSvelteIframe(svelteSource) {
 <div id="root"><\/div>
 <script type="module">
 import { compile } from 'https://esm.sh/svelte@4.1.2/compiler';
-import { createForm } from 'https://esm.sh/@neutro/form@0.0.5/core';
+import { createForm } from 'https://esm.sh/@neutro/form@0.1.0/core';
 window.createForm = createForm;
 const src = ${jsonSrc};
 try {
@@ -425,7 +425,7 @@ function makeSolidIframe(code) {
 import{createSignal,createEffect,onCleanup,For,Show,createMemo}from'https://esm.sh/solid-js@1.8.17';
 import{render}from'https://esm.sh/solid-js@1.8.17/web';
 import html from'https://esm.sh/solid-js@1.8.17/html';
-import { createForm } from 'https://esm.sh/@neutro/form@0.0.5/core';
+import { createForm } from 'https://esm.sh/@neutro/form@0.1.0/core';
 
 function useSolidForm(form) {
   const [s, set] = createSignal(form.getState(), { equals: false });
@@ -469,7 +469,7 @@ import '${esm}/@angular/compiler@${NGV}';
 import { Injectable, Component, inject, signal, NgZone } from '${esm}/@angular/core@${NGV}';
 import { NgIf } from '${esm}/@angular/common@${NGV}';
 import { bootstrapApplication } from '${esm}/@angular/platform-browser@${NGV}';
-import { createForm } from '${esm}/@neutro/form@0.0.5/core';
+import { createForm } from '${esm}/@neutro/form@0.1.0/core';
 
 class _FormService {
   _form = createForm({
