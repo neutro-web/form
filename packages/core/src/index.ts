@@ -631,7 +631,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   const dispatchAction = (action: FormAction): void => {
     if (actionListeners.size === 0) return;
     const snapshot = getState();
-    actionListeners.forEach(fn => fn(action, snapshot));
+    actionListeners.forEach(fn => {
+      try {
+        fn(action, snapshot);
+      } catch (err) {
+        console.error('[Agnostic Form] _subscribeToActions listener threw:', err);
+      }
+    });
   };
 
   // Shared path fan-out logic used by notify(), _flushNotifications(), and reset().
@@ -970,11 +976,6 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     connectedPaths.add(stringPath);
     if (options.persist) persistedPaths.add(stringPath);
 
-    const errorContainer = document.querySelector(`[data-error="${stringPath}"]`);
-    if (errorContainer) {
-      if (!errorContainer.id) errorContainer.id = `error-desc-${stringPath.replace(/\./g, '-')}`;
-      element.setAttribute('aria-describedby', errorContainer.id);
-    }
     element.setAttribute('aria-invalid', errors[stringPath] ? 'true' : 'false');
     if (isFieldRequired(stringPath)) {
       element.setAttribute('aria-required', 'true');
@@ -1069,6 +1070,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
     const unsubscribeA11y = subscribeToPath(stringPath, (_, fieldState) => {
       element.setAttribute('aria-invalid', fieldState.error ? 'true' : 'false');
+      const errorContainer = document.querySelector(`[data-error="${stringPath}"]`);
+      if (errorContainer) {
+        if (!errorContainer.id) errorContainer.id = `error-desc-${stringPath.replace(/\./g, '-')}`;
+        element.setAttribute('aria-describedby', errorContainer.id);
+      }
     });
 
     notify(stringPath);
@@ -1122,6 +1128,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   const setErrors = (incoming: Record<string, string>): void => {
+    if (!incoming) return;
     const paths = Object.keys(incoming);
     if (paths.length === 0) return;
     Object.assign(errors, incoming);
