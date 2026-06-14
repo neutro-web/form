@@ -53,6 +53,12 @@ function computeDiff(
       if (!equal) rows.push({ slice, key, prev: p, next: n });
     }
   }
+  if (prev.isSubmitting !== next.isSubmitting) {
+    rows.push({ slice: 'meta', key: 'isSubmitting', prev: prev.isSubmitting, next: next.isSubmitting });
+  }
+  if (prev.isValidating !== next.isValidating) {
+    rows.push({ slice: 'meta', key: 'isValidating', prev: prev.isValidating, next: next.isValidating });
+  }
   return rows;
 }
 
@@ -120,6 +126,10 @@ export function devtools<T extends object>(
     if (action.type === 'BATCH_END') {
       inBatch = false;
       const count = batchActions.length;
+      if (count === 0) {
+        batchActions = [];
+        return;
+      }
       const now = Date.now();
       const elapsed = now - lastTimeRef.value;
       lastTimeRef.value = now;
@@ -134,8 +144,9 @@ export function devtools<T extends object>(
         '%c NeutroForm: %s %c BATCH (%d mutations) %c %s  %s',
         BADGE_STYLE, name, RESET_STYLE, count, DIM_STYLE, timestamp, formatElapsed(elapsed)
       );
+      const frozenTimeRef = { value: lastTimeRef.value };
       batchActions.forEach(({ action: a, state: s, prev }) =>
-        logAction(a, s, prev, name, groupFn, lastTimeRef)
+        logAction(a, s, prev, name, groupFn, frozenTimeRef)
       );
       console.groupEnd();
       batchActions = [];
