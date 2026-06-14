@@ -23,6 +23,7 @@ export interface SolidFormActions<T extends object> {
   arrayMove: FormInstance<T>['arrayMove'];
   arraySwap: FormInstance<T>['arraySwap'];
   setErrors: FormInstance<T>['setErrors'];
+  clearErrors: FormInstance<T>['clearErrors'];
 }
 
 // Bug fix: use createStore + reconcile instead of createSignal so Solid's
@@ -57,6 +58,7 @@ export function useSolidForm<T extends object>(form: FormInstance<T>): [Store<Fo
       arrayMove: form.arrayMove,
       arraySwap: form.arraySwap,
       setErrors: form.setErrors,
+      clearErrors: form.clearErrors,
     },
   ];
 }

@@ -332,6 +332,25 @@ form.submit(async (payload) => {
 
 ---
 
+### `form.clearErrors()`
+
+```ts
+form.clearErrors(): void
+```
+
+Clears all field errors atomically and notifies subscribers once. Useful when you need to reset the error state without resetting the form values — for example, switching between wizard steps or dismissing a server error panel.
+
+```ts
+// Clear all errors (e.g. user dismissed an error banner)
+form.clearErrors()
+
+// Equivalent to reset() for errors only — values, touched, and dirty are unaffected
+```
+
+Unlike `reset()`, `clearErrors()` does not change `values`, `touched`, or `dirty`. It is a no-op if there are no errors.
+
+---
+
 ### `form.submit(onValid)`
 
 ```ts

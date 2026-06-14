@@ -22,6 +22,7 @@ function describeAction(action: FormAction): string {
     case 'SUBMIT': return 'SUBMIT';
     case 'RESET': return 'RESET';
     case 'SET_ERRORS': return `SET_ERRORS [${Object.keys(action.errors).join(', ')}]`;
+    case 'CLEAR_ERRORS': return 'CLEAR_ERRORS';
     case 'CONNECT': return `CONNECT ${action.path}`;
     case 'DISCONNECT': return `DISCONNECT ${action.path}`;
     case 'BLUR': return `BLUR ${action.path}`;

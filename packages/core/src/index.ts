@@ -124,7 +124,8 @@ export type FormAction =
   | { type: 'ARRAY_INSERT'; path: string; index: number; item: unknown }
   | { type: 'ARRAY_REMOVE'; path: string; index: number }
   | { type: 'ARRAY_MOVE'; path: string; from: number; to: number }
-  | { type: 'ARRAY_SWAP'; path: string; i: number; j: number };
+  | { type: 'ARRAY_SWAP'; path: string; i: number; j: number }
+  | { type: 'CLEAR_ERRORS' };
 
 export interface AriaPropsOptions {
   required?: boolean;
@@ -184,6 +185,7 @@ export interface FormInstance<T extends object> {
   getConnectedCount: () => number;
   destroy: () => void;
   setErrors: (errors: Record<Path<T> | (string & {}), string>) => void;
+  clearErrors: () => void;
   getFieldMode: (path: string) => ValidationMode;
   _subscribeToActions: (fn: (action: FormAction, state: FormState<T>) => void) => () => void;
 }
@@ -1137,6 +1139,14 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     dispatchAction({ type: 'SET_ERRORS', errors: { ...incoming } });
   };
 
+  const clearErrors = (): void => {
+    const paths = Object.keys(errors);
+    if (paths.length === 0) return;
+    paths.forEach(p => { delete errors[p]; });
+    batch(() => paths.forEach(p => notify(p)));
+    dispatchAction({ type: 'CLEAR_ERRORS' });
+  };
+
   function isFieldRequired(path: string): boolean {
     // Only checks for the built-in 'required' rule; requiredIf/requiredUnless object rules are intentionally excluded.
     const fieldRules = config.rules?.[path];
@@ -1202,6 +1212,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
     },
     setErrors,
+    clearErrors,
     getFieldMode: (path: string) => resolveFieldMode(path),
 
     arrayAppend: (path: Path<T> | string | string[], item: any) => {
