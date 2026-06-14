@@ -1,5 +1,7 @@
 # Validation Adapters
 
+> **Scope:** This page covers validation *schema adapters* — how to wire Zod, Valibot, Yup, etc. into the `validator` option. To control *when* validation runs (on blur, on change, on submit), see [`validationMode`](/api/core#formconfigt) in `FormConfig` and the [`validateOn`](/api/connect) option on `form.connect()`.
+
 ## Validator Contract
 
 The `validator` option on `FormConfig` has the following signature:

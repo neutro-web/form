@@ -255,6 +255,7 @@ export class RegisterFormComponent {
     }
   }
 }
+```
 
 ## Validation Modes
 
@@ -297,5 +298,4 @@ export class FormComponent {
     }
   }
 }
-```
 ```

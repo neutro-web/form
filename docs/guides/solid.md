@@ -258,6 +258,7 @@ export function RegisterForm() {
     </form>
   )
 }
+```
 
 ## Validation Modes
 
@@ -293,5 +294,4 @@ function Field(props: { name: string }) {
     />
   )
 }
-```
 ```

@@ -42,21 +42,23 @@ form.connect(
 
 ### Basic Usage
 
+`connect` wires up `input` and `blur` event handlers on the element automatically. You do not need to add your own event listeners — the bridge handles value syncing and validation according to the form's `validationMode` (default: `'onTouched'`).
+
 ```ts
 const emailInput = document.getElementById('email') as HTMLInputElement
 
-// Connect the input — the form now tracks this element
+// Connect the input — event wiring is done automatically by the bridge
 const disconnect = form.connect('email', emailInput)
 
-emailInput.addEventListener('input', (e) => {
-  form.set('email', (e.target as HTMLInputElement).value, {
-    touch: true,
-    validate: true,
-  })
-})
-
-// Disconnect when the component teardown
+// Disconnect when the element is removed (e.g. component teardown)
 disconnect()
+```
+
+To override the validation trigger for one element without changing the global config, pass `validateOn`:
+
+```ts
+// Validate this field on blur only, regardless of the form's validationMode
+const disconnect = form.connect('email', emailInput, { validateOn: 'onBlur' })
 ```
 
 ### Persisted Fields (Multi-Step Wizard)
