@@ -57,10 +57,13 @@ interface FormConfig<T> {
    *
    * | Mode | Validates on |
    * |---|---|
-   * | `'onTouched'` | input after first blur; always on blur (default) |
-   * | `'onChange'` | every input event |
-   * | `'onBlur'` | blur only |
-   * | `'onSubmitOnly'` | form submit only — no inline validation |
+   * | `'onTouched'` | first blur, then every keystroke (default) |
+   * | `'onChange'` | every keystroke from the first character |
+   * | `'onBlur'` | every blur, no keystroke feedback |
+   * | `'onSubmitOnly'` | submit only — no inline validation |
+   *
+   * See the [Validation Modes guide](/guides/validation-modes) for a detailed
+   * comparison and guidance on when to use each mode.
    *
    * @default 'onTouched'
    *
