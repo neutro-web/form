@@ -138,22 +138,27 @@ validator(values) {
 
 #### Can I use `class-validator`?
 
-Not with a built-in adapter — `class-validator` is not included because it requires `class-transformer` as a companion package and relies on decorators, making it a heavier dependency pair that is primarily a NestJS/backend convention rather than a frontend form pattern.
-
-If you need it (common in Angular projects that share validation logic with a NestJS backend), write the wrapper manually:
+Yes — `classValidatorAdapter` is a built-in adapter, useful in Angular projects that share DTO classes with a NestJS backend.
 
 ```ts
-import { validate } from 'class-validator'
-import { plainToInstance } from 'class-transformer'
+import { classValidatorAdapter } from '@neutro/form/core'
+import { validate, IsEmail, MinLength } from 'class-validator'
 
-validator: async (values) => {
-  const instance = plainToInstance(MyDto, values)
-  const errs = await validate(instance)
-  return Object.fromEntries(
-    errs.map(e => [e.property, Object.values(e.constraints ?? {})[0]])
-  )
+class SignUpDto {
+  @IsEmail({}, { message: 'Must be a valid email' })
+  email!: string
+
+  @MinLength(8, { message: 'Min 8 characters' })
+  password!: string
 }
+
+const form = createForm({
+  initialValues: { email: '', password: '' },
+  validator: classValidatorAdapter(SignUpDto, validate),
+})
 ```
+
+See the [Validation Adapters reference](/api/validation) for full details.
 
 #### How do I handle async validation (e.g., check if a username is taken)?
 
