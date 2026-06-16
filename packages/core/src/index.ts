@@ -115,7 +115,7 @@ export interface ValidationModeConfig<T extends object> {
 }
 
 export type FormAction =
-  | { type: 'SET'; path: string; value: unknown; options?: { touch?: boolean; validate?: boolean } }
+  | { type: 'SET'; path: string; value: unknown; options?: SetOptions }
   | { type: 'VALIDATE'; paths?: string[] }
   | { type: 'SUBMIT' }
   | { type: 'RESET'; newValues?: unknown }
@@ -402,7 +402,7 @@ export function extractAllPaths(obj: any, prefix = ''): string[] {
 
 // Bug #12: register wildcard dependency keys directly so empty-array deps are pre-compiled.
 export function compileDependencyScopes(
-  dependencies: Record<string, string[]>,
+  dependencies: Record<string, string[] | undefined>,
   initialValues: any
 ): Record<string, string[]> {
   const resolvedScopes: Record<string, string[]> = {};
@@ -674,7 +674,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   let mutationObserver: MutationObserver | null = null;
 
   const preComputedScopes = config.dependencies
-    ? compileDependencyScopes(config.dependencies as Record<string, string[]>, initialValues)
+    ? compileDependencyScopes(config.dependencies, initialValues)
     : {};
 
   const getState = (): FormState<T> => ({
@@ -1289,7 +1289,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     set: (
       path: Path<T> | string | string[],
       val: any,
-      options?: { touch?: boolean; validate?: boolean }
+      options?: SetOptions
     ) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       setFieldValue(targetPath, val, options);
