@@ -35,7 +35,7 @@ const age: number   = form.get('age')    // number
 
 ```ts
 form.set('email', 'hello@example.com') // ✅
-form.set('email', 42)                  // ⚠️ compiles (loose fallback) — IDE shows warning
+form.set('email', 42)                  // ❌ TypeScript error
 ```
 
 ## Typed array operations
@@ -44,7 +44,7 @@ form.set('email', 42)                  // ⚠️ compiles (loose fallback) — I
 
 ```ts
 form.arrayAppend('items', { name: 'widget', qty: 1 }) // ✅
-form.arrayAppend('items', 'not-an-object')             // ⚠️ compiles (loose fallback) — IDE shows warning
+form.arrayAppend('items', 'not-an-object')             // ❌ TypeScript error
 ```
 
 ## Dynamic paths

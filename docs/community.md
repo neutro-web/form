@@ -397,19 +397,17 @@ The returned `FormInstance<T>` carries all type information throughout its lifet
 
 #### Does TypeScript catch typos in field paths?
 
-Partially — and honestly. Here is what works and what doesn't:
+Partially — path typos themselves are not caught, but value-type mismatches on known paths are.
 
 **What works:**
-- `form.get('email')` returns `string` (not `any`) — the returned value is typed, so downstream usage is safe: `.toUpperCase()` works; `.toFixed(2)` is a TypeScript error.
-- IDE autocomplete surfaces the available paths and expected value types while you type.
-- Assigning a `get()` result to a wrong variable type errors: `const n: number = form.get('email')` → TypeScript error.
+- `form.get('email')` returns `string` — the returned value is fully typed.
+- `form.set('email', 42)` is a TypeScript error — `number` is not assignable to `string`.
+- `form.arrayAppend('items', 'wrong')` is a TypeScript error — `string` is not assignable to the element type.
+- IDE autocomplete surfaces available paths and expected value types.
 
-**What doesn't work (honest gaps):**
-- `form.set('email', 42)` compiles without error — the loose fallback overload (`val: any`) absorbs the mismatch.
-- `form.arrayAppend('items', 'wrong')` compiles without error — same reason.
-- Path typos on `set()` or `get()` do not produce compile errors.
-
-This is an inherent limitation of TypeScript's overload resolution with a loose fallback. The typed overloads provide IDE guidance and safe `get()` returns, but not call-site enforcement on `set()` or array operations.
+**What doesn't work:**
+- Path typos: `form.set('emal', value)` compiles without error — if the path isn't in `Path<T>`, it falls to the loose fallback with `val: unknown`.
+- Dynamic paths: `const p: string = ...; form.set(p, 42)` compiles — TypeScript can't know the type when the path is computed at runtime.
 
 ---
 
@@ -461,7 +459,7 @@ The DOM bridge (`connect()`) requires an `HTMLElement` and does not apply in Rea
 
 These are things `@neutro/form` does not do cleanly yet. They are not workarounds — if your project needs them, know this going in.
 
-**Strongly typed field paths (partial)** — `form.get('email')` returns `string`, but `form.set('email', 42)` and path typos on `set()` do not produce TypeScript errors. The typed overloads provide IDE autocomplete and safe `get()` return types but not call-site enforcement for writes.
+**Strongly typed field paths (path typos not caught)** — `form.set('email', 42)` is a TypeScript error, but `form.set('emal', value)` (a typo) is not — unknown paths fall back to `val: unknown`. Dynamic runtime paths (`const p: string = ...`) are also untyped.
 
 **`isValid` without running validation** — there is no `state.isValid` boolean. To know if the current values are valid, call `await form.validate()` and check `Object.keys(form.getState().errors).length === 0`. Disabling a submit button before the user has interacted requires this upfront validation call, which can be jarring.
 
