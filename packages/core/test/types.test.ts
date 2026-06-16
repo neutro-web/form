@@ -27,9 +27,6 @@ describe('Feature 1: Typed field paths', () => {
     // Test that the TYPED overload resolves the val parameter correctly.
     // We can't test rejection via @ts-expect-error (loose fallback swallows mismatches),
     // so we test the resolved type of the typed overload instead.
-    type SetEmail = Parameters<{
-      <P extends Path<SignupValues>>(path: P, val: GetPathValue<SignupValues, P>, options?: SetOptions): void;
-    }>;
     // When P = 'email', val should be string
     expectTypeOf<GetPathValue<SignupValues, 'email'>>().toEqualTypeOf<string>();
     // When P = 'age', val should be number
@@ -83,6 +80,6 @@ describe('Feature 1: Typed field paths', () => {
   });
 
   it('SetOptions has correct shape', () => {
-    expectTypeOf<SetOptions>().toMatchTypeOf<{ touch?: boolean; validate?: boolean }>();
+    expectTypeOf<SetOptions>().toEqualTypeOf<{ touch?: boolean; validate?: boolean }>();
   });
 });
