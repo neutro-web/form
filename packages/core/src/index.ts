@@ -1584,6 +1584,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
     reset: (newValues?: T) => {
       const cfg = config.persistence;
+      // Only write to the adapter if hydrate() has run — persistenceUnsubscribe is null until then.
       if (cfg && persistenceUnsubscribe !== null) {
         if (newValues) {
           Promise.resolve(cfg.adapter.write(newValues)).catch((err: unknown) => {
@@ -1774,6 +1775,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       };
 
       if (cfg.debounceMs !== 0) {
+        // subscribe() calls the callback synchronously on registration; skip that initial invocation.
         let skipFirst = true;
         persistenceUnsubscribe = subscribe((state) => {
           if (skipFirst) { skipFirst = false; return; }
@@ -1787,6 +1789,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           }, cfg.debounceMs ?? 300);
         });
       } else {
+        // subscribe() calls the callback synchronously on registration; skip that initial invocation.
         let skipFirst = true;
         persistenceUnsubscribe = subscribe((state) => {
           if (skipFirst) { skipFirst = false; return; }
@@ -1810,6 +1813,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     destroy: () => {
       for (const ctrl of activeAbortControllers.values()) ctrl.abort();
       activeAbortControllers.clear();
+      persistenceUnsubscribe?.();
+      persistenceUnsubscribe = null;
       globalSubscribers.clear();
       pathSubscribers.clear();
       actionListeners.clear();
@@ -1820,8 +1825,6 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         mutationObserver.disconnect();
         mutationObserver = null;
       }
-      persistenceUnsubscribe?.();
-      persistenceUnsubscribe = null;
       if (persistenceWriteTimer !== null) {
         clearTimeout(persistenceWriteTimer);
         persistenceWriteTimer = null;
