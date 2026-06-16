@@ -24,6 +24,7 @@ export interface SolidFormActions<T extends object> {
   arraySwap: FormInstance<T>['arraySwap'];
   setErrors: FormInstance<T>['setErrors'];
   clearErrors: FormInstance<T>['clearErrors'];
+  resetField: FormInstance<T>['resetField'];
 }
 
 // Bug fix: use createStore + reconcile instead of createSignal so Solid's
@@ -61,6 +62,7 @@ export function useSolidForm<T extends object>(
       arraySwap: form.arraySwap,
       setErrors: form.setErrors,
       clearErrors: form.clearErrors,
+      resetField: form.resetField,
     },
   ];
 }

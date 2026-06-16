@@ -28,6 +28,7 @@ export interface SvelteFormReturn<T extends object> {
   arraySwap: FormInstance<T>['arraySwap'];
   setErrors: FormInstance<T>['setErrors'];
   clearErrors: FormInstance<T>['clearErrors'];
+  resetField: FormInstance<T>['resetField'];
 }
 
 export function useSvelteForm<T extends object>(form: FormInstance<T>): SvelteFormReturn<T> {
@@ -60,6 +61,7 @@ export function useSvelteForm<T extends object>(form: FormInstance<T>): SvelteFo
     arraySwap: form.arraySwap,
     setErrors: form.setErrors,
     clearErrors: form.clearErrors,
+    resetField: form.resetField,
   };
 }
 

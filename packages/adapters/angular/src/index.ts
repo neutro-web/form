@@ -24,6 +24,7 @@ export interface AngularFormReturn<T extends object> {
   arraySwap: FormInstance<T>['arraySwap'];
   setErrors: FormInstance<T>['setErrors'];
   clearErrors: FormInstance<T>['clearErrors'];
+  resetField: FormInstance<T>['resetField'];
 }
 
 // Must be called inside an injection context (component constructor or inject() call site).
@@ -59,6 +60,7 @@ export function useAngularForm<T extends object>(form: FormInstance<T>): Angular
     arraySwap: form.arraySwap,
     setErrors: form.setErrors,
     clearErrors: form.clearErrors,
+    resetField: form.resetField,
   };
 }
 
