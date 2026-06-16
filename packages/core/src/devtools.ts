@@ -252,8 +252,8 @@ export function createDevtoolsPanel(
   if (!panelRegistry.has(form)) panelRegistry.set(form, new WeakMap());
   const formMap = panelRegistry.get(form)!;
   if (formMap.has(container)) {
-    console.warn('[NeutroForm devtools] createDevtoolsPanel called twice on the same form+container — returning existing unsubscribe');
-    return () => {}; // caller should have kept the original
+    console.warn('[NeutroForm devtools] createDevtoolsPanel called twice on the same form+container — returning no-op; keep the unsubscribe returned by the first call');
+    return () => {};
   }
   formMap.set(container, true);
 
