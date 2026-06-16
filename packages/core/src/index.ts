@@ -320,19 +320,37 @@ export function yupAdapter<T>(schema: {
   };
 }
 
+export interface ValidationErrorLike {
+  property: string;
+  constraints?: Record<string, string>;
+  children?: ValidationErrorLike[];
+}
+
+function flattenClassValidationErrors(
+  errors: ValidationErrorLike[],
+  prefix = ''
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const error of errors) {
+    const path = prefix ? `${prefix}.${error.property}` : error.property;
+    if (error.constraints && Object.keys(error.constraints).length > 0) {
+      result[path] = Object.values(error.constraints)[0];
+    }
+    if (error.children && error.children.length > 0) {
+      Object.assign(result, flattenClassValidationErrors(error.children, path));
+    }
+  }
+  return result;
+}
+
 export function classValidatorAdapter<T extends object>(
   cls: new () => T,
-  validate: (obj: T) => Promise<Array<{ property: string; constraints?: Record<string, string> }>>
+  validate: (obj: T) => Promise<ValidationErrorLike[]>
 ) {
   return async (values: T): Promise<Record<string, string>> => {
     const instance = Object.assign(new cls(), values);
     const validationErrors = await validate(instance);
-    const errors: Record<string, string> = {};
-    validationErrors.forEach((error) => {
-      const messages = error.constraints ? Object.values(error.constraints) : [];
-      if (messages.length > 0) errors[error.property] = messages[0];
-    });
-    return errors;
+    return flattenClassValidationErrors(validationErrors);
   };
 }
 
