@@ -3392,7 +3392,25 @@ describe('isValid', () => {
 // ---------------------------------------------------------------------------
 
 describe('built-in rules — file validation', () => {
-  it('required rule detects empty FileList (isEmpty fix)', async () => {
+  function makeFile(name: string, type: string, size: number): File {
+    return Object.assign(new Blob(['x'.repeat(size)], { type }), {
+      name,
+      lastModified: 0,
+    }) as unknown as File;
+  }
+
+  function makeFileList(...files: File[]): FileList {
+    const fl: any = {
+      length: files.length,
+      item: (i: number) => files[i] ?? null,
+    };
+    files.forEach((f, i) => {
+      fl[i] = f;
+    });
+    return fl as FileList;
+  }
+
+  it('isEmpty fix: empty FileList triggers required rule', async () => {
     const fileList = { length: 0, item: () => null } as unknown as FileList;
     const form = createForm({
       initialValues: { attachment: fileList as FileList | null },
@@ -3400,5 +3418,155 @@ describe('built-in rules — file validation', () => {
     });
     await form.validate();
     expect(form.getState().errors.attachment).toBe('Required');
+  });
+
+  it('maxFileSize rejects a File over the limit', async () => {
+    const form = createForm({
+      initialValues: { avatar: null as unknown as File },
+      rules: { avatar: [{ maxFileSize: 1000 }] },
+    });
+    form.set('avatar', makeFile('big.png', 'image/png', 2000));
+    await form.validate();
+    expect(form.getState().errors.avatar).toMatch(/at most/);
+  });
+
+  it('maxFileSize accepts a File within the limit', async () => {
+    const form = createForm({
+      initialValues: { avatar: null as unknown as File },
+      rules: { avatar: [{ maxFileSize: 5000 }] },
+    });
+    form.set('avatar', makeFile('small.png', 'image/png', 100));
+    await form.validate();
+    expect(form.getState().errors.avatar).toBeUndefined();
+  });
+
+  it('minFileSize rejects a File that is too small', async () => {
+    const form = createForm({
+      initialValues: { avatar: null as unknown as File },
+      rules: { avatar: [{ minFileSize: 500 }] },
+    });
+    form.set('avatar', makeFile('tiny.png', 'image/png', 10));
+    await form.validate();
+    expect(form.getState().errors.avatar).toMatch(/at least/);
+  });
+
+  it('fileTypes rejects a File with disallowed MIME type', async () => {
+    const form = createForm({
+      initialValues: { avatar: null as unknown as File },
+      rules: { avatar: [{ fileTypes: ['image/png', 'image/jpeg'] }] },
+    });
+    form.set('avatar', makeFile('doc.pdf', 'application/pdf', 100));
+    await form.validate();
+    expect(form.getState().errors.avatar).toMatch(/must be one of/);
+  });
+
+  it('fileTypes accepts a File with allowed MIME type', async () => {
+    const form = createForm({
+      initialValues: { avatar: null as unknown as File },
+      rules: { avatar: [{ fileTypes: ['image/png'] }] },
+    });
+    form.set('avatar', makeFile('photo.png', 'image/png', 100));
+    await form.validate();
+    expect(form.getState().errors.avatar).toBeUndefined();
+  });
+
+  it('maxFiles rejects a FileList with too many entries', async () => {
+    const form = createForm({
+      initialValues: { docs: null as unknown as FileList },
+      rules: { docs: [{ maxFiles: 2 }] },
+    });
+    form.set(
+      'docs',
+      makeFileList(
+        makeFile('a.pdf', 'application/pdf', 100),
+        makeFile('b.pdf', 'application/pdf', 100),
+        makeFile('c.pdf', 'application/pdf', 100),
+      ),
+    );
+    await form.validate();
+    expect(form.getState().errors.docs).toMatch(/at most 2/);
+  });
+
+  it('minFiles rejects a FileList with too few entries', async () => {
+    const form = createForm({
+      initialValues: { docs: null as unknown as FileList },
+      rules: { docs: [{ minFiles: 2 }] },
+    });
+    form.set('docs', makeFileList(makeFile('a.pdf', 'application/pdf', 100)));
+    await form.validate();
+    expect(form.getState().errors.docs).toMatch(/at least 2/);
+  });
+
+  it('maxFileSize applied to each file in a FileList — fires on any oversized file', async () => {
+    const form = createForm({
+      initialValues: { docs: null as unknown as FileList },
+      rules: { docs: [{ maxFileSize: 500 }] },
+    });
+    form.set(
+      'docs',
+      makeFileList(
+        makeFile('ok.pdf', 'application/pdf', 100),
+        makeFile('big.pdf', 'application/pdf', 1000),
+      ),
+    );
+    await form.validate();
+    expect(form.getState().errors.docs).toBeTruthy();
+  });
+
+  it('custom message overrides default', async () => {
+    const form = createForm({
+      initialValues: { avatar: null as unknown as File },
+      rules: { avatar: [{ maxFileSize: 100, message: 'Too big!' }] },
+    });
+    form.set('avatar', makeFile('big.png', 'image/png', 200));
+    await form.validate();
+    expect(form.getState().errors.avatar).toBe('Too big!');
+  });
+
+  it('default maxFileSize message uses human-readable size', async () => {
+    const form = createForm({
+      initialValues: { avatar: null as unknown as File },
+      rules: { avatar: [{ maxFileSize: 5 * 1024 * 1024 }] },
+    });
+    form.set('avatar', makeFile('huge.png', 'image/png', 10 * 1024 * 1024));
+    await form.validate();
+    expect(form.getState().errors.avatar).toContain('5.0 MB');
+  });
+
+  it('all rules are no-ops when value is null', async () => {
+    const form = createForm({
+      initialValues: { avatar: null as unknown as File },
+      rules: { avatar: [{ maxFileSize: 100 }, { fileTypes: ['image/png'] }] },
+    });
+    await form.validate();
+    expect(form.getState().errors.avatar).toBeUndefined();
+  });
+
+  it('file rules do not throw on a non-file string field', async () => {
+    const form = createForm({
+      initialValues: { name: 'Alice' },
+      rules: { name: [{ maxFileSize: 100 } as any] },
+    });
+    await expect(form.validate()).resolves.toBeDefined();
+  });
+
+  it('minFiles accepts a bare File as count 1', async () => {
+    const form = createForm({
+      initialValues: { avatar: null as unknown as File },
+      rules: { avatar: [{ minFiles: 1 }] },
+    });
+    form.set('avatar', makeFile('photo.png', 'image/png', 100));
+    await form.validate();
+    expect(form.getState().errors.avatar).toBeUndefined();
+  });
+
+  it('maxFiles accepts a bare File as count 1 (within limit)', async () => {
+    const form = createForm({
+      initialValues: { avatar: null as unknown as File },
+      rules: { avatar: [{ maxFiles: 1 }] },
+    });
+    form.set('avatar', makeFile('photo.png', 'image/png', 100));
+    await form.validate();
+    expect(form.getState().errors.avatar).toBeUndefined();
   });
 });

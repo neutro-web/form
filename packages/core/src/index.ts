@@ -553,11 +553,20 @@ export function compileDependencyScopes(
 // Built-in rule runner
 // ---------------------------------------------------------------------------
 
+function isFileLike(v: unknown): v is { name: string; size: number; type: string; lastModified: number } {
+  if (v === null || typeof v !== 'object') return false;
+  if (typeof File !== 'undefined' && v instanceof File) return true;
+  // Duck-type for environments where File is unavailable (Node/test)
+  const o = v as any;
+  return typeof o.name === 'string' && typeof o.size === 'number' && typeof o.type === 'string' && typeof o.lastModified === 'number';
+}
+
 function isFileListLike(v: unknown): v is { length: number; item: (i: number) => File | null } {
   if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
   if (typeof FileList !== 'undefined' && v instanceof FileList) return true;
   // Duck-type for environments where FileList is unavailable (Node/test)
-  return typeof (v as any).length === 'number' && typeof (v as any).item === 'function';
+  // Must not match a single file-like object that also has .length/.item (unlikely but safe)
+  return typeof (v as any).length === 'number' && typeof (v as any).item === 'function' && !isFileLike(v);
 }
 
 function isEmpty(v: unknown): boolean {
@@ -766,8 +775,8 @@ function applyBuiltInRules<T>(
         } else if ('maxFileSize' in rule) {
           const limit = (rule as { maxFileSize: number; message?: string }).maxFileSize;
           const msg = (rule as { message?: string }).message ?? `File must be at most ${formatBytes(limit)}`;
-          const files: File[] = [];
-          if (typeof File !== 'undefined' && value instanceof File) {
+          const files: Array<{ size: number; type: string }> = [];
+          if (isFileLike(value)) {
             files.push(value);
           } else if (isFileListLike(value)) {
             for (let i = 0; i < value.length; i++) {
@@ -779,8 +788,8 @@ function applyBuiltInRules<T>(
         } else if ('minFileSize' in rule) {
           const limit = (rule as { minFileSize: number; message?: string }).minFileSize;
           const msg = (rule as { message?: string }).message ?? `File must be at least ${formatBytes(limit)}`;
-          const files: File[] = [];
-          if (typeof File !== 'undefined' && value instanceof File) {
+          const files: Array<{ size: number; type: string }> = [];
+          if (isFileLike(value)) {
             files.push(value);
           } else if (isFileListLike(value)) {
             for (let i = 0; i < value.length; i++) {
@@ -794,8 +803,8 @@ function applyBuiltInRules<T>(
           const msg =
             (rule as { message?: string }).message ??
             `File type must be one of: ${types.join(', ')}`;
-          const files: File[] = [];
-          if (typeof File !== 'undefined' && value instanceof File) {
+          const files: Array<{ size: number; type: string }> = [];
+          if (isFileLike(value)) {
             files.push(value);
           } else if (isFileListLike(value)) {
             for (let i = 0; i < value.length; i++) {
@@ -808,7 +817,7 @@ function applyBuiltInRules<T>(
           const max = (rule as { maxFiles: number; message?: string }).maxFiles;
           const count = isFileListLike(value)
             ? (value as any).length
-            : (typeof File !== 'undefined' && value instanceof File ? 1 : 0);
+            : (isFileLike(value) ? 1 : 0);
           if (count > max)
             error =
               (rule as { message?: string }).message ??
@@ -817,7 +826,7 @@ function applyBuiltInRules<T>(
           const min = (rule as { minFiles: number; message?: string }).minFiles;
           const count = isFileListLike(value)
             ? (value as any).length
-            : (typeof File !== 'undefined' && value instanceof File ? 1 : 0);
+            : (isFileLike(value) ? 1 : 0);
           if (count < min)
             error =
               (rule as { message?: string }).message ??
