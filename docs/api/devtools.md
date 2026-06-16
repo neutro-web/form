@@ -110,3 +110,36 @@ form._subscribeToActions(fn: (action: FormAction, state: FormState<T>) => void):
 ```
 
 Internal escape hatch used by `devtools()`. The callback receives the labeled action and the post-mutation state snapshot. Use `devtools()` instead — `_subscribeToActions` has no stability guarantees across versions.
+
+## `createDevtoolsPanel(form, container, options?)`
+
+Mounts a reactive DOM panel inside `container` showing the form's current state and an action log. Returns an unsubscribe function that unmounts the panel.
+
+```ts
+import { createDevtoolsPanel } from '@neutro/form/devtools'
+
+const unsub = createDevtoolsPanel(form, document.getElementById('debug-panel')!, {
+  name: 'Signup Form',
+  theme: 'auto',
+  maxLogEntries: 50,
+  collapsed: false,
+})
+
+// Call unsub() to remove the panel
+```
+
+**Options (`DevtoolsPanelOptions`):**
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `name` | `string` | `'Form'` | Label shown in the panel header |
+| `theme` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Color theme (reserved for future styling) |
+| `maxLogEntries` | `number` | `50` | Maximum action log entries before oldest are dropped |
+| `collapsed` | `boolean` | `false` | Start with the panel body collapsed |
+
+**Notes:**
+- No-op in SSR environments (`typeof document === 'undefined'`)
+- The same form can power multiple panels in different containers
+- Calling with the same `form` + `container` pair twice logs a warning and returns a no-op unsubscriber
+- State values are rendered via `textContent` (never `innerHTML`) — safe against XSS from user-controlled form values
+- The panel uses Shadow DOM when available, with a light DOM fallback
