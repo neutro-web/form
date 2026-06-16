@@ -158,6 +158,7 @@ export interface FormConfig<T extends object> {
   asyncDebounceMs?: number;
   /** Per-field validation trigger mode. Defaults to 'onTouched'. */
   validationMode?: ValidationMode | ValidationModeConfig<T>;
+  persistence?: PersistenceConfig<T>;
 }
 
 export interface ConnectOptions {
@@ -175,6 +176,20 @@ export interface ResetFieldOptions {
   keepError?: boolean;   // retain errors[path] — default false
   keepTouched?: boolean; // retain touched[path] — default false
   keepDirty?: boolean;   // retain dirty[path] — default false
+}
+
+export interface PersistenceAdapter<T> {
+  read(): T | null | undefined | Promise<T | null | undefined>;
+  write(values: T): void | Promise<void>;
+  clear(): void | Promise<void>;
+}
+
+export interface PersistenceConfig<T extends object> {
+  adapter: PersistenceAdapter<T>;
+  /** Milliseconds to debounce writes. Default: 300. Set to 0 to write on every change. */
+  debounceMs?: number;
+  /** Paths to exclude from read and write (e.g. passwords, file inputs). */
+  exclude?: Array<Path<T> | (string & {})>;
 }
 
 export type ArrayItem<V> = V extends Array<infer U> ? U : never;
@@ -225,6 +240,12 @@ export interface FormInstance<T extends object> {
   arraySwap(path: Path<T> | (string & {}) | string[], indexA: number, indexB: number): void;
   reset: (newValues?: T) => void;
   resetField(path: Path<T> | (string & {}) | string[], options?: ResetFieldOptions): void;
+  /**
+   * Reads stored values from the persistence adapter and merges them into the
+   * form as the new initial values. No-op if no adapter is configured.
+   * Must be called after mount. Returns a Promise that resolves when done.
+   */
+  hydrate(): Promise<void>;
   getConnectedCount: () => number;
   destroy: () => void;
   setErrors: (errors: Record<Path<T> | (string & {}), string>) => void;
