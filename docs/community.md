@@ -397,7 +397,14 @@ The returned `FormInstance<T>` carries all type information throughout its lifet
 
 #### Does TypeScript catch typos in field paths?
 
-Partially. `form.get()` and `form.set()` accept `string` paths today, so renaming a field in your type won't automatically surface path typos. Strongly typed dot-notation paths are on the roadmap. Until then, define path constants as `const paths = { email: 'email' } as const` if you want rename-safety.
+Yes — both path typos and value-type mismatches are caught at compile time.
+
+`form.get('email')` returns `string` (not `any`) when the form is typed.
+`form.set('email', 42)` is a TypeScript error when `email` is typed as `string`.
+`form.arrayAppend('items', 'wrong')` is a TypeScript error when `items` is `Array<{ name: string }>`.
+
+Dynamic computed paths (stored in a `string` variable) still work — the typed overload resolves first
+for known literal paths, then falls back to loose `string` for everything else.
 
 ---
 
@@ -448,8 +455,6 @@ The DOM bridge (`connect()`) requires an `HTMLElement` and does not apply in Rea
 ### Honest Gaps
 
 These are things `@neutro/form` does not do cleanly yet. They are not workarounds — if your project needs them, know this going in.
-
-**Strongly typed field paths** — `form.get('emal')` does not produce a TypeScript error today. Path types are on the roadmap.
 
 **`isValid` without running validation** — there is no `state.isValid` boolean. To know if the current values are valid, call `await form.validate()` and check `Object.keys(form.getState().errors).length === 0`. Disabling a submit button before the user has interacted requires this upfront validation call, which can be jarring.
 

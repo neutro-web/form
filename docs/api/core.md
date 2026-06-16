@@ -154,6 +154,29 @@ form.set('email', 'alice@example.com', { touch: true, validate: true })
 
 ---
 
+### `SetOptions`
+
+```ts
+export interface SetOptions {
+  touch?: boolean;   // Mark the field as touched when setting
+  validate?: boolean; // Trigger validation after setting
+}
+```
+
+### `ArrayItem<V>`
+
+Utility type that extracts the element type from an array type. Returns `never` for non-array types.
+
+```ts
+type Item = ArrayItem<Array<{ name: string }>>
+// { name: string }
+
+type Never = ArrayItem<string>
+// never
+```
+
+---
+
 ### `form.validate(paths?)`
 
 ```ts
