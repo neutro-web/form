@@ -775,7 +775,7 @@ function applyBuiltInRules<T>(
               if (f) files.push(f);
             }
           }
-          if (files.some((f) => f.size > limit)) error = msg;
+          if (present && files.some((f) => f.size > limit)) error = msg;
         } else if ('minFileSize' in rule) {
           const limit = (rule as { minFileSize: number; message?: string }).minFileSize;
           const msg = (rule as { message?: string }).message ?? `File must be at least ${formatBytes(limit)}`;
@@ -806,14 +806,18 @@ function applyBuiltInRules<T>(
           if (present && files.some((f) => !types.includes(f.type))) error = msg;
         } else if ('maxFiles' in rule) {
           const max = (rule as { maxFiles: number; message?: string }).maxFiles;
-          const count = isFileListLike(value) ? value.length : 0;
+          const count = isFileListLike(value)
+            ? (value as any).length
+            : (typeof File !== 'undefined' && value instanceof File ? 1 : 0);
           if (count > max)
             error =
               (rule as { message?: string }).message ??
               `Select at most ${max} file${max === 1 ? '' : 's'}`;
         } else if ('minFiles' in rule) {
           const min = (rule as { minFiles: number; message?: string }).minFiles;
-          const count = isFileListLike(value) ? value.length : 0;
+          const count = isFileListLike(value)
+            ? (value as any).length
+            : (typeof File !== 'undefined' && value instanceof File ? 1 : 0);
           if (count < min)
             error =
               (rule as { message?: string }).message ??
