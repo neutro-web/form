@@ -35,7 +35,7 @@ const age: number   = form.get('age')    // number
 
 ```ts
 form.set('email', 'hello@example.com') // ✅
-form.set('email', 42)                  // ❌ TypeScript error
+form.set('email', 42)                  // ⚠️ compiles (loose fallback) — IDE shows warning
 ```
 
 ## Typed array operations
@@ -44,7 +44,7 @@ form.set('email', 42)                  // ❌ TypeScript error
 
 ```ts
 form.arrayAppend('items', { name: 'widget', qty: 1 }) // ✅
-form.arrayAppend('items', 'not-an-object')             // ❌ TypeScript error
+form.arrayAppend('items', 'not-an-object')             // ⚠️ compiles (loose fallback) — IDE shows warning
 ```
 
 ## Dynamic paths
@@ -62,7 +62,7 @@ form.set(path, value) // ✅ always compiles — falls back to loose overload
 import type { Path, GetPathValue, ArrayItem } from '@neutro/form/core'
 
 type AllPaths = Path<SignupValues>
-// 'email' | 'age' | 'items' | 'items.${number}' | 'items.${number}.name' | ...
+// 'email' | 'age' | 'items' | `items.${number}` | `items.${number}.name` | ...
 
 type EmailType = GetPathValue<SignupValues, 'email'>
 // string

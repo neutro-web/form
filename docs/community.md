@@ -397,14 +397,19 @@ The returned `FormInstance<T>` carries all type information throughout its lifet
 
 #### Does TypeScript catch typos in field paths?
 
-Yes — both path typos and value-type mismatches are caught at compile time.
+Partially — and honestly. Here is what works and what doesn't:
 
-`form.get('email')` returns `string` (not `any`) when the form is typed.
-`form.set('email', 42)` is a TypeScript error when `email` is typed as `string`.
-`form.arrayAppend('items', 'wrong')` is a TypeScript error when `items` is `Array<{ name: string }>`.
+**What works:**
+- `form.get('email')` returns `string` (not `any`) — the returned value is typed, so downstream usage is safe: `.toUpperCase()` works; `.toFixed(2)` is a TypeScript error.
+- IDE autocomplete surfaces the available paths and expected value types while you type.
+- Assigning a `get()` result to a wrong variable type errors: `const n: number = form.get('email')` → TypeScript error.
 
-Dynamic computed paths (stored in a `string` variable) still work — the typed overload resolves first
-for known literal paths, then falls back to loose `string` for everything else.
+**What doesn't work (honest gaps):**
+- `form.set('email', 42)` compiles without error — the loose fallback overload (`val: any`) absorbs the mismatch.
+- `form.arrayAppend('items', 'wrong')` compiles without error — same reason.
+- Path typos on `set()` or `get()` do not produce compile errors.
+
+This is an inherent limitation of TypeScript's overload resolution with a loose fallback. The typed overloads provide IDE guidance and safe `get()` returns, but not call-site enforcement on `set()` or array operations.
 
 ---
 
@@ -455,6 +460,8 @@ The DOM bridge (`connect()`) requires an `HTMLElement` and does not apply in Rea
 ### Honest Gaps
 
 These are things `@neutro/form` does not do cleanly yet. They are not workarounds — if your project needs them, know this going in.
+
+**Strongly typed field paths (partial)** — `form.get('email')` returns `string`, but `form.set('email', 42)` and path typos on `set()` do not produce TypeScript errors. The typed overloads provide IDE autocomplete and safe `get()` return types but not call-site enforcement for writes.
 
 **`isValid` without running validation** — there is no `state.isValid` boolean. To know if the current values are valid, call `await form.validate()` and check `Object.keys(form.getState().errors).length === 0`. Disabling a submit button before the user has interacted requires this upfront validation call, which can be jarring.
 
