@@ -39,7 +39,7 @@ If `@neutro/form` saves you time, consider buying me a coffee. It helps keep the
 
 #### Can I use the core engine without a framework adapter?
 
-Yes. `@neutro/form-core` (or `@neutro/form/core`) has zero runtime dependencies and works in any JavaScript environment — plain HTML, web components, Node.js, or alongside any UI library without an official adapter.
+Yes. `@neutro/form/core` has zero runtime dependencies and works in any JavaScript environment — plain HTML, web components, Node.js, or alongside any UI library without an official adapter.
 
 ```ts
 import { createForm } from '@neutro/form/core'
@@ -47,10 +47,6 @@ import { createForm } from '@neutro/form/core'
 const form = createForm({ initialValues: { email: '' } })
 form.subscribe(state => console.log(state.values))
 ```
-
-#### What's the difference between `@neutro/form` and `@neutro/form-core`?
-
-`@neutro/form-core` is the standalone core package. `@neutro/form` is an alias package whose `exports` map re-routes `@neutro/form/core`, `@neutro/form/adapters/react`, etc. to the individual scoped packages. They resolve to the same code — use whichever import style you prefer.
 
 #### Why doesn't it use a global store or context provider?
 
