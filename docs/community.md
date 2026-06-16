@@ -409,6 +409,19 @@ Partially — path typos themselves are not caught, but value-type mismatches on
 - Path typos: `form.set('emal', value)` compiles without error — if the path isn't in `Path<T>`, it falls to the loose fallback with `val: unknown`.
 - Dynamic paths: `const p: string = ...; form.set(p, 42)` compiles — TypeScript can't know the type when the path is computed at runtime.
 
+#### Why doesn't `form.set('emal', value)` produce a TypeScript error?
+
+By design — to preserve dynamic path support.
+
+The typed overload uses `Path<T> | (string & {})` as its path constraint. The `(string & {})` part is an intentional escape hatch that lets dynamic computed paths compile:
+
+```ts
+const field = condition ? 'email' : 'username' // type: string
+form.set(field, value) // ✅ still works
+```
+
+Without that escape hatch, any path stored in a `string` variable would require an explicit cast (`form.set(field as Path<typeof form>, value)`). Removing it would catch typos but break a common usage pattern. Fully strict path checking — catching typos without losing dynamic paths — is a harder TypeScript problem and is on the roadmap.
+
 ---
 
 ### Testing
@@ -459,7 +472,7 @@ The DOM bridge (`connect()`) requires an `HTMLElement` and does not apply in Rea
 
 These are things `@neutro/form` does not do cleanly yet. They are not workarounds — if your project needs them, know this going in.
 
-**Strongly typed field paths (path typos not caught)** — `form.set('email', 42)` is a TypeScript error, but `form.set('emal', value)` (a typo) is not — unknown paths fall back to `val: unknown`. Dynamic runtime paths (`const p: string = ...`) are also untyped.
+**Strongly typed field paths — path typos not caught (intentional)** — `form.set('emal', value)` compiles without error. Catching path typos would require removing the dynamic-path escape hatch, which would break `const p: string = ...; form.set(p, value)`. The current design preserves dynamic paths at the cost of not catching typos. Fully strict path checking is on the roadmap.
 
 **`isValid` without running validation** — there is no `state.isValid` boolean. To know if the current values are valid, call `await form.validate()` and check `Object.keys(form.getState().errors).length === 0`. Disabling a submit button before the user has interacted requires this upfront validation call, which can be jarring.
 
