@@ -205,6 +205,33 @@ Attempting to mutate either ref directly produces a Vue warning in development. 
 
 ---
 
+## Resetting a Single Field
+
+Call `form.resetField(path)` to restore one field without touching others. With `useVueForm`, the reactive state updates automatically via the subscription:
+
+```vue
+<script setup lang="ts">
+import { useVueForm } from '@neutro/form/adapters/vue'
+
+const { state } = useVueForm(form)
+</script>
+
+<template>
+  <input :value="state.values.email" @input="form.set('email', $event.target.value, { touch: true })" />
+  <button v-if="state.errors.email" @click="form.resetField('email')">
+    Reset email
+  </button>
+</template>
+```
+
+To reset an entire nested section (e.g. an address sub-object):
+
+```ts
+form.resetField('address') // clears address.city, address.zip, etc.
+```
+
+---
+
 ## Handling Server Errors
 
 Use `form.setErrors()` inside your submit handler to feed API validation errors back into form state. They surface in `state.value.errors` and clear on the next validation run — no extra wiring required.

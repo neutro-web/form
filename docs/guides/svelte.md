@@ -221,6 +221,24 @@ Use `form.setErrors()` inside your submit handler to feed API validation errors 
 </form>
 ```
 
+## Resetting a Single Field
+
+Call `form.resetField(path)` to reset one field. The Svelte store updates reactively through the subscription:
+
+```svelte
+<script>
+  import { createSvelteForm } from '@neutro/form/adapters/svelte'
+  const { state, form } = createSvelteForm({ initialValues: { email: '' } })
+</script>
+
+<input bind:value={$state.values.email} />
+{#if $state.errors.email}
+  <button on:click={() => form.resetField('email')}>Reset</button>
+{/if}
+```
+
+---
+
 ## Validation Modes
 
 Configure when validation triggers globally and per field via `validationMode` in `createForm`:
