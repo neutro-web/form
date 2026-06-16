@@ -260,6 +260,30 @@ export function RegisterForm() {
 }
 ```
 
+## Resetting a Single Field
+
+`resetField` is available on the form instance returned by `createForm`. In SolidJS, signals update automatically through the subscription:
+
+```tsx
+import { useSolidForm } from '@neutro/form/adapters/solid'
+
+function EmailField() {
+  const { state } = useSolidForm(form)
+
+  return (
+    <>
+      <input value={state().values.email}
+             onInput={e => form.set('email', e.currentTarget.value, { touch: true })} />
+      <Show when={state().errors.email}>
+        <button onClick={() => form.resetField('email')}>Reset</button>
+      </Show>
+    </>
+  )
+}
+```
+
+---
+
 ## Validation Modes
 
 Configure when validation triggers globally and per field via `validationMode` in `createForm`:

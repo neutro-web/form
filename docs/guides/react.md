@@ -203,6 +203,34 @@ export function ProfileForm() {
 
 ---
 
+## Resetting a Single Field
+
+`resetField` is available directly from the form instance and works the same in React. A common pattern is to reset a field when the user dismisses a modal or a section:
+
+```tsx
+function ProfileForm() {
+  const { values, errors } = useForm(form)
+
+  return (
+    <div>
+      <input
+        value={values.email}
+        onChange={(e) => form.set('email', e.target.value, { touch: true })}
+      />
+      {errors.email && (
+        <button onClick={() => form.resetField('email')}>
+          Reset email
+        </button>
+      )}
+    </div>
+  )
+}
+```
+
+`resetField` does not trigger React re-renders on its own — subscribers (via `useForm` or `useFormPath`) pick up the change through the normal subscription mechanism.
+
+---
+
 ## Handling Server Errors
 
 Use `form.setErrors()` inside your submit handler to feed API validation errors back into form state. They surface in `errors` and clear on the next validation run — no extra wiring required.
