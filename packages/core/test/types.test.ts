@@ -24,13 +24,28 @@ describe('Feature 1: Typed field paths', () => {
   });
 
   it('form.set() first overload val type is GetPathValue<T, P> for a known path', () => {
-    // Test that the TYPED overload resolves the val parameter correctly.
-    // We can't test rejection via @ts-expect-error (loose fallback swallows mismatches),
-    // so we test the resolved type of the typed overload instead.
     // When P = 'email', val should be string
     expectTypeOf<GetPathValue<SignupValues, 'email'>>().toEqualTypeOf<string>();
     // When P = 'age', val should be number
     expectTypeOf<GetPathValue<SignupValues, 'age'>>().toEqualTypeOf<number>();
+  });
+
+  it('form.set() rejects wrong value type on known path', () => {
+    const form = createForm<SignupValues>({
+      initialValues: { email: '', age: 0, items: [] },
+    });
+    // @ts-expect-error — number not assignable to string
+    form.set('email', 42);
+    // @ts-expect-error — string not assignable to number
+    form.set('age', 'twenty');
+  });
+
+  it('form.arrayAppend() rejects wrong item type on known path', () => {
+    const form = createForm<SignupValues>({
+      initialValues: { email: '', age: 0, items: [] },
+    });
+    // @ts-expect-error — string not assignable to { name: string; qty: number }
+    form.arrayAppend('items', 'not-an-object');
   });
 
   it('form.set() compiles with correct value type', () => {
