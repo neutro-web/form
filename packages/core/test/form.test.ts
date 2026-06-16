@@ -709,6 +709,28 @@ describe('Validator adapters', () => {
     const errors = await adapter({ a: '', b: '' } as any);
     expect(errors).toEqual({ a: 'a-err', b: 'b-err' });
   });
+
+  it('classValidatorAdapter flattens nested DTO errors via children', async () => {
+    const mockValidate = vi.fn().mockResolvedValue([
+      {
+        property: 'address',
+        constraints: undefined,
+        children: [
+          { property: 'city', constraints: { isNotEmpty: 'city is required' }, children: [] },
+          { property: 'zip',  constraints: { isNotEmpty: 'zip is required'  }, children: [] },
+        ],
+      },
+    ]);
+    const { classValidatorAdapter } = await import('../src/index');
+    const form = createForm({
+      initialValues: { name: '', address: { city: '', zip: '' } },
+      validator: classValidatorAdapter(class {} as any, mockValidate as any),
+    });
+    await form.validate();
+    expect(form.getState().errors['address.city']).toBe('city is required');
+    expect(form.getState().errors['address.zip']).toBe('zip is required');
+    expect(form.getState().errors['address']).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
