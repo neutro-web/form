@@ -164,10 +164,47 @@ describe('Persistence middleware', () => {
       persistence: { adapter, debounceMs: 500 },
     });
     await form.hydrate();
+    // Trigger a debounced write
     form.set('email', 'pending');
+    // Advance past the skip-first synchronous subscribe callback, but NOT past the debounce window
+    vi.advanceTimersByTime(100);
+    // destroy() should cancel the pending write timer
     form.destroy();
+    // Advance well past the debounce window — the timer callback should not fire
     vi.advanceTimersByTime(1000);
     expect(adapter.write).not.toHaveBeenCalled();
     vi.useRealTimers();
+  });
+
+  it('reset(newValues) does NOT write excluded paths to storage', async () => {
+    const adapter = makeMockAdapter<{ email: string; password: string }>(null);
+    const form = createForm({
+      initialValues: { email: '', password: '' },
+      persistence: { adapter, debounceMs: 0, exclude: ['password'] },
+    });
+    await form.hydrate();
+    adapter.write.mockClear();
+    form.reset({ email: 'x@test.com', password: 'secret' });
+    const writtenArg = adapter.write.mock.calls[0]?.[0] as any;
+    expect(writtenArg).toBeDefined();
+    expect(writtenArg.email).toBe('x@test.com');
+    expect('password' in writtenArg).toBe(false);
+  });
+
+  it('hydrate() read error leaves the form usable but not persisting', async () => {
+    const adapter = {
+      read: vi.fn().mockRejectedValue(new Error('storage unavailable')),
+      write: vi.fn().mockResolvedValue(undefined),
+      clear: vi.fn().mockResolvedValue(undefined),
+    };
+    const form = createForm({
+      initialValues: { email: 'fallback@test.com' },
+      persistence: { adapter, debounceMs: 0 },
+    });
+    await form.hydrate();
+    // Subsequent field changes should NOT trigger writes (no subscription installed on read failure)
+    form.set('email', 'changed@test.com');
+    await Promise.resolve();
+    expect(adapter.write).not.toHaveBeenCalled();
   });
 });
