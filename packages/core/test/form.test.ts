@@ -3379,4 +3379,10 @@ describe('isValid', () => {
     form.clearErrors();
     expect(form.getState().isValid).toBeNull();
   });
+
+  it('is true after validate() with no validator configured', async () => {
+    const form = createForm({ initialValues: { email: '' } });
+    await form.validate();
+    expect(form.getState().isValid).toBe(true);
+  });
 });
