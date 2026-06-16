@@ -154,6 +154,39 @@ form.set('email', 'alice@example.com', { touch: true, validate: true })
 
 ---
 
+### `Path<T>`
+
+A union of all valid dot-notation field paths for the form values type `T`.
+
+```ts
+interface SignupForm {
+  email: string;
+  address: { city: string; zip: string };
+  tags: Array<{ label: string }>;
+}
+
+type AllPaths = Path<SignupForm>;
+// → 'email' | 'address' | 'address.city' | 'address.zip' | 'tags' | 'tags.0' | 'tags.0.label' | ...
+```
+
+Used as the constraint for path arguments in `get()`, `set()`, `arrayAppend()`, and `arrayInsert()`.
+
+---
+
+### `GetPathValue<T, P>`
+
+Resolves the value type at dot-notation path `P` within type `T`.
+
+```ts
+type EmailType = GetPathValue<SignupForm, 'email'>;         // string
+type CityType  = GetPathValue<SignupForm, 'address.city'>;  // string
+type TagsType  = GetPathValue<SignupForm, 'tags'>;          // { label: string }[]
+```
+
+This is what makes `form.get('email')` return `string` instead of `any`.
+
+---
+
 ### `SetOptions`
 
 ```ts

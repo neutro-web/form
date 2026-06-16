@@ -309,6 +309,18 @@ document.querySelector('form')?.addEventListener('submit', async (e) => {
 
 Server errors behave exactly like client errors: they appear in `state.errors`, fire all the same subscribers, and clear the next time that field is validated. Calling `form.reset()` wipes them along with everything else.
 
+## Resetting a Single Field
+
+To reset one field without touching others, use `resetField`:
+
+```ts
+form.resetField('email')                      // restore to initial value
+form.resetField('email', { keepError: true }) // restore value, keep error
+form.resetField('address')                    // resets address.city, address.zip too
+```
+
+`resetField` does NOT trigger validation. Errors, touched, and dirty flags are cleared by default.
+
 ## Validation Modes
 
 By default, `connect()` validates a field **on input, but only after the user has blurred it at least once** (`'onTouched'`). This avoids interrupting the user on first entry while providing immediate feedback during correction. You can change this globally or per field:
