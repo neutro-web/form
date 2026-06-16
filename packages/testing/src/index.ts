@@ -1,4 +1,4 @@
-import { createForm, type FormConfig, type FormInstance } from '@neutro/form-core';
+import { createForm, type FormConfig, type FormInstance, type ResetFieldOptions } from '@neutro/form-core';
 
 /** Batch-sets multiple field values in one notification flush. */
 export function fillForm<T extends object>(
@@ -52,6 +52,7 @@ export interface FormFixture<T extends object> {
   fill(values: Partial<Record<string, unknown>>): void;
   blur(path: string): void;
   validate(paths?: string[]): Promise<boolean>;
+  resetField(path: string, options?: ResetFieldOptions): void;
   cleanup(): void;
 }
 
@@ -72,6 +73,7 @@ export function createFormFixture<T extends object>(config: FormConfig<T>): Form
     fill: (values) => fillForm(form, values),
     blur: (path) => blurField(form, path),
     validate: (paths) => triggerValidation(form, paths),
+    resetField: (path, options) => form.resetField(path, options),
     cleanup: () => form.destroy(),
   };
 }
