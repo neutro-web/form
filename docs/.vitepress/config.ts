@@ -52,6 +52,7 @@ export default defineConfig({
             { text: 'Async Validation', link: '/guides/async-validation' },
             { text: 'Dependency Graph', link: '/guides/dependency-graph' },
             { text: 'Multi-Step Forms', link: '/guides/multi-step-forms' },
+            { text: 'TypeScript', link: '/guides/typescript' },
           ],
         },
       ],
