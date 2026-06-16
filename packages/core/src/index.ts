@@ -1587,7 +1587,19 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       // Only write to the adapter if hydrate() has run — persistenceUnsubscribe is null until then.
       if (cfg && persistenceUnsubscribe !== null) {
         if (newValues) {
-          Promise.resolve(cfg.adapter.write(newValues)).catch((err: unknown) => {
+          // Apply exclude filter before writing — same logic as buildToWrite in hydrate()
+          const excludeSet = new Set((cfg.exclude ?? []) as string[]);
+          const toWrite = deepClone(newValues) as any;
+          for (const p of excludeSet) {
+            const parts = (p as string).split('.');
+            let obj = toWrite;
+            for (let i = 0; i < parts.length - 1; i++) {
+              if (!obj || typeof obj !== 'object') break;
+              obj = obj[parts[i]];
+            }
+            if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
+          }
+          Promise.resolve(cfg.adapter.write(toWrite as T)).catch((err: unknown) => {
             console.error('[NeutroForm persistence] write() on reset failed:', err);
           });
         } else {
