@@ -390,6 +390,6 @@ export function createDevtoolsPanel(
     formMap.delete(container);
     unsubState();
     unsubActions();
-    container.replaceChildren();
+    root.replaceChildren();
   };
 }
