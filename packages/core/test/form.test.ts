@@ -3285,3 +3285,98 @@ describe('resetField', () => {
     expect(actions).toContainEqual({ type: 'RESET_FIELD', path: 'email' });
   });
 });
+
+// ---------------------------------------------------------------------------
+// isValid
+// ---------------------------------------------------------------------------
+
+describe('isValid', () => {
+  it('initial state.isValid is null', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    expect(form.getState().isValid).toBeNull();
+  });
+
+  it('is true after form.validate() with no errors', async () => {
+    const form = createForm({
+      initialValues: { email: 'ok@test.com' },
+      validator: () => ({}),
+    });
+    await form.validate();
+    expect(form.getState().isValid).toBe(true);
+  });
+
+  it('is false after form.validate() with errors', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      validator: (v) => (v.email ? {} : { email: 'Required' }),
+    });
+    await form.validate();
+    expect(form.getState().isValid).toBe(false);
+  });
+
+  it('is true after form.submit() on a valid form', async () => {
+    const form = createForm({
+      initialValues: { email: 'ok@test.com' },
+      validator: () => ({}),
+    });
+    await form.submit(async () => {});
+    expect(form.getState().isValid).toBe(true);
+  });
+
+  it('is false after form.submit() on an invalid form', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      validator: (v) => (v.email ? {} : { email: 'Required' }),
+    });
+    await form.submit(async () => {});
+    expect(form.getState().isValid).toBe(false);
+  });
+
+  it('scoped validate([path]) does NOT change isValid from null', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      validator: () => ({}),
+    });
+    await form.validate(['email']);
+    expect(form.getState().isValid).toBeNull();
+  });
+
+  it('reset() resets isValid back to null', async () => {
+    const form = createForm({
+      initialValues: { email: 'ok@test.com' },
+      validator: () => ({}),
+    });
+    await form.validate();
+    expect(form.getState().isValid).toBe(true);
+    form.reset();
+    expect(form.getState().isValid).toBeNull();
+  });
+
+  it('setErrors() after a valid validate flips isValid to false', async () => {
+    const form = createForm({
+      initialValues: { email: 'ok@test.com' },
+      validator: () => ({}),
+    });
+    await form.validate();
+    expect(form.getState().isValid).toBe(true);
+    form.setErrors({ email: 'Already taken' });
+    expect(form.getState().isValid).toBe(false);
+  });
+
+  it('clearErrors() when hasValidated makes isValid true', async () => {
+    const form = createForm({
+      initialValues: { email: 'ok@test.com' },
+      validator: () => ({}),
+    });
+    await form.validate();
+    form.setErrors({ email: 'Server error' });
+    form.clearErrors();
+    expect(form.getState().isValid).toBe(true);
+  });
+
+  it('clearErrors() when not yet validated keeps isValid null', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    form.clearErrors();
+    expect(form.getState().isValid).toBeNull();
+  });
+});
