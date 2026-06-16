@@ -108,6 +108,20 @@ const form = createForm({
 
 `classValidatorAdapter` constructs an instance of `cls`, assigns the current values onto it using `Object.assign`, then calls `validate(instance)`. The resulting `ValidationError[]` array is reduced into a `Record<string, string>` using each error's `property` as the key and the first constraint message as the value. Returns a `Promise`.
 
+#### Nested DTOs
+
+`ValidationError.children` is traversed recursively. Errors at any depth are flattened to dot-notation paths automatically:
+
+```ts
+// class-validator produces:
+// [{ property: 'address', children: [{ property: 'city', constraints: { isNotEmpty: 'city is required' } }] }]
+
+// form errors become:
+// { 'address.city': 'city is required' }
+```
+
+A node that has both `constraints` and `children` produces an error at its own path AND all descendant paths. A node with no `constraints` and no `children` produces no error.
+
 ---
 
 ## Composing Adapters with Custom Logic

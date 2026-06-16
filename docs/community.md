@@ -154,6 +154,8 @@ const form = createForm({
 })
 ```
 
+Nested DTOs are fully supported — `ValidationError.children` is traversed recursively and errors are flattened to dot-notation paths automatically (`address.city`, `order.billing.postalCode`).
+
 See the [Validation Adapters reference](/api/validation) for full details.
 
 #### How do I handle async validation (e.g., check if a username is taken)?
