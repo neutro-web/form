@@ -408,6 +408,26 @@ form.reset()
 fileInputRef.current.value = ''
 ```
 
+#### How do I validate file inputs?
+
+Use the built-in file rules:
+
+```ts
+rules: {
+  avatar: [
+    'required',
+    { maxFileSize: 5 * 1024 * 1024, message: 'Max 5 MB' },
+    { fileTypes: ['image/jpeg', 'image/png', 'image/webp'] },
+  ],
+  attachments: [
+    { minFiles: 1, message: 'Attach at least one file' },
+    { maxFiles: 3 },
+  ],
+}
+```
+
+For `FileList` inputs (the value of `input.files`), use `minFiles: 1` rather than `'required'` — it is clearer about intent. A bare `File` value is counted as 1 by `maxFiles` and `minFiles`.
+
 ---
 
 ### Performance
@@ -525,4 +545,3 @@ These are things `@neutro/form` does not do cleanly yet. They are not workaround
 
 **React Native adapter** — the core works but there is no official adapter with RN-idiomatic patterns.
 
-**Built-in file validation rules** — there are no built-in `maxFileSize` or `fileType` rules. Write them in your `validator` function (straightforward, but not as ergonomic as `rules: ['maxFileSize:5mb']`).
