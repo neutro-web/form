@@ -778,6 +778,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   let isValidating = false;
   let hasValidated = false;
   let persistenceWriteTimer: ReturnType<typeof setTimeout> | null = null;
+  let persistenceUnsubscribe: (() => void) | null = null;
 
   const globalSubscribers = new Set<FormSubscriber<T>>();
   const pathSubscribers = new Map<string, Set<PathSubscriber>>();
@@ -1583,7 +1584,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
     reset: (newValues?: T) => {
       const cfg = config.persistence;
-      if (cfg) {
+      if (cfg && persistenceUnsubscribe !== null) {
         if (newValues) {
           Promise.resolve(cfg.adapter.write(newValues)).catch((err: unknown) => {
             console.error('[NeutroForm persistence] write() on reset failed:', err);
@@ -1752,42 +1753,45 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
         notifyPathSubscribers([...pathSubscribers.keys()].filter((p) => p !== '*'));
       }
-      // Install write subscription AFTER hydration completes
-      if (cfg.debounceMs !== 0) {
-        subscribe((state) => {
-          const excludeSet = new Set((cfg.exclude ?? []) as string[]);
-          const toWrite = deepClone(state.values) as any;
-          for (const p of excludeSet) {
-            const parts = (p as string).split('.');
-            let obj = toWrite;
-            for (let i = 0; i < parts.length - 1; i++) {
-              if (!obj || typeof obj !== 'object') break;
-              obj = obj[parts[i]];
-            }
-            if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
+      // Install write subscription AFTER hydration completes.
+      // Cancel any prior subscription first (guards against double-hydrate).
+      persistenceUnsubscribe?.();
+      persistenceUnsubscribe = null;
+
+      const buildToWrite = (state: ReturnType<typeof getState>): T => {
+        const excludeSet = new Set((cfg.exclude ?? []) as string[]);
+        const toWrite = deepClone(state.values) as any;
+        for (const p of excludeSet) {
+          const parts = (p as string).split('.');
+          let obj = toWrite;
+          for (let i = 0; i < parts.length - 1; i++) {
+            if (!obj || typeof obj !== 'object') break;
+            obj = obj[parts[i]];
           }
+          if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
+        }
+        return toWrite as T;
+      };
+
+      if (cfg.debounceMs !== 0) {
+        let skipFirst = true;
+        persistenceUnsubscribe = subscribe((state) => {
+          if (skipFirst) { skipFirst = false; return; }
+          const toWrite = buildToWrite(state);
           if (persistenceWriteTimer !== null) clearTimeout(persistenceWriteTimer);
           persistenceWriteTimer = setTimeout(() => {
             persistenceWriteTimer = null;
-            Promise.resolve(cfg.adapter.write(toWrite as T)).catch((err: unknown) => {
+            Promise.resolve(cfg.adapter.write(toWrite)).catch((err: unknown) => {
               console.error('[NeutroForm persistence] write() failed:', err);
             });
           }, cfg.debounceMs ?? 300);
         });
       } else {
-        subscribe((state) => {
-          const excludeSet = new Set((cfg.exclude ?? []) as string[]);
-          const toWrite = deepClone(state.values) as any;
-          for (const p of excludeSet) {
-            const parts = (p as string).split('.');
-            let obj = toWrite;
-            for (let i = 0; i < parts.length - 1; i++) {
-              if (!obj || typeof obj !== 'object') break;
-              obj = obj[parts[i]];
-            }
-            if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
-          }
-          Promise.resolve(cfg.adapter.write(toWrite as T)).catch((err: unknown) => {
+        let skipFirst = true;
+        persistenceUnsubscribe = subscribe((state) => {
+          if (skipFirst) { skipFirst = false; return; }
+          const toWrite = buildToWrite(state);
+          Promise.resolve(cfg.adapter.write(toWrite)).catch((err: unknown) => {
             console.error('[NeutroForm persistence] write() failed:', err);
           });
         });
@@ -1816,6 +1820,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         mutationObserver.disconnect();
         mutationObserver = null;
       }
+      persistenceUnsubscribe?.();
+      persistenceUnsubscribe = null;
       if (persistenceWriteTimer !== null) {
         clearTimeout(persistenceWriteTimer);
         persistenceWriteTimer = null;
