@@ -330,6 +330,66 @@ export function classValidatorAdapter<T extends object>(
   };
 }
 
+export function localStorageAdapter<T>(key: string): PersistenceAdapter<T> {
+  return {
+    read(): T | null {
+      if (typeof localStorage === 'undefined') return null;
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? (JSON.parse(raw) as T) : null;
+      } catch {
+        return null;
+      }
+    },
+    write(values: T): void {
+      if (typeof localStorage === 'undefined') return;
+      try {
+        localStorage.setItem(key, JSON.stringify(values));
+      } catch (err) {
+        console.error('[NeutroForm] localStorageAdapter write failed:', err);
+      }
+    },
+    clear(): void {
+      if (typeof localStorage === 'undefined') return;
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // ignore
+      }
+    },
+  };
+}
+
+export function sessionStorageAdapter<T>(key: string): PersistenceAdapter<T> {
+  return {
+    read(): T | null {
+      if (typeof sessionStorage === 'undefined') return null;
+      try {
+        const raw = sessionStorage.getItem(key);
+        return raw ? (JSON.parse(raw) as T) : null;
+      } catch {
+        return null;
+      }
+    },
+    write(values: T): void {
+      if (typeof sessionStorage === 'undefined') return;
+      try {
+        sessionStorage.setItem(key, JSON.stringify(values));
+      } catch (err) {
+        console.error('[NeutroForm] sessionStorageAdapter write failed:', err);
+      }
+    },
+    clear(): void {
+      if (typeof sessionStorage === 'undefined') return;
+      try {
+        sessionStorage.removeItem(key);
+      } catch {
+        // ignore
+      }
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Utility functions
 // ---------------------------------------------------------------------------
@@ -1525,11 +1585,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const cfg = config.persistence;
       if (cfg) {
         if (newValues) {
-          cfg.adapter.write(newValues).catch((err: unknown) => {
+          Promise.resolve(cfg.adapter.write(newValues)).catch((err: unknown) => {
             console.error('[NeutroForm persistence] write() on reset failed:', err);
           });
         } else {
-          cfg.adapter.clear().catch((err: unknown) => {
+          Promise.resolve(cfg.adapter.clear()).catch((err: unknown) => {
             console.error('[NeutroForm persistence] clear() failed:', err);
           });
         }
@@ -1709,7 +1769,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           if (persistenceWriteTimer !== null) clearTimeout(persistenceWriteTimer);
           persistenceWriteTimer = setTimeout(() => {
             persistenceWriteTimer = null;
-            cfg.adapter.write(toWrite as T).catch((err: unknown) => {
+            Promise.resolve(cfg.adapter.write(toWrite as T)).catch((err: unknown) => {
               console.error('[NeutroForm persistence] write() failed:', err);
             });
           }, cfg.debounceMs ?? 300);
@@ -1727,7 +1787,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
             }
             if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
           }
-          cfg.adapter.write(toWrite as T).catch((err: unknown) => {
+          Promise.resolve(cfg.adapter.write(toWrite as T)).catch((err: unknown) => {
             console.error('[NeutroForm persistence] write() failed:', err);
           });
         });
