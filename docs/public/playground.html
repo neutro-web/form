@@ -2583,29 +2583,25 @@ run(el) {
 // ── Step 19 ─────────────────────────────────────────────────────────────────
 {
 title: 'Devtools Panel',
-desc: 'createDevtoolsPanel(form, container) mounts a live DOM panel that shows current state (values, errors, touched, dirty) and a real-time action log. It updates on every form change via form.subscribe() and form._subscribeToActions(). Call unsub() to tear it down — the panel is removed and both subscriptions are cleaned up.',
-code: `import { createDevtoolsPanel } from '@neutro/form/devtools';
+desc: 'createNeutroFormDevtoolsPanel(form) mounts a floating overlay in the bottom-right corner — no container div needed. A ▴ NF button toggles it open/closed. It subscribes to form state and action log in real time. Call unsub() to tear it down completely.',
+code: `import { createNeutroFormDevtoolsPanel } from '@neutro/form/devtools';
 
 const form = createForm({
   initialValues: { name: '', email: '' },
   rules: { email: ['required', 'email'] },
 });
 
-// Mount the panel into any container element
-const container = document.getElementById('devtools-mount');
-const unsub = createDevtoolsPanel(form, container, {
-  name: 'Demo Form',
-  maxLogEntries: 20,
-});
+// Floating panel — appears in bottom-right corner of the page
+const unsub = createNeutroFormDevtoolsPanel(form, { name: 'My Form' });
 
-// Every set(), validate(), reset() etc. updates the panel live
+// Every set(), validate(), reset() updates the panel live
 form.set('name', 'Alice');
 await form.validate();
 
-// Tear down: removes DOM + unsubscribes
+// Tear down — removes overlay + cleans up subscriptions
 unsub();`,
 async run(el) {
-  const { createDevtoolsPanel } = await import('./form-devtools.esm.js');
+  const { createNeutroFormDevtoolsPanel } = await import('./form-devtools.esm.js');
 
   const form = createForm({
     initialValues: { name: '', email: '' },
@@ -2627,15 +2623,18 @@ async run(el) {
       <div class="btn-row">
         <button class="btn primary" id="dt-validate">Validate</button>
         <button class="btn" id="dt-reset">Reset</button>
-        <button class="btn sm" id="dt-toggle">Unmount panel</button>
       </div>
       <div class="hr"></div>
-      <div class="sec">Live Devtools Panel</div>
-      <div id="devtools-mount" style="margin-top:4px;border-radius:6px;overflow:hidden;"></div>
+      <p style="font-size:11px;color:var(--t2);line-height:1.6;">
+        The devtools panel floats in the bottom-right corner of the page.<br>
+        Click <strong style="color:var(--t0)">▴ NF</strong> to expand it.
+      </p>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn sm" id="dt-toggle">Unmount panel</button>
+      </div>
     </div>`;
 
-  const mountEl = el.querySelector('#devtools-mount');
-  let unsub = createDevtoolsPanel(form, mountEl, { name: 'Demo Form', maxLogEntries: 20 });
+  let unsub = createNeutroFormDevtoolsPanel(form, { name: 'Demo Form' });
   let mounted = true;
 
   const nameInput  = el.querySelector('#dt-name');
@@ -2663,13 +2662,13 @@ async run(el) {
       mounted = false;
       toggleBtn.textContent = 'Remount panel';
     } else {
-      unsub = createDevtoolsPanel(form, mountEl, { name: 'Demo Form', maxLogEntries: 20 });
+      unsub = createNeutroFormDevtoolsPanel(form, { name: 'Demo Form' });
       mounted = true;
       toggleBtn.textContent = 'Unmount panel';
     }
   });
 
-  el._cleanup = () => { unsub(); unsubErr(); };
+  el._cleanup = () => { if (mounted) unsub(); unsubErr(); };
   return form;
 },
 },

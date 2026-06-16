@@ -111,43 +111,49 @@ form._subscribeToActions(fn: (action: FormAction, state: FormState<T>) => void):
 
 Internal escape hatch used by `devtools()`. The callback receives the labeled action and the post-mutation state snapshot. Use `devtools()` instead — `_subscribeToActions` has no stability guarantees across versions.
 
-## `createDevtoolsPanel(form, container, options?)`
+## `createNeutroFormDevtoolsPanel(form, options?)`
 
-Mounts a reactive DOM panel inside `container` showing the form's current state and an action log. Returns an unsubscribe function that unmounts the panel.
+Mounts a reactive devtools overlay for a form instance. Returns an unsubscribe function that removes the overlay and cleans up all subscriptions.
 
 ```ts
-function createDevtoolsPanel<T extends object>(
+function createNeutroFormDevtoolsPanel<T extends object>(
   form: FormInstance<T>,
-  container: HTMLElement,
   options?: DevtoolsPanelOptions
 ): () => void
 ```
 
+**Default (floating overlay):** when called without `options.container`, a fixed-position panel is appended to `document.body` with a `▴ NF` toggle button in the bottom-right corner.
+
 ```ts
-import { createDevtoolsPanel } from '@neutro/form/devtools'
+import { createNeutroFormDevtoolsPanel } from '@neutro/form/devtools'
 
-const unsub = createDevtoolsPanel(form, document.getElementById('debug-panel')!, {
-  name: 'Signup Form',
-  theme: 'auto',
-  maxLogEntries: 50,
-  collapsed: false,
-})
+const unsub = createNeutroFormDevtoolsPanel(form, { name: 'Signup Form' })
 
-// Call unsub() to remove the panel
+// Call unsub() to remove the overlay
 ```
 
-**Options (`DevtoolsPanelOptions`):**
+**Inline mode:** provide `options.container` to mount the panel inside a specific element instead.
+
+```ts
+const unsub = createNeutroFormDevtoolsPanel(form, {
+  name: 'Signup Form',
+  container: document.getElementById('debug-panel')!,
+})
+```
+
+**`DevtoolsPanelOptions`:**
 
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `name` | `string` | `'Form'` | Label shown in the panel header |
-| `theme` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Color theme (reserved for future styling) |
+| `container` | `HTMLElement` | — | Mount inline inside this element. Omit for floating overlay. |
+| `theme` | `'light' \| 'dark' \| 'auto'` | `'auto'` | Color theme (reserved for future use) |
 | `maxLogEntries` | `number` | `50` | Maximum action log entries before oldest are dropped |
-| `collapsed` | `boolean` | `false` | Start with the panel body collapsed |
+| `collapsed` | `boolean` | `false` | Start with the panel body hidden |
 
 **Notes:**
 - No-op in SSR environments (`typeof document === 'undefined'`)
-- The same form can power multiple panels in different containers
-- Calling with the same `form` + `container` pair twice logs a warning and returns a no-op unsubscriber
-- State values are rendered via `textContent` (never `innerHTML`) — safe against XSS from user-controlled form values
-- The panel uses Shadow DOM when available, with a light DOM fallback
+- One floating panel per form — calling twice without first unsubscribing logs a warning and returns a no-op
+- The same form can power panels in multiple different containers (inline mode)
+- State values are rendered via `textContent` (never `innerHTML`) — safe against XSS
+- Inline mode uses Shadow DOM when available, with a light DOM fallback

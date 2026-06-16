@@ -10,7 +10,10 @@ export interface DevtoolsPanelOptions {
   name?: string;
   theme?: 'light' | 'dark' | 'auto';
   maxLogEntries?: number;
+  /** Start with the panel collapsed (floating mode: panel hidden; inline mode: body hidden). Default: false */
   collapsed?: boolean;
+  /** If provided, mount inline inside this element. If omitted, creates a floating fixed overlay appended to document.body. */
+  container?: HTMLElement;
 }
 
 const BADGE_STYLE =
@@ -236,119 +239,233 @@ export function devtools<T extends object>(
   };
 }
 
-// Per-(form, container) registry to guard against duplicate mounts
-const panelRegistry = new WeakMap<FormInstance<any>, WeakMap<HTMLElement, true>>();
+// Floating-mode registry: one floating panel per form instance
+const floatingRegistry = new WeakSet<FormInstance<any>>();
+// Inline-mode registry: tracks (form, container) pairs
+const inlinePanelRegistry = new WeakMap<FormInstance<any>, WeakSet<HTMLElement>>();
 
-export function createDevtoolsPanel(
+export function createNeutroFormDevtoolsPanel(
   form: FormInstance<any>,
-  container: HTMLElement,
   options: DevtoolsPanelOptions = {}
 ): () => void {
   if (typeof document === 'undefined') {
-    console.warn('[NeutroForm devtools] createDevtoolsPanel called in SSR — no-op');
+    console.warn('[NeutroForm devtools] createNeutroFormDevtoolsPanel called in SSR — no-op');
     return () => {};
   }
-
-  if (!panelRegistry.has(form)) panelRegistry.set(form, new WeakMap());
-  const formMap = panelRegistry.get(form)!;
-  if (formMap.has(container)) {
-    console.warn('[NeutroForm devtools] createDevtoolsPanel called twice on the same form+container — returning no-op; keep the unsubscribe returned by the first call');
-    return () => {};
-  }
-  formMap.set(container, true);
 
   const name = options.name ?? 'Form';
   const maxLogEntries = options.maxLogEntries ?? 50;
+  const floatingMode = !options.container;
 
-  // --- Shadow DOM (fall back to light DOM if attachShadow is not available) ---
-  let root: ShadowRoot | HTMLElement;
-  try {
-    root = container.attachShadow({ mode: 'open' });
-  } catch {
-    // Light DOM fallback — inject global style once
-    if (!document.getElementById('neutro-devtools-panel-style')) {
-      const styleEl = document.createElement('style');
-      styleEl.id = 'neutro-devtools-panel-style';
-      styleEl.textContent = `
-        .nf-panel { font-family: monospace; font-size: 12px; border: 1px solid #444; border-radius: 4px; overflow: hidden; }
-        .nf-panel-header { background: #1e1e2e; color: #cdd6f4; padding: 6px 10px; display: flex; gap: 8px; align-items: center; cursor: pointer; }
-        .nf-panel-body { background: #181825; color: #cdd6f4; padding: 8px; max-height: 400px; overflow-y: auto; }
-        .nf-badge { font-size: 10px; padding: 1px 5px; border-radius: 3px; background: #313244; }
-        .nf-badge-valid { background: #a6e3a1; color: #1e1e2e; }
-        .nf-badge-invalid { background: #f38ba8; color: #1e1e2e; }
-        .nf-section-title { color: #89b4fa; font-weight: bold; margin: 4px 0 2px; }
-        .nf-log-entry { border-bottom: 1px solid #313244; padding: 2px 0; }
-        .nf-log-type { color: #f38ba8; }
-      `;
-      document.head.appendChild(styleEl);
+  // ── Duplicate guard ──────────────────────────────────────────────────────
+  if (floatingMode) {
+    if (floatingRegistry.has(form)) {
+      console.warn('[NeutroForm devtools] A floating panel is already mounted for this form — returning no-op; keep the unsubscribe returned by the first call');
+      return () => {};
     }
-    root = container;
+    floatingRegistry.add(form);
+  } else {
+    const container = options.container!;
+    if (!inlinePanelRegistry.has(form)) inlinePanelRegistry.set(form, new WeakSet());
+    const formSet = inlinePanelRegistry.get(form)!;
+    if (formSet.has(container)) {
+      console.warn('[NeutroForm devtools] createNeutroFormDevtoolsPanel called twice on the same form+container — returning no-op; keep the unsubscribe returned by the first call');
+      return () => {};
+    }
+    formSet.add(container);
   }
 
-  // --- Build panel DOM ---
-  const panel = document.createElement('div');
-  panel.className = 'nf-panel';
+  // ── Shared DOM refs ──────────────────────────────────────────────────────
+  let stateNode: HTMLPreElement;
+  let logList: HTMLElement;
+  let validBadge: HTMLElement;
+  let submittingBadge: HTMLElement;
+  let validatingBadge: HTMLElement;
+  let root: HTMLElement | ShadowRoot;
 
-  const header = document.createElement('div');
-  header.className = 'nf-panel-header';
-  header.appendChild(document.createTextNode(`NeutroForm: ${name}`));
+  if (floatingMode) {
+    // ── Floating overlay ───────────────────────────────────────────────────
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:2147483647;font-family:"SF Mono",Menlo,monospace;font-size:12px;';
+    document.body.appendChild(wrapper);
+    root = wrapper;
 
-  const validBadge = document.createElement('span');
-  validBadge.className = 'nf-badge';
-  header.appendChild(validBadge);
+    let panelOpen = options.collapsed !== true;
 
-  const submittingBadge = document.createElement('span');
-  submittingBadge.className = 'nf-badge';
-  header.appendChild(submittingBadge);
+    const panelEl = document.createElement('div');
+    panelEl.style.cssText = [
+      'width:320px;max-height:500px;display:' + (panelOpen ? 'flex' : 'none') + ';flex-direction:column;',
+      'background:#1e1e2e;color:#cdd6f4;border:1px solid #45475a;border-radius:8px;',
+      'margin-bottom:8px;box-shadow:0 8px 32px rgba(0,0,0,.6);overflow:hidden;',
+    ].join('');
 
-  const validatingBadge = document.createElement('span');
-  validatingBadge.className = 'nf-badge';
-  header.appendChild(validatingBadge);
+    // Header
+    const headerEl = document.createElement('div');
+    headerEl.style.cssText = 'background:#181825;padding:8px 12px;border-bottom:1px solid #45475a;display:flex;align-items:center;gap:6px;flex-shrink:0;';
 
-  const body = document.createElement('div');
-  body.className = 'nf-panel-body';
-  if (options.collapsed) body.style.display = 'none';
+    const titleEl = document.createElement('span');
+    titleEl.style.cssText = 'font-weight:bold;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    titleEl.textContent = `NeutroForm: ${name}`;
+    headerEl.appendChild(titleEl);
 
-  header.addEventListener('click', () => {
-    body.style.display = body.style.display === 'none' ? '' : 'none';
-  });
+    validBadge = document.createElement('span');
+    validBadge.style.cssText = 'font-size:10px;padding:1px 6px;border-radius:10px;white-space:nowrap;background:#313244;color:#cdd6f4;';
+    headerEl.appendChild(validBadge);
 
-  // State section
-  const stateTitle = document.createElement('div');
-  stateTitle.className = 'nf-section-title';
-  stateTitle.textContent = 'State';
-  body.appendChild(stateTitle);
+    submittingBadge = document.createElement('span');
+    submittingBadge.style.cssText = 'font-size:10px;padding:1px 6px;border-radius:10px;white-space:nowrap;background:#fab387;color:#1e1e2e;display:none;';
+    submittingBadge.textContent = 'submitting';
+    headerEl.appendChild(submittingBadge);
 
-  const stateNode = document.createElement('pre');
-  stateNode.style.margin = '0';
-  body.appendChild(stateNode);
+    validatingBadge = document.createElement('span');
+    validatingBadge.style.cssText = 'font-size:10px;padding:1px 6px;border-radius:10px;white-space:nowrap;background:#89b4fa;color:#1e1e2e;display:none;';
+    validatingBadge.textContent = 'validating…';
+    headerEl.appendChild(validatingBadge);
 
-  // Action log section
-  const logTitle = document.createElement('div');
-  logTitle.className = 'nf-section-title';
-  logTitle.textContent = 'Action log';
-  body.appendChild(logTitle);
+    panelEl.appendChild(headerEl);
 
-  const logList = document.createElement('div');
-  body.appendChild(logList);
+    // Body
+    const bodyEl = document.createElement('div');
+    bodyEl.style.cssText = 'padding:8px 12px;overflow-y:auto;flex:1;';
 
-  panel.appendChild(header);
-  panel.appendChild(body);
-  root.appendChild(panel);
+    const stateLabel = document.createElement('div');
+    stateLabel.style.cssText = 'color:#89b4fa;font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;';
+    stateLabel.textContent = 'State';
+    bodyEl.appendChild(stateLabel);
 
-  // --- Helpers ---
+    stateNode = document.createElement('pre');
+    stateNode.style.cssText = 'margin:0 0 8px;font-size:11px;white-space:pre-wrap;word-break:break-all;color:#a6e3a1;max-height:180px;overflow-y:auto;';
+    bodyEl.appendChild(stateNode);
+
+    const logLabel = document.createElement('div');
+    logLabel.style.cssText = 'color:#89b4fa;font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;';
+    logLabel.textContent = 'Action log';
+    bodyEl.appendChild(logLabel);
+
+    logList = document.createElement('div');
+    logList.style.cssText = 'max-height:130px;overflow-y:auto;';
+    bodyEl.appendChild(logList);
+
+    panelEl.appendChild(bodyEl);
+    wrapper.appendChild(panelEl);
+
+    // Toggle button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.style.cssText = 'display:block;margin-left:auto;background:#6c6f85;color:#cdd6f4;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-family:inherit;font-size:11px;font-weight:bold;';
+    toggleBtn.textContent = panelOpen ? '▾ NF' : '▴ NF';
+    toggleBtn.addEventListener('mouseenter', () => { toggleBtn.style.background = '#7f849c'; });
+    toggleBtn.addEventListener('mouseleave', () => { toggleBtn.style.background = '#6c6f85'; });
+    toggleBtn.addEventListener('click', () => {
+      panelOpen = !panelOpen;
+      panelEl.style.display = panelOpen ? 'flex' : 'none';
+      toggleBtn.textContent = panelOpen ? '▾ NF' : '▴ NF';
+    });
+    wrapper.appendChild(toggleBtn);
+
+  } else {
+    // ── Inline mode ────────────────────────────────────────────────────────
+    const container = options.container!;
+
+    // Reuse existing shadowRoot if present (handles remount after unsub)
+    if (container.shadowRoot) {
+      root = container.shadowRoot;
+    } else {
+      try {
+        root = container.attachShadow({ mode: 'open' });
+      } catch {
+        if (!document.getElementById('neutro-devtools-panel-style')) {
+          const styleEl = document.createElement('style');
+          styleEl.id = 'neutro-devtools-panel-style';
+          styleEl.textContent = [
+            '.nf-panel{font-family:monospace;font-size:12px;border:1px solid #45475a;border-radius:6px;overflow:hidden;}',
+            '.nf-panel-header{background:#1e1e2e;color:#cdd6f4;padding:8px 12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;cursor:pointer;}',
+            '.nf-panel-body{background:#181825;color:#cdd6f4;padding:8px 12px;max-height:400px;overflow-y:auto;}',
+            '.nf-badge{font-size:10px;padding:1px 6px;border-radius:10px;background:#313244;color:#cdd6f4;white-space:nowrap;}',
+            '.nf-badge-valid{background:rgba(166,227,161,.3);color:#a6e3a1;}',
+            '.nf-badge-invalid{background:rgba(243,139,168,.3);color:#f38ba8;}',
+            '.nf-section-title{color:#89b4fa;font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin:6px 0 3px;}',
+            '.nf-log-entry{border-bottom:1px solid #313244;padding:2px 0;font-size:11px;}',
+            '.nf-log-type{color:#f38ba8;}',
+          ].join('');
+          document.head.appendChild(styleEl);
+        }
+        root = container;
+      }
+    }
+
+    const panelEl = document.createElement('div');
+    panelEl.className = 'nf-panel';
+
+    const headerEl = document.createElement('div');
+    headerEl.className = 'nf-panel-header';
+
+    const titleEl = document.createElement('span');
+    titleEl.style.cssText = 'font-weight:bold;flex:1;';
+    titleEl.textContent = `NeutroForm: ${name}`;
+    headerEl.appendChild(titleEl);
+
+    validBadge = document.createElement('span');
+    validBadge.className = 'nf-badge';
+    headerEl.appendChild(validBadge);
+
+    submittingBadge = document.createElement('span');
+    submittingBadge.className = 'nf-badge';
+    submittingBadge.style.cssText = 'background:#fab387;color:#1e1e2e;display:none;';
+    submittingBadge.textContent = 'submitting';
+    headerEl.appendChild(submittingBadge);
+
+    validatingBadge = document.createElement('span');
+    validatingBadge.className = 'nf-badge';
+    validatingBadge.style.cssText = 'background:#89b4fa;color:#1e1e2e;display:none;';
+    validatingBadge.textContent = 'validating…';
+    headerEl.appendChild(validatingBadge);
+
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'nf-panel-body';
+    if (options.collapsed) bodyEl.style.display = 'none';
+
+    headerEl.addEventListener('click', () => {
+      bodyEl.style.display = bodyEl.style.display === 'none' ? '' : 'none';
+    });
+
+    const stateLabel = document.createElement('div');
+    stateLabel.className = 'nf-section-title';
+    stateLabel.textContent = 'State';
+    bodyEl.appendChild(stateLabel);
+
+    stateNode = document.createElement('pre');
+    stateNode.style.margin = '0 0 4px';
+    bodyEl.appendChild(stateNode);
+
+    const logLabel = document.createElement('div');
+    logLabel.className = 'nf-section-title';
+    logLabel.textContent = 'Action log';
+    bodyEl.appendChild(logLabel);
+
+    logList = document.createElement('div');
+    bodyEl.appendChild(logList);
+
+    panelEl.appendChild(headerEl);
+    panelEl.appendChild(bodyEl);
+    root.appendChild(panelEl);
+  }
+
+  // ── Shared helpers ───────────────────────────────────────────────────────
   const updateBadges = (state: FormState<any>) => {
     const iv = state.isValid;
     validBadge.textContent = iv === null ? 'unknown' : iv ? 'valid' : 'invalid';
-    validBadge.className = `nf-badge ${iv === true ? 'nf-badge-valid' : iv === false ? 'nf-badge-invalid' : ''}`;
-    submittingBadge.textContent = state.isSubmitting ? 'submitting' : '';
+    if (floatingMode) {
+      validBadge.style.background = iv === true ? 'rgba(166,227,161,.3)' : iv === false ? 'rgba(243,139,168,.3)' : '#313244';
+      validBadge.style.color = iv === true ? '#a6e3a1' : iv === false ? '#f38ba8' : '#cdd6f4';
+    } else {
+      validBadge.className = `nf-badge${iv === true ? ' nf-badge-valid' : iv === false ? ' nf-badge-invalid' : ''}`;
+    }
     submittingBadge.style.display = state.isSubmitting ? '' : 'none';
-    validatingBadge.textContent = state.isValidating ? 'validating…' : '';
     validatingBadge.style.display = state.isValidating ? '' : 'none';
   };
 
   const updateState = (state: FormState<any>) => {
-    // Use textContent — never innerHTML — to safely render user-controlled JSON
+    // textContent only — never innerHTML — safe against XSS from user-controlled values
     stateNode.textContent = JSON.stringify(
       { values: state.values, errors: state.errors, touched: state.touched, dirty: state.dirty },
       null,
@@ -358,24 +475,30 @@ export function createDevtoolsPanel(
 
   const appendLog = (action: FormAction) => {
     const entry = document.createElement('div');
-    entry.className = 'nf-log-entry';
     const typeSpan = document.createElement('span');
-    typeSpan.className = 'nf-log-type';
     typeSpan.textContent = action.type;
+    const timeNode = document.createTextNode(` ${new Date().toLocaleTimeString('en', { hour12: false } as Intl.DateTimeFormatOptions)}`);
     entry.appendChild(typeSpan);
-    entry.appendChild(document.createTextNode(` ${new Date().toLocaleTimeString()}`));
+    entry.appendChild(timeNode);
+    if (floatingMode) {
+      entry.style.cssText = 'border-bottom:1px solid #313244;padding:2px 0;font-size:11px;';
+      typeSpan.style.color = '#f38ba8';
+    } else {
+      entry.className = 'nf-log-entry';
+      typeSpan.className = 'nf-log-type';
+    }
     logList.insertBefore(entry, logList.firstChild);
     while (logList.children.length > maxLogEntries) {
       logList.removeChild(logList.lastChild!);
     }
   };
 
-  // --- Initial render ---
+  // Initial render
   const initialState = form.getState();
   updateBadges(initialState);
   updateState(initialState);
 
-  // --- Subscriptions ---
+  // Subscriptions
   const unsubState = form.subscribe((state) => {
     updateBadges(state);
     updateState(state);
@@ -386,10 +509,17 @@ export function createDevtoolsPanel(
     appendLog(action);
   });
 
+  // Teardown
   return () => {
-    formMap.delete(container);
     unsubState();
     unsubActions();
-    root.replaceChildren();
+    if (floatingMode) {
+      floatingRegistry.delete(form);
+      (root as HTMLElement).remove();
+    } else {
+      const container = options.container!;
+      inlinePanelRegistry.get(form)?.delete(container);
+      root.replaceChildren();
+    }
   };
 }
