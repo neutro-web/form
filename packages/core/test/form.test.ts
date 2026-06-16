@@ -731,6 +731,80 @@ describe('Validator adapters', () => {
     expect(form.getState().errors['address.zip']).toBe('zip is required');
     expect(form.getState().errors['address']).toBeUndefined();
   });
+
+  it('existing flat DTO behaviour is unchanged', async () => {
+    const mockValidate = vi.fn().mockResolvedValue([
+      { property: 'email', constraints: { isEmail: 'invalid email' }, children: [] },
+    ]);
+    const { classValidatorAdapter } = await import('../src/index');
+    const form = createForm({
+      initialValues: { email: '' },
+      validator: classValidatorAdapter(class {} as any, mockValidate as any),
+    });
+    await form.validate();
+    expect(form.getState().errors.email).toBe('invalid email');
+  });
+
+  it('three levels deep: order.billing.postalCode', async () => {
+    const mockValidate = vi.fn().mockResolvedValue([
+      {
+        property: 'order',
+        children: [{
+          property: 'billing',
+          children: [{
+            property: 'postalCode',
+            constraints: { isNotEmpty: 'postal code required' },
+          }],
+        }],
+      },
+    ]);
+    const { classValidatorAdapter } = await import('../src/index');
+    const form = createForm({
+      initialValues: { order: { billing: { postalCode: '' } } },
+      validator: classValidatorAdapter(class {} as any, mockValidate as any),
+    });
+    await form.validate();
+    expect(form.getState().errors['order.billing.postalCode']).toBe('postal code required');
+  });
+
+  it('children with no constraints and no further children: no error recorded', async () => {
+    const mockValidate = vi.fn().mockResolvedValue([
+      {
+        property: 'address',
+        constraints: undefined,
+        children: [
+          { property: 'city', constraints: undefined, children: [] },
+        ],
+      },
+    ]);
+    const { classValidatorAdapter } = await import('../src/index');
+    const form = createForm({
+      initialValues: { address: { city: '' } },
+      validator: classValidatorAdapter(class {} as any, mockValidate as any),
+    });
+    await form.validate();
+    expect(Object.keys(form.getState().errors)).toHaveLength(0);
+  });
+
+  it('entry with both constraints and children: parent gets message AND children are flattened', async () => {
+    const mockValidate = vi.fn().mockResolvedValue([
+      {
+        property: 'address',
+        constraints: { isObject: 'must be an object' },
+        children: [
+          { property: 'city', constraints: { isNotEmpty: 'city required' }, children: [] },
+        ],
+      },
+    ]);
+    const { classValidatorAdapter } = await import('../src/index');
+    const form = createForm({
+      initialValues: { address: { city: '' } },
+      validator: classValidatorAdapter(class {} as any, mockValidate as any),
+    });
+    await form.validate();
+    expect(form.getState().errors['address']).toBe('must be an object');
+    expect(form.getState().errors['address.city']).toBe('city required');
+  });
 });
 
 // ---------------------------------------------------------------------------
