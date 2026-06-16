@@ -107,7 +107,13 @@ export type BuiltInRule =
   | { before: string; message?: string } // date/time before value at path
   // Conditional presence
   | { requiredIf: string; message?: string } // required when field at path is truthy
-  | { requiredUnless: string; message?: string }; // required unless field at path is truthy
+  | { requiredUnless: string; message?: string } // required unless field at path is truthy
+  // File validation
+  | { maxFileSize: number; message?: string } // every file must be <= n bytes
+  | { minFileSize: number; message?: string } // every file must be >= n bytes
+  | { fileTypes: string[]; message?: string } // every file MIME type must be in list
+  | { maxFiles: number; message?: string } // FileList length <= n
+  | { minFiles: number; message?: string }; // FileList length >= n
 
 export type ValidationMode = 'onChange' | 'onBlur' | 'onTouched' | 'onSubmitOnly';
 
@@ -547,13 +553,21 @@ export function compileDependencyScopes(
 // Built-in rule runner
 // ---------------------------------------------------------------------------
 
+function isFileListLike(v: unknown): v is { length: number; item: (i: number) => File | null } {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  if (typeof FileList !== 'undefined' && v instanceof FileList) return true;
+  // Duck-type for environments where FileList is unavailable (Node/test)
+  return typeof (v as any).length === 'number' && typeof (v as any).item === 'function';
+}
+
 function isEmpty(v: unknown): boolean {
   return (
     v === undefined ||
     v === null ||
     v === '' ||
     (typeof v === 'string' && !v.trim()) ||
-    (Array.isArray(v) && v.length === 0)
+    (Array.isArray(v) && v.length === 0) ||
+    (isFileListLike(v) && v.length === 0)
   );
 }
 
@@ -564,6 +578,12 @@ function toDate(v: unknown): Date | null {
     return Number.isNaN(d.getTime()) ? null : d;
   }
   return null;
+}
+
+function formatBytes(n: number): string {
+  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  if (n >= 1024) return `${Math.round(n / 1024)} KB`;
+  return `${n} B`;
 }
 
 function applyBuiltInRules<T>(
@@ -741,6 +761,63 @@ function applyBuiltInRules<T>(
             (rule as { requiredUnless: string }).requiredUnless
           );
           if (!trigger && !present) error = rule.message ?? 'Required';
+
+          // ── File validation ───────────────────────────────────────────────
+        } else if ('maxFileSize' in rule) {
+          const limit = (rule as { maxFileSize: number; message?: string }).maxFileSize;
+          const msg = (rule as { message?: string }).message ?? `File must be at most ${formatBytes(limit)}`;
+          const files: File[] = [];
+          if (typeof File !== 'undefined' && value instanceof File) {
+            files.push(value);
+          } else if (isFileListLike(value)) {
+            for (let i = 0; i < value.length; i++) {
+              const f = value.item(i);
+              if (f) files.push(f);
+            }
+          }
+          if (files.some((f) => f.size > limit)) error = msg;
+        } else if ('minFileSize' in rule) {
+          const limit = (rule as { minFileSize: number; message?: string }).minFileSize;
+          const msg = (rule as { message?: string }).message ?? `File must be at least ${formatBytes(limit)}`;
+          const files: File[] = [];
+          if (typeof File !== 'undefined' && value instanceof File) {
+            files.push(value);
+          } else if (isFileListLike(value)) {
+            for (let i = 0; i < value.length; i++) {
+              const f = value.item(i);
+              if (f) files.push(f);
+            }
+          }
+          if (present && files.some((f) => f.size < limit)) error = msg;
+        } else if ('fileTypes' in rule) {
+          const types = (rule as { fileTypes: string[]; message?: string }).fileTypes;
+          const msg =
+            (rule as { message?: string }).message ??
+            `File type must be one of: ${types.join(', ')}`;
+          const files: File[] = [];
+          if (typeof File !== 'undefined' && value instanceof File) {
+            files.push(value);
+          } else if (isFileListLike(value)) {
+            for (let i = 0; i < value.length; i++) {
+              const f = value.item(i);
+              if (f) files.push(f);
+            }
+          }
+          if (present && files.some((f) => !types.includes(f.type))) error = msg;
+        } else if ('maxFiles' in rule) {
+          const max = (rule as { maxFiles: number; message?: string }).maxFiles;
+          const count = isFileListLike(value) ? value.length : 0;
+          if (count > max)
+            error =
+              (rule as { message?: string }).message ??
+              `Select at most ${max} file${max === 1 ? '' : 's'}`;
+        } else if ('minFiles' in rule) {
+          const min = (rule as { minFiles: number; message?: string }).minFiles;
+          const count = isFileListLike(value) ? value.length : 0;
+          if (count < min)
+            error =
+              (rule as { message?: string }).message ??
+              `Select at least ${min} file${min === 1 ? '' : 's'}`;
         }
       }
 

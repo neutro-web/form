@@ -3386,3 +3386,19 @@ describe('isValid', () => {
     expect(form.getState().isValid).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Built-in rules — file validation
+// ---------------------------------------------------------------------------
+
+describe('built-in rules — file validation', () => {
+  it('required rule detects empty FileList (isEmpty fix)', async () => {
+    const fileList = { length: 0, item: () => null } as unknown as FileList;
+    const form = createForm({
+      initialValues: { attachment: fileList as FileList | null },
+      rules: { attachment: 'required' },
+    });
+    await form.validate();
+    expect(form.getState().errors.attachment).toBe('Required');
+  });
+});
