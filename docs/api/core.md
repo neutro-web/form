@@ -495,6 +495,62 @@ Clears all subscriptions, cancels any in-flight async validators, disconnects th
 
 ---
 
+## Persistence
+
+### `FormConfig.persistence`
+
+Optional. Configure auto-save behaviour:
+
+```ts
+persistence?: {
+  adapter: PersistenceAdapter<T>
+  debounceMs?: number  // default 300. Set to 0 to write on every change.
+  exclude?: string[]   // paths to exclude from read and write
+}
+```
+
+### `hydrate()`
+
+Reads stored values from the persistence adapter and merges them into the form as the new initial values. Returns a `Promise<void>`. Call once after mount. No-op if no adapter is configured.
+
+```ts
+await form.hydrate()
+```
+
+### `localStorageAdapter<T>(key)`
+
+Returns a `PersistenceAdapter<T>` backed by `localStorage`. SSR-safe — returns `null` when `localStorage` is unavailable.
+
+```ts
+import { localStorageAdapter } from '@neutro/form/core'
+
+const adapter = localStorageAdapter<MyValues>('my-form-key')
+```
+
+### `sessionStorageAdapter<T>(key)`
+
+Returns a `PersistenceAdapter<T>` backed by `sessionStorage`. SSR-safe. Values are cleared when the browser tab closes.
+
+```ts
+import { sessionStorageAdapter } from '@neutro/form/core'
+
+const adapter = sessionStorageAdapter<MyValues>('my-form-key')
+```
+
+### `PersistenceAdapter<T>`
+
+Interface for custom storage backends:
+
+```ts
+export interface PersistenceAdapter<T> {
+  read(): T | null | undefined | Promise<T | null | undefined>
+  write(values: T): void | Promise<void>
+  clear(): void | Promise<void>
+}
+```
+
+---
+
 ### `form.arrayAppend(path, item)`
 
 ```ts

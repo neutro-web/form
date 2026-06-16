@@ -53,6 +53,7 @@ export default defineConfig({
             { text: 'Dependency Graph', link: '/guides/dependency-graph' },
             { text: 'Multi-Step Forms', link: '/guides/multi-step-forms' },
             { text: 'TypeScript', link: '/guides/typescript' },
+            { text: 'Persistence', link: '/guides/persistence' },
           ],
         },
       ],
