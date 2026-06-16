@@ -48,6 +48,14 @@ describe('Feature 1: Typed field paths', () => {
     form.arrayAppend('items', 'not-an-object');
   });
 
+  it('form.arrayInsert() rejects wrong item type on known path', () => {
+    const form = createForm<SignupValues>({
+      initialValues: { email: '', age: 0, items: [] },
+    });
+    // @ts-expect-error — string not assignable to { name: string; qty: number }
+    form.arrayInsert('items', 0, 'not-an-object');
+  });
+
   it('form.set() compiles with correct value type', () => {
     const form = createForm<SignupValues>({
       initialValues: { email: '', age: 0, items: [] },
