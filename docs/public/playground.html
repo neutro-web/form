@@ -1830,6 +1830,124 @@ run(el) {
 }
 },
 
+// ── Step 13b ────────────────────────────────────────────────────────────────
+{
+title: 'resetField — Selective Reset',
+desc: 'form.resetField(path) restores a single field to its initial value and clears errors, touched, and dirty for that path. Nested paths (\'address\') clear all descendant state. Use keepError, keepTouched, keepDirty options to selectively preserve state.',
+code: `const form = createForm({
+  initialValues: {
+    name: 'Alice',
+    email: '',
+    address: { city: '', zip: '' },
+  },
+  validator(values) {
+    const errors = {};
+    if (values.email && !values.email.includes('@')) {
+      errors.email = 'Invalid email';
+    }
+    return errors;
+  },
+});
+
+// Dirty some fields
+form.set('name', 'Bob',  { touch: true });
+form.set('email', 'bad', { touch: true, validate: true });
+
+// Reset a single field — restores initial value, clears touched/dirty/error
+form.resetField('email');
+// → email back to '', error cleared, touched: false, dirty: false
+
+// Keep error while resetting value + touched + dirty
+form.resetField('email', { keepError: true });
+// → email back to '' but error preserved
+
+// Keep touched flag
+form.resetField('email', { keepTouched: true });
+
+// Keep dirty flag
+form.resetField('email', { keepDirty: true });
+
+// Nested path — clears all descendant state under 'address'
+form.resetField('address');
+// → address.city and address.zip restored; all descendant touched/dirty/errors cleared
+
+// Validation is NOT triggered by resetField (use validate: true on set() for that)
+`,
+run(el) {
+  const form = createForm({
+    initialValues: { name: 'Alice', email: '', address: { city: '', zip: '' } },
+    validator(values) {
+      const errors = {};
+      if (values.email && !values.email.includes('@')) errors.email = 'Invalid email';
+      return errors;
+    },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld">
+        <label>Name</label>
+        <input id="rf-name" value="Alice" style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--t0);box-sizing:border-box"/>
+      </div>
+      <div class="fld">
+        <label>Email</label>
+        <input id="rf-email" placeholder="Enter email..." style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--t0);box-sizing:border-box"/>
+        <span class="fhint" id="rf-email-err" style="color:var(--red)"></span>
+      </div>
+      <div class="fld">
+        <label>Address City</label>
+        <input id="rf-city" placeholder="City..." style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--t0);box-sizing:border-box"/>
+      </div>
+      <div class="hr"></div>
+      <div class="btn-row">
+        <button class="btn primary" id="rf-dirty">Dirty fields</button>
+        <button class="btn sm" id="rf-reset-email">resetField('email')</button>
+        <button class="btn sm" id="rf-reset-email-ke">resetField('email', { keepError })</button>
+        <button class="btn sm" id="rf-reset-addr">resetField('address')</button>
+        <button class="btn sm" id="rf-reset-name">resetField('name')</button>
+      </div>
+      <div class="sec">State</div>
+      <div class="box" id="rf-state" style="font-size:12px;white-space:pre"></div>
+    </div>`;
+
+  const nameInp  = el.querySelector('#rf-name');
+  const emailInp = el.querySelector('#rf-email');
+  const cityInp  = el.querySelector('#rf-city');
+  const emailErr = el.querySelector('#rf-email-err');
+  const stateBox = el.querySelector('#rf-state');
+
+  nameInp.addEventListener('input',  e => form.set('name', e.target.value, { touch: true }));
+  emailInp.addEventListener('input', e => form.set('email', e.target.value, { touch: true }));
+  cityInp.addEventListener('input',  e => form.set('address.city', e.target.value, { touch: true }));
+
+  const unsub = form.subscribe(state => {
+    nameInp.value  = state.values.name  ?? '';
+    emailInp.value = state.values.email ?? '';
+    cityInp.value  = (state.values.address && state.values.address.city) ?? '';
+    emailErr.textContent = state.errors.email ?? '';
+    stateBox.textContent = JSON.stringify({
+      dirty:   state.dirty,
+      touched: state.touched,
+      errors:  state.errors,
+    }, null, 2);
+  });
+
+  el.querySelector('#rf-dirty').addEventListener('click', () => {
+    form.set('name',  'Bob', { touch: true });
+    form.set('email', 'bad', { touch: true, validate: true });
+    form.set('address.city', 'Springfield', { touch: true });
+  });
+
+  el.querySelector('#rf-reset-email').addEventListener('click', () => form.resetField('email'));
+  el.querySelector('#rf-reset-email-ke').addEventListener('click', () => form.resetField('email', { keepError: true }));
+  el.querySelector('#rf-reset-addr').addEventListener('click', () => form.resetField('address'));
+  el.querySelector('#rf-reset-name').addEventListener('click', () => form.resetField('name'));
+
+  el._cleanup = () => unsub();
+  return form;
+},
+},
+
 // ── Step 14 ─────────────────────────────────────────────────────────────────
 {
 title: 'submit & handleSubmit',
@@ -2235,6 +2353,115 @@ run(el) {
   });
 
   el._cleanup = () => { pathUnsubs.forEach(u => u()); globalUnsub(); };
+  return form;
+},
+},
+
+// ── Step 17b ────────────────────────────────────────────────────────────────
+{
+title: 'TypeScript Typed Paths',
+desc: 'Path&lt;T&gt; gives your IDE full autocomplete over every dot-notation path. GetPathValue&lt;T,P&gt; infers the correct return type for form.get(). SetOptions (touch, validate) controls side-effects on write. ArrayItem&lt;V&gt; extracts the element type from an array path. These features require TypeScript — the playground runs vanilla JS but the types enforce correctness at compile time.',
+code: `interface ProfileForm {
+  email: string;
+  age: number;
+  address: { city: string };
+  tags: Array<{ label: string }>;
+}
+
+const form = createForm<ProfileForm>({
+  initialValues: { email: '', age: 0, address: { city: '' }, tags: [] },
+});
+
+// Path<T> — all valid dot-notation paths (compile-time)
+type AllPaths = Path<ProfileForm>;
+// → 'email' | 'age' | 'address' | 'address.city' | 'tags' | 'tags.0' | ...
+
+// Typed reads — return type inferred from path
+const email: string = form.get('email');   // ✅
+const age: number   = form.get('age');     // ✅
+
+// Typed writes — value type enforced
+form.set('email', 'alice@example.com');  // ✅ string
+form.set('email', 42);                  // ❌ TypeScript error
+
+// SetOptions — runtime behavior on top of typed write
+form.set('email', 'x', { touch: true });    // mark as touched
+form.set('email', 'y', { validate: true }); // trigger validation
+
+// Typed array operations
+type Tag = ArrayItem<ProfileForm['tags']>; // { label: string }
+form.arrayAppend('tags', { label: 'new' });  // ✅
+form.arrayAppend('tags', 'string');           // ❌ TypeScript error
+`,
+run(el) {
+  const form = createForm({
+    initialValues: { email: '', username: '' },
+    validator(values) {
+      const errors = {};
+      if (values.email && !values.email.includes('@')) errors.email = 'Invalid email — must include @';
+      return errors;
+    },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld">
+        <label>Email</label>
+        <input id="tp-email" placeholder="Enter email..." style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--t0);box-sizing:border-box"/>
+      </div>
+      <div class="fld">
+        <label>Username</label>
+        <input id="tp-username" placeholder="Username..." style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--t0);box-sizing:border-box"/>
+      </div>
+      <div class="sec">SetOptions Demo</div>
+      <div class="btn-row">
+        <button class="btn sm" id="tp-plain" title="form.set('email', value)">set plain</button>
+        <button class="btn sm" id="tp-touch" title="form.set('email', value, { touch: true })">set + touch</button>
+        <button class="btn sm" id="tp-validate" title="form.set('email', value, { validate: true })">set + validate</button>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+        <span style="font-size:12px">dirty: <span id="tp-dirty" style="font-weight:600;color:var(--yellow)">—</span></span>
+        <span style="font-size:12px">touched: <span id="tp-touched" style="font-weight:600;color:var(--blue)">—</span></span>
+        <span style="font-size:12px">error: <span id="tp-error" style="font-weight:600;color:var(--red)">—</span></span>
+      </div>
+      <div class="hr"></div>
+      <div class="sec">Type Inference (TypeScript only)</div>
+      <div class="box" style="font-size:12px;white-space:pre">form.get('email')  // &rarr; string
+form.get('age')    // &rarr; number
+
+// &cross; TS: form.set('email', 42)
+//    Argument of type 'number' is not assignable to 'string'</div>
+      <span class="fhint">See <a href="https://neutro-web.github.io/form/guides/typescript" style="color:var(--blue)">TypeScript Guide</a> for full type system docs.</span>
+    </div>`;
+
+  const emailInp    = el.querySelector('#tp-email');
+  const usernameInp = el.querySelector('#tp-username');
+  const dirtyBadge  = el.querySelector('#tp-dirty');
+  const touchBadge  = el.querySelector('#tp-touched');
+  const errorBadge  = el.querySelector('#tp-error');
+
+  emailInp.addEventListener('input',    e => form.set('email',    e.target.value, { touch: true }));
+  usernameInp.addEventListener('input', e => form.set('username', e.target.value, { touch: true }));
+
+  const unsub = form.subscribe(state => {
+    emailInp.value    = state.values.email    ?? '';
+    usernameInp.value = state.values.username ?? '';
+    dirtyBadge.textContent  = state.dirty.email   ? 'true'  : 'false';
+    touchBadge.textContent  = state.touched.email ? 'true'  : 'false';
+    errorBadge.textContent  = state.errors.email  ?? 'none';
+  });
+
+  el.querySelector('#tp-plain').addEventListener('click', () => {
+    form.set('email', 'test-no-at');
+  });
+  el.querySelector('#tp-touch').addEventListener('click', () => {
+    form.set('email', 'test-no-at', { touch: true });
+  });
+  el.querySelector('#tp-validate').addEventListener('click', () => {
+    form.set('email', 'test-no-at', { validate: true });
+  });
+
+  el._cleanup = () => unsub();
   return form;
 },
 },
