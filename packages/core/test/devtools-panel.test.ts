@@ -101,18 +101,21 @@ describe('createDevtoolsPanel', () => {
   });
 
   it('SSR guard: no error when document is not available', () => {
-    const origDoc = globalThis.document;
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const form = createForm({ initialValues: { email: '' } });
-    // Pre-create container while document is still available
-    const container = document.createElement('div');
-    // Simulate SSR environment by removing document
+    const container = document.createElement('div'); // create before removing document
+
+    const origDoc = (globalThis as any).document;
     (globalThis as any).document = undefined;
-    // Can't actually test this path in jsdom meaningfully since createForm uses document too.
-    // Just verify the guard logic path exists without crashing by restoring first.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    let unsub: (() => void) | undefined;
+    expect(() => {
+      unsub = createDevtoolsPanel(form, container as any);
+    }).not.toThrow();
+    expect(typeof unsub).toBe('function');
+
     (globalThis as any).document = origDoc;
     warnSpy.mockRestore();
-    // Verify the function exists and returns a function
-    expect(typeof createDevtoolsPanel).toBe('function');
+    if (unsub) unsub();
   });
 });
