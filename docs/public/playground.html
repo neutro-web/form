@@ -43,6 +43,7 @@
     /* ── workspace grid */
     .workspace{display:grid;
       grid-template-columns:var(--side) 1fr 1fr var(--perf);
+      grid-template-rows:1fr;
       height:calc(100vh - var(--hdr) - var(--tabs) - var(--foot));overflow:hidden;}
     .workspace.hide-perf{grid-template-columns:var(--side) 1fr 1fr;}
 
@@ -2467,6 +2468,119 @@ form.get('age')    // &rarr; number
 },
 
 // ── Step 18 ─────────────────────────────────────────────────────────────────
+{
+title: 'File Validation Rules',
+desc: 'Five built-in rules handle File and FileList inputs: maxFileSize (per-file byte limit), minFileSize, fileTypes (MIME allow-list), maxFiles, and minFiles. Default messages use human-readable sizes ("5.0 MB"). Rules accept an optional message override. All size/type rules are no-ops when the field is empty — combine with required or minFiles: 1 to enforce presence.',
+code: `const form = createForm({
+  initialValues: { avatar: null, docs: null },
+  rules: {
+    avatar: [
+      { maxFileSize: 2 * 1024 * 1024, message: 'Avatar must be under 2 MB' },
+      { fileTypes: ['image/jpeg', 'image/png', 'image/webp'] },
+    ],
+    docs: [
+      { minFiles: 1, message: 'Attach at least one document' },
+      { maxFiles: 3 },
+      { maxFileSize: 5 * 1024 * 1024 },
+    ],
+  },
+});
+
+// Simulate a File value (duck-typed — no real browser FileList needed)
+form.set('avatar', { name: 'photo.gif', size: 3 * 1024 * 1024, type: 'image/gif', lastModified: 0 });
+await form.validate();
+// → { avatar: "Avatar must be under 2 MB" }   (size) + type mismatch
+
+// Empty FileList → minFiles fires
+form.set('docs', { length: 0, item: () => null });
+await form.validate();
+// → { docs: "Attach at least one document" }
+`,
+run(el) {
+  const MB = 1024 * 1024;
+  const form = createForm({
+    initialValues: { avatar: null, docs: null },
+    rules: {
+      avatar: [
+        { maxFileSize: 2 * MB, message: 'Avatar must be under 2 MB' },
+        { fileTypes: ['image/jpeg', 'image/png', 'image/webp'], message: 'Only JPEG, PNG or WebP allowed' },
+      ],
+      docs: [
+        { minFiles: 1, message: 'Attach at least one document' },
+        { maxFiles: 3 },
+        { maxFileSize: 5 * MB },
+      ],
+    },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">Avatar (max 2 MB, JPEG/PNG/WebP only)</div>
+      <div class="fld">
+        <div class="btn-row" style="flex-wrap:wrap;gap:6px">
+          <button class="btn sm" id="fv-av-ok">✅ Valid (1 MB PNG)</button>
+          <button class="btn sm" id="fv-av-big">❌ Too big (3 MB PNG)</button>
+          <button class="btn sm" id="fv-av-type">❌ Wrong type (GIF)</button>
+        </div>
+        <div class="ferr" id="fv-av-err"></div>
+      </div>
+      <div class="sec" style="margin-top:8px">Documents (1–3 files, max 5 MB each)</div>
+      <div class="fld">
+        <div class="btn-row" style="flex-wrap:wrap;gap:6px">
+          <button class="btn sm" id="fv-doc-none">❌ No files</button>
+          <button class="btn sm" id="fv-doc-one">✅ 1 file</button>
+          <button class="btn sm" id="fv-doc-many">❌ 4 files (too many)</button>
+          <button class="btn sm" id="fv-doc-big">❌ Oversized file</button>
+        </div>
+        <div class="ferr" id="fv-doc-err"></div>
+      </div>
+      <div class="hr"></div>
+      <div class="sec">State</div>
+      <div class="box" id="fv-state" style="font-size:11px;min-height:60px"></div>
+    </div>`;
+
+  function mockFile(name, type, sizeBytes) {
+    return { name, size: sizeBytes, type, lastModified: Date.now() };
+  }
+  function mockFileList(...files) {
+    const fl = { length: files.length, item: i => files[i] ?? null };
+    files.forEach((f, i) => { fl[i] = f; });
+    return fl;
+  }
+
+  const unsub = form.subscribe(state => {
+    el.querySelector('#fv-av-err').textContent  = state.errors.avatar ?? '';
+    el.querySelector('#fv-doc-err').textContent = state.errors.docs   ?? '';
+    el.querySelector('#fv-state').textContent =
+      'avatar error: ' + (state.errors.avatar ?? 'none') + '\n' +
+      'docs error:   ' + (state.errors.docs   ?? 'none');
+  });
+
+  async function setAndValidate(path, val) {
+    form.set(path, val);
+    await form.validate([path]);
+  }
+
+  el.querySelector('#fv-av-ok')  .addEventListener('click', () => setAndValidate('avatar', mockFile('photo.png', 'image/png', 1 * MB)));
+  el.querySelector('#fv-av-big') .addEventListener('click', () => setAndValidate('avatar', mockFile('big.png',   'image/png', 3 * MB)));
+  el.querySelector('#fv-av-type').addEventListener('click', () => setAndValidate('avatar', mockFile('anim.gif',  'image/gif', 0.5 * MB)));
+
+  el.querySelector('#fv-doc-none').addEventListener('click', () => setAndValidate('docs', mockFileList()));
+  el.querySelector('#fv-doc-one') .addEventListener('click', () => setAndValidate('docs', mockFileList(mockFile('a.pdf', 'application/pdf', 1 * MB))));
+  el.querySelector('#fv-doc-many').addEventListener('click', () => setAndValidate('docs', mockFileList(
+    mockFile('a.pdf', 'application/pdf', 1 * MB),
+    mockFile('b.pdf', 'application/pdf', 1 * MB),
+    mockFile('c.pdf', 'application/pdf', 1 * MB),
+    mockFile('d.pdf', 'application/pdf', 1 * MB),
+  )));
+  el.querySelector('#fv-doc-big').addEventListener('click', () => setAndValidate('docs', mockFileList(mockFile('huge.pdf', 'application/pdf', 8 * MB))));
+
+  el._cleanup = () => unsub();
+  return form;
+},
+},
+
+// ── Step 19 ─────────────────────────────────────────────────────────────────
 {
 title: 'Performance Lab',
 desc: 'Stress-test the engine. Add 50 subscribers, batch 100 field mutations, run async validation — then inspect the perf metrics: notification count, validation time, epoch, and subscriber map.',
