@@ -176,8 +176,12 @@ export interface FormInstance<T extends object> {
   subscribeToPath(path: string, fn: PathSubscriber): () => void;
   get<P extends Path<T>>(path: P): GetPathValue<T, P>;
   get(path: string | string[]): any;
-  set<P extends Path<T>>(path: P, val: GetPathValue<T, P>, options?: SetOptions): void;
-  set(path: Path<T> | (string & {}) | string[], val: any, options?: SetOptions): void;
+  set<P extends Path<T> | (string & {})>(
+    path: P,
+    val: P extends Path<T> ? GetPathValue<T, P> : unknown,
+    options?: SetOptions
+  ): void;
+  set(path: string[], val: unknown, options?: SetOptions): void;
   validate(scopePaths?: Array<Path<T> | (string & {}) | string[]>): Promise<boolean>;
   connect: (path: Path<T> | string, el: HTMLElement, options?: ConnectOptions) => () => void;
   submit: (onValid: (payload: Partial<T>) => void | Promise<void>) => Promise<boolean>;
@@ -189,11 +193,18 @@ export interface FormInstance<T extends object> {
   getPayload: () => Partial<T>;
   getAriaProps: (path: Path<T> | string, options?: AriaPropsOptions) => AriaProps;
   batch: (fn: () => void) => void;
-  arrayAppend<P extends Path<T>>(path: P, item: ArrayItem<GetPathValue<T, P>>): void;
-  arrayAppend(path: Path<T> | (string & {}) | string[], item: any): void;
+  arrayAppend<P extends Path<T> | (string & {})>(
+    path: P,
+    item: P extends Path<T> ? ArrayItem<GetPathValue<T, P>> : unknown
+  ): void;
+  arrayAppend(path: string[], item: unknown): void;
 
-  arrayInsert<P extends Path<T>>(path: P, index: number, item: ArrayItem<GetPathValue<T, P>>): void;
-  arrayInsert(path: Path<T> | (string & {}) | string[], index: number, item: any): void;
+  arrayInsert<P extends Path<T> | (string & {})>(
+    path: P,
+    index: number,
+    item: P extends Path<T> ? ArrayItem<GetPathValue<T, P>> : unknown
+  ): void;
+  arrayInsert(path: string[], index: number, item: unknown): void;
 
   arrayRemove<P extends Path<T>>(path: P, index: number): void;
   arrayRemove(path: Path<T> | (string & {}) | string[], index: number): void;
@@ -1292,15 +1303,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       return getNestedValue(values, targetPath);
     },
 
-    set: (
-      path: Path<T> | string | string[],
+    set: ((
+      path: any,
       val: any,
       options?: SetOptions
     ) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       setFieldValue(targetPath, val, options);
       dispatchAction({ type: 'SET', path: targetPath, value: val, options });
-    },
+    }) as FormInstance<T>['set'],
 
     validate: (scopePaths?: Path<T>[] | string[] | string[][]) => {
       const targets = scopePaths?.map((p) => (Array.isArray(p) ? p.join('.') : p));
@@ -1345,15 +1356,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     clearErrors,
     getFieldMode: (path: string) => resolveFieldMode(path),
 
-    arrayAppend: (path: Path<T> | string | string[], item: any) => {
+    arrayAppend: ((path: any, item: any) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       const arr = getNestedValue(values, targetPath) || [];
       if (!Array.isArray(arr)) return;
       setFieldValue(targetPath, [...arr, item]);
       dispatchAction({ type: 'ARRAY_APPEND', path: targetPath, item });
-    },
+    }) as FormInstance<T>['arrayAppend'],
 
-    arrayInsert: (path: Path<T> | string | string[], index: number, item: any) => {
+    arrayInsert: ((path: any, index: number, item: any) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       const arr = getNestedValue(values, targetPath) || [];
       if (!Array.isArray(arr) || index < 0 || index > arr.length) return;
@@ -1368,7 +1379,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       });
       runValidation([targetPath]);
       dispatchAction({ type: 'ARRAY_INSERT', path: targetPath, index, item });
-    },
+    }) as FormInstance<T>['arrayInsert'],
 
     arrayRemove: (path: Path<T> | string | string[], index: number) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
