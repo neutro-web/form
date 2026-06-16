@@ -70,3 +70,25 @@ type EmailType = GetPathValue<SignupValues, 'email'>
 type ItemType = ArrayItem<SignupValues['items']>
 // { name: string; qty: number }
 ```
+
+## Resetting a Single Field
+
+`resetField` accepts the same typed paths as `set` and `get`:
+
+```ts
+const form = createForm<SignupForm>({
+  initialValues: { email: '', age: 0, items: [] },
+});
+
+form.resetField('email')                      // restores '' — the initial value
+form.resetField('email', { keepError: true }) // restores value, keeps error
+form.resetField(['items', '0', 'name'])       // segment-array path
+```
+
+`ResetFieldOptions` controls which state is cleared:
+
+| Option | Type | Default | Effect |
+|---|---|---|---|
+| `keepError` | `boolean` | `false` | Keep `errors[path]` |
+| `keepTouched` | `boolean` | `false` | Keep `touched[path]` |
+| `keepDirty` | `boolean` | `false` | Keep `dirty[path]` |

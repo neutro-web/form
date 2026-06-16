@@ -29,6 +29,10 @@ form.set('email', 'user@example.com');
 form.handleSubmit(async (payload) => {
   await fetch('/api/login', { method: 'POST', body: JSON.stringify(payload) });
 });
+
+// Reset a single field without affecting others
+form.resetField('email');
+form.resetField('email', { keepError: true }); // restore value, keep validation error
 ```
 
 ### React
@@ -57,6 +61,8 @@ function LoginForm() {
 - DOM bridge with `WeakRef`-based automatic field cleanup
 - Dynamic arrays with index-safe `move`, `swap`, `insert`, `remove`
 - Zod, Yup, and class-validator schema adapters built in
+- Strongly typed field paths — `Path<T>`, `GetPathValue<T,P>`, and `ArrayItem<V>` give IDE autocomplete and value-type enforcement on every read and write
+- `resetField(path, options?)` — restore a single field to its initial value without touching other fields; supports nested paths and keepError/keepTouched/keepDirty flags
 
 ## License
 
