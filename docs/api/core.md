@@ -687,3 +687,15 @@ const form = createForm({
 ```
 
 See [Getting Started → Built-in Validation Rules](/getting-started#built-in-validation-rules) for the full rule reference table.
+
+### File Rules
+
+The following rules operate on `File` and `FileList` values (e.g. from `input.files`). All rules accept an optional `message?: string` override.
+
+| Rule | Description |
+|---|---|
+| `{ maxFileSize: number }` | Every file must be ≤ n bytes. Works on `File` and `FileList`. Default message includes human-readable size (`"5.0 MB"`). Only fires when a file is present. |
+| `{ minFileSize: number }` | Every file must be ≥ n bytes. Only fires when a file is present. |
+| `{ fileTypes: string[] }` | Every file's MIME type must be in the list (e.g. `['image/png', 'image/jpeg']`). Only fires when present. |
+| `{ maxFiles: number }` | `FileList` length must be ≤ n. A bare `File` counts as 1. |
+| `{ minFiles: number }` | `FileList` length must be ≥ n. A bare `File` counts as 1. Prefer `minFiles: 1` over `'required'` for file inputs. |
