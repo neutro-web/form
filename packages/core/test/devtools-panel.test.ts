@@ -9,10 +9,10 @@ describe('createDevtoolsPanel', () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const unsub = createDevtoolsPanel(form, container);
-    // Panel is appended either to a Shadow DOM root or directly to container (light DOM fallback)
     const effectiveRoot = container.shadowRoot ?? container;
     expect(effectiveRoot.children.length).toBeGreaterThan(0);
     unsub();
+    expect(effectiveRoot.children.length).toBe(0);
     document.body.removeChild(container);
   });
 });
