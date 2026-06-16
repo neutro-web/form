@@ -235,6 +235,20 @@ await form.submit(async (values) => {
 
 `reset()` clears all state including errors and touched. If errors reappear immediately after reset, it means validation ran again (perhaps you called `validate()` or the validation mode re-triggered on mount). Check that you're not calling `validate()` right after `reset()` when you don't intend to.
 
+#### How do I reset a single field to its initial value?
+
+```ts
+form.resetField('email')
+```
+
+This restores the field's value to what it was in `initialValues` (or the seed from the last `reset(newValues)` call). It clears `errors`, `touched`, and `dirty` for that path. Use options to preserve any of those:
+
+```ts
+form.resetField('email', { keepError: true })
+```
+
+For nested objects, `resetField('address')` clears all `address.*` state. For array items, `resetField('items.0.name')` clears only that leaf.
+
 ---
 
 ### Submission
@@ -475,8 +489,6 @@ These are things `@neutro/form` does not do cleanly yet. They are not workaround
 **Strongly typed field paths — path typos not caught (intentional)** — `form.set('emal', value)` compiles without error. Catching path typos would require removing the dynamic-path escape hatch, which would break `const p: string = ...; form.set(p, value)`. The current design preserves dynamic paths at the cost of not catching typos. Fully strict path checking is on the roadmap.
 
 **`isValid` without running validation** — there is no `state.isValid` boolean. To know if the current values are valid, call `await form.validate()` and check `Object.keys(form.getState().errors).length === 0`. Disabling a submit button before the user has interacted requires this upfront validation call, which can be jarring.
-
-**Reset a single field to its initial value** — `form.reset()` resets the whole form. There is no `form.resetField('email')` to restore one path to its initial value while leaving others alone.
 
 **Persistence middleware** — there is no built-in `localStorage`/`sessionStorage` adapter. You can implement it with `form.subscribe(state => localStorage.setItem('form', JSON.stringify(state.values)))` and seed `initialValues` from storage on mount, but there is no packaged solution.
 
