@@ -88,6 +88,14 @@ function computeDiff(
       next: next.isValidating,
     });
   }
+  if (prev.isValid !== next.isValid) {
+    rows.push({
+      slice: 'meta',
+      key: 'isValid',
+      prev: prev.isValid,
+      next: next.isValid,
+    });
+  }
   return rows;
 }
 

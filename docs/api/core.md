@@ -101,8 +101,19 @@ interface FormState<T> {
   dirty: Record<string, boolean>
   isSubmitting: boolean
   isValidating: boolean
+  isValid: boolean | null
 }
 ```
+
+| Field | Type | Description |
+|---|---|---|
+| `values` | `T` | Current form values |
+| `errors` | `Record<string, string>` | Field error messages by path |
+| `touched` | `Record<string, boolean>` | Fields the user has interacted with |
+| `dirty` | `Record<string, boolean>` | Fields that have changed since initialization |
+| `isSubmitting` | `boolean` | `true` while submit handler is running |
+| `isValidating` | `boolean` | `true` while async validation is in flight |
+| `isValid` | `boolean \| null` | `null` = not yet validated; `true` = last full validation passed; `false` = errors exist |
 
 ## `createForm<T>(config)`
 

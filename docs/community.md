@@ -253,6 +253,24 @@ For nested objects, `resetField('address')` clears all `address.*` state. For ar
 
 ### Submission
 
+#### How do I know if the form is valid without calling `validate()`?
+
+Read `state.isValid`. It has three possible values:
+
+- `null` — the form has not been fully validated yet (initial state or after `reset()`).
+- `true` — the last full `validate()` or `submit()` found no errors.
+- `false` — the last full validation found errors, or `setErrors()` injected errors.
+
+```ts
+// Conservative: disable submit until known-valid
+<button disabled={state.isValid !== true}>Submit</button>
+
+// Optimistic: only disable if known-invalid  
+<button disabled={state.isValid === false}>Submit</button>
+```
+
+Scoped `form.validate(['email'])` does **not** change `isValid` — only a full `form.validate()` or `form.submit()` does.
+
 #### How do I prevent double submission?
 
 `state.isSubmitting` is set to `true` for the duration of the submit handler. Bind it to your button's `disabled` prop.
@@ -487,8 +505,6 @@ The DOM bridge (`connect()`) requires an `HTMLElement` and does not apply in Rea
 These are things `@neutro/form` does not do cleanly yet. They are not workarounds — if your project needs them, know this going in.
 
 **Strongly typed field paths — path typos not caught (intentional)** — `form.set('emal', value)` compiles without error. Catching path typos would require removing the dynamic-path escape hatch, which would break `const p: string = ...; form.set(p, value)`. The current design preserves dynamic paths at the cost of not catching typos. Fully strict path checking is on the roadmap.
-
-**`isValid` without running validation** — there is no `state.isValid` boolean. To know if the current values are valid, call `await form.validate()` and check `Object.keys(form.getState().errors).length === 0`. Disabling a submit button before the user has interacted requires this upfront validation call, which can be jarring.
 
 **Persistence middleware** — there is no built-in `localStorage`/`sessionStorage` adapter. You can implement it with `form.subscribe(state => localStorage.setItem('form', JSON.stringify(state.values)))` and seed `initialValues` from storage on mount, but there is no packaged solution.
 
