@@ -7,6 +7,7 @@
     "lint": "biome check packages vitest.config.ts",
     "format": "biome check --write packages vitest.config.ts",
     "test": "vitest run",
+    "typecheck": "vitest --typecheck run packages/core/test/types.test.ts",
     "docs:dev": "vitepress dev docs",
     "docs:build": "pnpm --filter @neutro/form-core run build && cp packages/core/dist/index.global.js docs/public/form-core.js && cp packages/core/dist/index.js docs/public/form-core.esm.js && node -e \"const fs=require('fs'),f='docs/public/form-core.js';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace(/\\/\\/#\\s*sourceMappingURL=.*\\n?/g,''))\" && vitepress build docs",
     "docs:preview": "vitepress preview docs"
