@@ -257,8 +257,139 @@ export function createDevtoolsPanel(
   }
   formMap.set(container, true);
 
-  // Implementation in Task 2
+  const name = options.name ?? 'Form';
+  const maxLogEntries = options.maxLogEntries ?? 50;
+
+  // --- Shadow DOM (fall back to light DOM if attachShadow is not available) ---
+  let root: ShadowRoot | HTMLElement;
+  try {
+    root = container.attachShadow({ mode: 'open' });
+  } catch {
+    // Light DOM fallback — inject global style once
+    if (!document.getElementById('neutro-devtools-panel-style')) {
+      const styleEl = document.createElement('style');
+      styleEl.id = 'neutro-devtools-panel-style';
+      styleEl.textContent = `
+        .nf-panel { font-family: monospace; font-size: 12px; border: 1px solid #444; border-radius: 4px; overflow: hidden; }
+        .nf-panel-header { background: #1e1e2e; color: #cdd6f4; padding: 6px 10px; display: flex; gap: 8px; align-items: center; cursor: pointer; }
+        .nf-panel-body { background: #181825; color: #cdd6f4; padding: 8px; max-height: 400px; overflow-y: auto; }
+        .nf-badge { font-size: 10px; padding: 1px 5px; border-radius: 3px; background: #313244; }
+        .nf-badge-valid { background: #a6e3a1; color: #1e1e2e; }
+        .nf-badge-invalid { background: #f38ba8; color: #1e1e2e; }
+        .nf-section-title { color: #89b4fa; font-weight: bold; margin: 4px 0 2px; }
+        .nf-log-entry { border-bottom: 1px solid #313244; padding: 2px 0; }
+        .nf-log-type { color: #f38ba8; }
+      `;
+      document.head.appendChild(styleEl);
+    }
+    root = container;
+  }
+
+  // --- Build panel DOM ---
+  const panel = document.createElement('div');
+  panel.className = 'nf-panel';
+
+  const header = document.createElement('div');
+  header.className = 'nf-panel-header';
+  header.appendChild(document.createTextNode(`NeutroForm: ${name}`));
+
+  const validBadge = document.createElement('span');
+  validBadge.className = 'nf-badge';
+  header.appendChild(validBadge);
+
+  const submittingBadge = document.createElement('span');
+  submittingBadge.className = 'nf-badge';
+  header.appendChild(submittingBadge);
+
+  const validatingBadge = document.createElement('span');
+  validatingBadge.className = 'nf-badge';
+  header.appendChild(validatingBadge);
+
+  const body = document.createElement('div');
+  body.className = 'nf-panel-body';
+  if (options.collapsed) body.style.display = 'none';
+
+  header.addEventListener('click', () => {
+    body.style.display = body.style.display === 'none' ? '' : 'none';
+  });
+
+  // State section
+  const stateTitle = document.createElement('div');
+  stateTitle.className = 'nf-section-title';
+  stateTitle.textContent = 'State';
+  body.appendChild(stateTitle);
+
+  const stateNode = document.createElement('pre');
+  stateNode.style.margin = '0';
+  body.appendChild(stateNode);
+
+  // Action log section
+  const logTitle = document.createElement('div');
+  logTitle.className = 'nf-section-title';
+  logTitle.textContent = 'Action log';
+  body.appendChild(logTitle);
+
+  const logList = document.createElement('div');
+  body.appendChild(logList);
+
+  panel.appendChild(header);
+  panel.appendChild(body);
+  root.appendChild(panel);
+
+  // --- Helpers ---
+  const updateBadges = (state: FormState<any>) => {
+    const iv = state.isValid;
+    validBadge.textContent = iv === null ? 'unknown' : iv ? 'valid' : 'invalid';
+    validBadge.className = `nf-badge ${iv === true ? 'nf-badge-valid' : iv === false ? 'nf-badge-invalid' : ''}`;
+    submittingBadge.textContent = state.isSubmitting ? 'submitting' : '';
+    submittingBadge.style.display = state.isSubmitting ? '' : 'none';
+    validatingBadge.textContent = state.isValidating ? 'validating…' : '';
+    validatingBadge.style.display = state.isValidating ? '' : 'none';
+  };
+
+  const updateState = (state: FormState<any>) => {
+    // Use textContent — never innerHTML — to safely render user-controlled JSON
+    stateNode.textContent = JSON.stringify(
+      { values: state.values, errors: state.errors, touched: state.touched, dirty: state.dirty },
+      null,
+      2
+    );
+  };
+
+  const appendLog = (action: FormAction) => {
+    const entry = document.createElement('div');
+    entry.className = 'nf-log-entry';
+    const typeSpan = document.createElement('span');
+    typeSpan.className = 'nf-log-type';
+    typeSpan.textContent = action.type;
+    entry.appendChild(typeSpan);
+    entry.appendChild(document.createTextNode(` ${new Date().toLocaleTimeString()}`));
+    logList.insertBefore(entry, logList.firstChild);
+    while (logList.children.length > maxLogEntries) {
+      logList.removeChild(logList.lastChild!);
+    }
+  };
+
+  // --- Initial render ---
+  const initialState = form.getState();
+  updateBadges(initialState);
+  updateState(initialState);
+
+  // --- Subscriptions ---
+  const unsubState = form.subscribe((state) => {
+    updateBadges(state);
+    updateState(state);
+  });
+
+  const unsubActions = form._subscribeToActions((action) => {
+    if (action.type === 'BATCH_START' || action.type === 'BATCH_END') return;
+    appendLog(action);
+  });
+
   return () => {
     formMap.delete(container);
+    unsubState();
+    unsubActions();
+    container.replaceChildren();
   };
 }
