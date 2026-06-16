@@ -235,6 +235,23 @@ await form.submit(async (values) => {
 
 `reset()` clears all state including errors and touched. If errors reappear immediately after reset, it means validation ran again (perhaps you called `validate()` or the validation mode re-triggered on mount). Check that you're not calling `validate()` right after `reset()` when you don't intend to.
 
+#### How do I auto-save form values to localStorage?
+
+Use `localStorageAdapter` and call `form.hydrate()` once after mount:
+
+```ts
+import { createForm, localStorageAdapter } from '@neutro/form/core'
+
+const form = createForm({
+  initialValues: { email: '' },
+  persistence: { adapter: localStorageAdapter('my-form') },
+})
+
+await form.hydrate() // call this once after mount
+```
+
+Values are written on every change (debounced to 300ms by default). `form.reset()` clears the storage slot. See the [Persistence guide](/guides/persistence) for full details.
+
 #### How do I reset a single field to its initial value?
 
 ```ts
@@ -505,8 +522,6 @@ The DOM bridge (`connect()`) requires an `HTMLElement` and does not apply in Rea
 These are things `@neutro/form` does not do cleanly yet. They are not workarounds — if your project needs them, know this going in.
 
 **Strongly typed field paths — path typos not caught (intentional)** — `form.set('emal', value)` compiles without error. Catching path typos would require removing the dynamic-path escape hatch, which would break `const p: string = ...; form.set(p, value)`. The current design preserves dynamic paths at the cost of not catching typos. Fully strict path checking is on the roadmap.
-
-**Persistence middleware** — there is no built-in `localStorage`/`sessionStorage` adapter. You can implement it with `form.subscribe(state => localStorage.setItem('form', JSON.stringify(state.values)))` and seed `initialValues` from storage on mount, but there is no packaged solution.
 
 **React Native adapter** — the core works but there is no official adapter with RN-idiomatic patterns.
 
