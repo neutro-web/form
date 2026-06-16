@@ -795,7 +795,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   const runValidation = async (scopePaths?: string[]): Promise<boolean> => {
-    if (!config.validator && !config.rules) return true;
+    if (!config.validator && !config.rules) {
+      if (!scopePaths) hasValidated = true;
+      return true;
+    }
     isValidating = true;
     // isValidating is a global flag — only global subscribers need this notification.
     if (globalSubscribers.size > 0) {
@@ -828,9 +831,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       expandedScope = scopePaths;
     }
 
-    try {
-      const activeEpoch = ++asyncEpoch;
+    const activeEpoch = ++asyncEpoch;
 
+    try {
       if (expandedScope) {
         for (const path of expandedScope) {
           activeAbortControllers.get(path)?.abort();
@@ -901,7 +904,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         for (const path of expandedScope) activeAbortControllers.delete(path);
       }
       isValidating = false;
-      if (!expandedScope) hasValidated = true;
+      if (!expandedScope && activeEpoch === asyncEpoch) hasValidated = true;
       if (globalSubscribers.size > 0) {
         const finalSnapshot = getState();
         for (const fn of globalSubscribers) fn(finalSnapshot);
