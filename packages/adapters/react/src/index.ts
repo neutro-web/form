@@ -28,6 +28,7 @@ export function useForm<T extends object>(
     arraySwap: form.arraySwap,
     setErrors: form.setErrors,
     clearErrors: form.clearErrors,
+    resetField: form.resetField,
   } as FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState' | '_subscribeToActions'>;
 }
 

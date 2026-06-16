@@ -10,6 +10,7 @@ import {
   valibotAdapter,
   yupAdapter,
   zodAdapter,
+  type FormAction,
 } from '../src/index';
 
 // ---------------------------------------------------------------------------
@@ -3274,5 +3275,13 @@ describe('resetField', () => {
     form.resetField('email');
     await Promise.resolve();
     expect(validator).not.toHaveBeenCalled();
+  });
+
+  it('dispatches RESET_FIELD action', () => {
+    const form = createForm({ initialValues: { email: 'a@test.com' } });
+    const actions: FormAction[] = [];
+    form._subscribeToActions((a) => actions.push(a));
+    form.resetField('email');
+    expect(actions).toContainEqual({ type: 'RESET_FIELD', path: 'email' });
   });
 });

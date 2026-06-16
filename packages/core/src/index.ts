@@ -1505,10 +1505,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           for (const opt of el.options) opt.selected = arr.includes(opt.value);
         } else if (
           el instanceof HTMLInputElement &&
-          (el.type === 'date' || el.type === 'datetime-local') &&
+          el.type === 'date' &&
           fresh instanceof Date
         ) {
           el.value = fresh.toISOString().substring(0, 10);
+        } else if (
+          el instanceof HTMLInputElement &&
+          el.type === 'datetime-local' &&
+          fresh instanceof Date
+        ) {
+          el.value = fresh.toISOString().substring(0, 16);
         } else {
           (el as any).value = fresh !== undefined ? fresh : '';
         }
@@ -1535,9 +1541,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     ): void => {
       const targetPath = Array.isArray(path) ? path.join('.') : (path as string);
       const initialVal = getNestedValue(initialValues, targetPath);
+      const freshVal = deepClone(initialVal);
 
       batch(() => {
-        setNestedValue(values, targetPath, deepClone(initialVal));
+        setNestedValue(values, targetPath, freshVal);
 
         if (!options?.keepError) {
           for (const k of Object.keys(errors)) {
@@ -1561,24 +1568,29 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       if (ref) {
         const el = ref.deref();
         if (el) {
-          const fresh = getNestedValue(values, targetPath);
           if (el instanceof HTMLInputElement && el.type === 'checkbox') {
             el.checked = el.hasAttribute('value')
-              ? Array.isArray(fresh) && fresh.includes(el.value)
-              : !!fresh;
+              ? Array.isArray(freshVal) && freshVal.includes(el.value)
+              : !!freshVal;
           } else if (el instanceof HTMLInputElement && el.type === 'radio') {
-            el.checked = el.value === fresh;
+            el.checked = el.value === freshVal;
           } else if (el instanceof HTMLSelectElement && el.multiple) {
-            const arr = Array.isArray(fresh) ? fresh : [];
+            const arr = Array.isArray(freshVal) ? freshVal : [];
             for (const opt of el.options) opt.selected = arr.includes(opt.value);
           } else if (
             el instanceof HTMLInputElement &&
-            (el.type === 'date' || el.type === 'datetime-local') &&
-            fresh instanceof Date
+            el.type === 'date' &&
+            freshVal instanceof Date
           ) {
-            el.value = fresh.toISOString().substring(0, 10);
+            el.value = freshVal.toISOString().substring(0, 10);
+          } else if (
+            el instanceof HTMLInputElement &&
+            el.type === 'datetime-local' &&
+            freshVal instanceof Date
+          ) {
+            el.value = freshVal.toISOString().substring(0, 16);
           } else if ('value' in el) {
-            (el as any).value = fresh !== undefined ? fresh : '';
+            (el as any).value = freshVal !== undefined ? freshVal : '';
           }
         }
       }
