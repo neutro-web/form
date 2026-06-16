@@ -6,6 +6,13 @@ export interface DevtoolsOptions {
   collapsed?: boolean;
 }
 
+export interface DevtoolsPanelOptions {
+  name?: string;
+  theme?: 'light' | 'dark' | 'auto';
+  maxLogEntries?: number;
+  collapsed?: boolean;
+}
+
 const BADGE_STYLE =
   'background:#6366f1;color:#fff;padding:2px 6px;border-radius:3px;font-weight:bold;font-size:11px;';
 const DIM_STYLE = 'color:#888;font-weight:normal;';
@@ -226,5 +233,32 @@ export function devtools<T extends object>(
   return () => {
     registeredForms.delete(form);
     unsubscribe();
+  };
+}
+
+// Per-(form, container) registry to guard against duplicate mounts
+const panelRegistry = new WeakMap<FormInstance<any>, WeakMap<HTMLElement, true>>();
+
+export function createDevtoolsPanel(
+  form: FormInstance<any>,
+  container: HTMLElement,
+  options: DevtoolsPanelOptions = {}
+): () => void {
+  if (typeof document === 'undefined') {
+    console.warn('[NeutroForm devtools] createDevtoolsPanel called in SSR — no-op');
+    return () => {};
+  }
+
+  if (!panelRegistry.has(form)) panelRegistry.set(form, new WeakMap());
+  const formMap = panelRegistry.get(form)!;
+  if (formMap.has(container)) {
+    console.warn('[NeutroForm devtools] createDevtoolsPanel called twice on the same form+container — returning existing unsubscribe');
+    return () => {}; // caller should have kept the original
+  }
+  formMap.set(container, true);
+
+  // Implementation in Task 2
+  return () => {
+    formMap.delete(container);
   };
 }
