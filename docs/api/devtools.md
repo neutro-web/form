@@ -116,6 +116,14 @@ Internal escape hatch used by `devtools()`. The callback receives the labeled ac
 Mounts a reactive DOM panel inside `container` showing the form's current state and an action log. Returns an unsubscribe function that unmounts the panel.
 
 ```ts
+function createDevtoolsPanel<T extends object>(
+  form: FormInstance<T>,
+  container: HTMLElement,
+  options?: DevtoolsPanelOptions
+): () => void
+```
+
+```ts
 import { createDevtoolsPanel } from '@neutro/form/devtools'
 
 const unsub = createDevtoolsPanel(form, document.getElementById('debug-panel')!, {
