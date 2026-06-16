@@ -176,12 +176,9 @@ export interface FormInstance<T extends object> {
   subscribeToPath(path: string, fn: PathSubscriber): () => void;
   get<P extends Path<T>>(path: P): GetPathValue<T, P>;
   get(path: string | string[]): any;
-  set: (
-    path: Path<T> | string | string[],
-    val: any,
-    options?: { touch?: boolean; validate?: boolean }
-  ) => void;
-  validate: (scopePaths?: Path<T>[] | string[] | string[][]) => Promise<boolean>;
+  set<P extends Path<T>>(path: P, val: GetPathValue<T, P>, options?: SetOptions): void;
+  set(path: Path<T> | (string & {}) | string[], val: any, options?: SetOptions): void;
+  validate(scopePaths?: Array<Path<T> | (string & {}) | string[]>): Promise<boolean>;
   connect: (path: Path<T> | string, el: HTMLElement, options?: ConnectOptions) => () => void;
   submit: (onValid: (payload: Partial<T>) => void | Promise<void>) => Promise<boolean>;
   handleSubmit: (
@@ -192,11 +189,20 @@ export interface FormInstance<T extends object> {
   getPayload: () => Partial<T>;
   getAriaProps: (path: Path<T> | string, options?: AriaPropsOptions) => AriaProps;
   batch: (fn: () => void) => void;
-  arrayAppend: (path: Path<T> | string | string[], item: any) => void;
-  arrayInsert: (path: Path<T> | string | string[], index: number, item: any) => void;
-  arrayRemove: (path: Path<T> | string | string[], index: number) => void;
-  arrayMove: (path: Path<T> | string | string[], fromIndex: number, toIndex: number) => void;
-  arraySwap: (path: Path<T> | string | string[], indexA: number, indexB: number) => void;
+  arrayAppend<P extends Path<T>>(path: P, item: ArrayItem<GetPathValue<T, P>>): void;
+  arrayAppend(path: Path<T> | (string & {}) | string[], item: any): void;
+
+  arrayInsert<P extends Path<T>>(path: P, index: number, item: ArrayItem<GetPathValue<T, P>>): void;
+  arrayInsert(path: Path<T> | (string & {}) | string[], index: number, item: any): void;
+
+  arrayRemove<P extends Path<T>>(path: P, index: number): void;
+  arrayRemove(path: Path<T> | (string & {}) | string[], index: number): void;
+
+  arrayMove<P extends Path<T>>(path: P, fromIndex: number, toIndex: number): void;
+  arrayMove(path: Path<T> | (string & {}) | string[], fromIndex: number, toIndex: number): void;
+
+  arraySwap<P extends Path<T>>(path: P, indexA: number, indexB: number): void;
+  arraySwap(path: Path<T> | (string & {}) | string[], indexA: number, indexB: number): void;
   reset: (newValues?: T) => void;
   getConnectedCount: () => number;
   destroy: () => void;
