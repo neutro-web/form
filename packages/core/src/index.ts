@@ -130,7 +130,8 @@ export type FormAction =
   | { type: 'ARRAY_REMOVE'; path: string; index: number }
   | { type: 'ARRAY_MOVE'; path: string; from: number; to: number }
   | { type: 'ARRAY_SWAP'; path: string; i: number; j: number }
-  | { type: 'CLEAR_ERRORS' };
+  | { type: 'CLEAR_ERRORS' }
+  | { type: 'RESET_FIELD'; path: string };
 
 export interface AriaPropsOptions {
   required?: boolean;
@@ -166,6 +167,12 @@ export interface ConnectOptions {
 export interface SetOptions {
   touch?: boolean;
   validate?: boolean;
+}
+
+export interface ResetFieldOptions {
+  keepError?: boolean;   // retain errors[path] — default false
+  keepTouched?: boolean; // retain touched[path] — default false
+  keepDirty?: boolean;   // retain dirty[path] — default false
 }
 
 export type ArrayItem<V> = V extends Array<infer U> ? U : never;
@@ -215,6 +222,7 @@ export interface FormInstance<T extends object> {
   arraySwap<P extends Path<T>>(path: P, indexA: number, indexB: number): void;
   arraySwap(path: Path<T> | (string & {}) | string[], indexA: number, indexB: number): void;
   reset: (newValues?: T) => void;
+  resetField(path: Path<T> | (string & {}) | string[], options?: ResetFieldOptions): void;
   getConnectedCount: () => number;
   destroy: () => void;
   setErrors: (errors: Record<Path<T> | (string & {}), string>) => void;
