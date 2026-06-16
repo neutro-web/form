@@ -151,7 +151,7 @@ export interface FormConfig<T extends object> {
     scopePaths?: string[],
     signal?: AbortSignal
   ) => Record<string, string> | Promise<Record<string, string>>;
-  dependencies?: Record<string, string[]>;
+  dependencies?: Partial<Record<Path<T> | (string & {}), Array<Path<T> | (string & {})>>>;
   asyncDebounceMs?: number;
   /** Per-field validation trigger mode. Defaults to 'onTouched'. */
   validationMode?: ValidationMode | ValidationModeConfig<T>;
@@ -162,6 +162,13 @@ export interface ConnectOptions {
   format?: (val: string) => string;
   validateOn?: ValidationMode;
 }
+
+export interface SetOptions {
+  touch?: boolean;
+  validate?: boolean;
+}
+
+export type ArrayItem<V> = V extends Array<infer U> ? U : never;
 
 export interface FormInstance<T extends object> {
   subscribe: (fn: FormSubscriber<T>) => () => void;
@@ -667,7 +674,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   let mutationObserver: MutationObserver | null = null;
 
   const preComputedScopes = config.dependencies
-    ? compileDependencyScopes(config.dependencies, initialValues)
+    ? compileDependencyScopes(config.dependencies as Record<string, string[]>, initialValues)
     : {};
 
   const getState = (): FormState<T> => ({
