@@ -3139,3 +3139,140 @@ describe('getFieldMode', () => {
     expect(form2.getFieldMode('email')).toBe('onTouched');
   });
 });
+
+// ---------------------------------------------------------------------------
+// resetField
+// ---------------------------------------------------------------------------
+
+describe('resetField', () => {
+  it('restores a field to its initial value', () => {
+    const form = createForm({ initialValues: { email: 'start@test.com', name: 'Alice' } });
+    form.set('email', 'changed@test.com');
+    form.resetField('email');
+    expect(form.get('email')).toBe('start@test.com');
+    expect(form.get('name')).toBe('Alice');
+  });
+
+  it('clears errors[path] by default', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      validator: (v) => (v.email ? {} : { email: 'Required' }),
+    });
+    await form.validate();
+    expect(form.getState().errors.email).toBe('Required');
+    form.resetField('email');
+    expect(form.getState().errors.email).toBeUndefined();
+  });
+
+  it('clears touched[path] by default', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    form.set('email', 'x', { touch: true });
+    form.resetField('email');
+    expect(form.getState().touched.email).toBeUndefined();
+  });
+
+  it('clears dirty[path] by default', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    form.set('email', 'changed');
+    expect(form.getState().dirty.email).toBe(true);
+    form.resetField('email');
+    expect(form.getState().dirty.email).toBeUndefined();
+  });
+
+  it('keepError: true preserves the existing error', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      validator: (v) => (v.email ? {} : { email: 'Required' }),
+    });
+    await form.validate();
+    form.resetField('email', { keepError: true });
+    expect(form.getState().errors.email).toBe('Required');
+  });
+
+  it('keepTouched: true preserves the touched flag', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    form.set('email', 'x', { touch: true });
+    form.resetField('email', { keepTouched: true });
+    expect(form.getState().touched.email).toBe(true);
+  });
+
+  it('keepDirty: true preserves the dirty flag', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    form.set('email', 'changed');
+    form.resetField('email', { keepDirty: true });
+    expect(form.getState().dirty.email).toBe(true);
+  });
+
+  it('works on a nested path (address.city)', () => {
+    const form = createForm({
+      initialValues: { address: { city: 'London', zip: 'SW1A' } },
+    });
+    form.set('address.city', 'Paris');
+    form.resetField('address.city');
+    expect(form.get('address.city')).toBe('London');
+    expect(form.get('address.zip')).toBe('SW1A');
+  });
+
+  it('clears all nested errors/touched/dirty under an object key', async () => {
+    const form = createForm({
+      initialValues: { address: { city: '', zip: '' } },
+      validator: (v) => {
+        const e: Record<string, string> = {};
+        if (!v.address.city) e['address.city'] = 'Required';
+        if (!v.address.zip) e['address.zip'] = 'Required';
+        return e;
+      },
+    });
+    await form.validate();
+    form.set('address.city', 'x', { touch: true });
+    form.resetField('address');
+    const s = form.getState();
+    expect(s.errors['address.city']).toBeUndefined();
+    expect(s.errors['address.zip']).toBeUndefined();
+    expect(s.touched['address.city']).toBeUndefined();
+  });
+
+  it('works with string[] path segments', () => {
+    const form = createForm({
+      initialValues: { items: [{ name: 'original' }] },
+    });
+    form.set('items.0.name', 'modified');
+    form.resetField(['items', '0', 'name']);
+    expect(form.get('items.0.name')).toBe('original');
+  });
+
+  it('uses the new seed after reset(newValues)', () => {
+    const form = createForm({ initialValues: { email: 'original@test.com' } });
+    form.reset({ email: 'seeded@test.com' });
+    form.set('email', 'changed@test.com');
+    form.resetField('email');
+    expect(form.get('email')).toBe('seeded@test.com');
+  });
+
+  it('notifies subscribers after resetField', () => {
+    const sub = vi.fn();
+    const form = createForm({ initialValues: { email: 'a@test.com' } });
+    form.subscribe(sub);
+    sub.mockClear();
+    form.set('email', 'b@test.com');
+    sub.mockClear();
+    form.resetField('email');
+    expect(sub).toHaveBeenCalledOnce();
+    expect(sub.mock.calls[0][0].values.email).toBe('a@test.com');
+  });
+
+  it('on a nonexistent path sets value to undefined without throwing', () => {
+    const form = createForm({ initialValues: { email: '' } });
+    expect(() => form.resetField('nonexistent')).not.toThrow();
+  });
+
+  it('does NOT trigger validation', async () => {
+    const validator = vi.fn().mockReturnValue({});
+    const form = createForm({ initialValues: { email: '' }, validator });
+    validator.mockClear();
+    form.set('email', 'changed');
+    form.resetField('email');
+    await Promise.resolve();
+    expect(validator).not.toHaveBeenCalled();
+  });
+});

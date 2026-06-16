@@ -1529,6 +1529,64 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       dispatchAction({ type: 'RESET', newValues });
     },
 
+    resetField: (
+      path: Path<T> | (string & {}) | string[],
+      options?: ResetFieldOptions
+    ): void => {
+      const targetPath = Array.isArray(path) ? path.join('.') : (path as string);
+      const initialVal = getNestedValue(initialValues, targetPath);
+
+      batch(() => {
+        setNestedValue(values, targetPath, deepClone(initialVal));
+
+        if (!options?.keepError) {
+          for (const k of Object.keys(errors)) {
+            if (k === targetPath || k.startsWith(`${targetPath}.`)) delete errors[k];
+          }
+        }
+        if (!options?.keepTouched) {
+          for (const k of Object.keys(touched)) {
+            if (k === targetPath || k.startsWith(`${targetPath}.`)) delete touched[k];
+          }
+        }
+        if (!options?.keepDirty) {
+          for (const k of Object.keys(dirty)) {
+            if (k === targetPath || k.startsWith(`${targetPath}.`)) delete dirty[k];
+          }
+        }
+      });
+
+      // DOM sync: update the connected element if one exists for this path
+      const ref = connectionRegistry.get(targetPath);
+      if (ref) {
+        const el = ref.deref();
+        if (el) {
+          const fresh = getNestedValue(values, targetPath);
+          if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+            el.checked = el.hasAttribute('value')
+              ? Array.isArray(fresh) && fresh.includes(el.value)
+              : !!fresh;
+          } else if (el instanceof HTMLInputElement && el.type === 'radio') {
+            el.checked = el.value === fresh;
+          } else if (el instanceof HTMLSelectElement && el.multiple) {
+            const arr = Array.isArray(fresh) ? fresh : [];
+            for (const opt of el.options) opt.selected = arr.includes(opt.value);
+          } else if (
+            el instanceof HTMLInputElement &&
+            (el.type === 'date' || el.type === 'datetime-local') &&
+            fresh instanceof Date
+          ) {
+            el.value = fresh.toISOString().substring(0, 10);
+          } else if ('value' in el) {
+            (el as any).value = fresh !== undefined ? fresh : '';
+          }
+        }
+      }
+
+      notify(targetPath);
+      dispatchAction({ type: 'RESET_FIELD', path: targetPath });
+    },
+
     _subscribeToActions: (fn) => {
       actionListeners.add(fn);
       return () => {
