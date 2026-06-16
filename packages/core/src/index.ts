@@ -56,6 +56,8 @@ export interface FormState<T> {
   dirty: Record<string, boolean>;
   isSubmitting: boolean;
   isValidating: boolean;
+  /** null = not yet validated; true = last full validation passed; false = errors exist */
+  isValid: boolean | null;
 }
 
 export type FormSubscriber<T> = (state: FormState<T>) => void;
@@ -682,6 +684,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   let dirty: Record<string, boolean> = {};
   let isSubmitting = false;
   let isValidating = false;
+  let hasValidated = false;
 
   const globalSubscribers = new Set<FormSubscriber<T>>();
   const pathSubscribers = new Map<string, Set<PathSubscriber>>();
@@ -709,6 +712,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     dirty: { ...dirty },
     isSubmitting,
     isValidating,
+    isValid: hasValidated ? Object.keys(errors).length === 0 : null,
   });
 
   const actionListeners = new Set<(action: FormAction, state: FormState<T>) => void>();
@@ -897,6 +901,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         for (const path of expandedScope) activeAbortControllers.delete(path);
       }
       isValidating = false;
+      if (!expandedScope) hasValidated = true;
       if (globalSubscribers.size > 0) {
         const finalSnapshot = getState();
         for (const fn of globalSubscribers) fn(finalSnapshot);
@@ -1489,6 +1494,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         dirty = {};
         isSubmitting = false;
         isValidating = false;
+        hasValidated = false;
       });
       connectionRegistry.forEach((ref, path) => {
         const el = ref.deref();
