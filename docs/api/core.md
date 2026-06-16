@@ -302,6 +302,29 @@ form.reset({ email: 'new@ex.com' })   // re-seed with new values
 
 ---
 
+### `resetField(path, options?)`
+
+Restores a single field to its initial value (the value from `initialValues`, or the seed passed to the last `reset(newValues)` call).
+
+```ts
+form.resetField('email')
+form.resetField('address')              // clears all address.* state
+form.resetField(['items', '0', 'name']) // segment-array path
+form.resetField('email', { keepError: true }) // preserve the current error
+```
+
+**`ResetFieldOptions`:**
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `keepError` | `boolean` | `false` | Retain `errors[path]` after reset |
+| `keepTouched` | `boolean` | `false` | Retain `touched[path]` after reset |
+| `keepDirty` | `boolean` | `false` | Retain `dirty[path]` after reset |
+
+When `path` points to an object key (e.g. `'address'`), all nested state keys (`errors['address.city']`, `touched['address.zip']`, etc.) are cleared. Validation is NOT triggered after `resetField`.
+
+---
+
 ### `form.getFieldMode(path)`
 
 ```ts
