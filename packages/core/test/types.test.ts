@@ -1,5 +1,11 @@
 import { describe, expectTypeOf, it } from 'vitest';
-import { createForm, type ArrayItem, type GetPathValue, type Path, type SetOptions } from '../src/index';
+import {
+  type ArrayItem,
+  createForm,
+  type GetPathValue,
+  type Path,
+  type SetOptions,
+} from '../src/index';
 
 interface SignupValues {
   email: string;
