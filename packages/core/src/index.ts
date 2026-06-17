@@ -543,18 +543,59 @@ export function extractAllPaths(obj: any, prefix = '', _depth = 0): string[] {
   return paths;
 }
 
+export interface WildcardDependency {
+  pattern: string;
+  dependents: string[];
+}
+
+function matchesWildcardPattern(pattern: string, path: string): string[] | null {
+  const patternParts = pattern.split('.');
+  const pathParts = path.split('.');
+  if (patternParts.length !== pathParts.length) return null;
+  const indices: string[] = [];
+  for (let i = 0; i < patternParts.length; i++) {
+    if (patternParts[i] === '*') {
+      if (!/^\d+$/.test(pathParts[i])) return null; // only numeric indices
+      indices.push(pathParts[i]);
+    } else if (patternParts[i] !== pathParts[i]) {
+      return null;
+    }
+  }
+  return indices;
+}
+
+function resolveWildcardDependents(dependentPatterns: string[], indices: string[]): string[] {
+  return dependentPatterns.map((dep) => {
+    let i = 0;
+    return dep.replace(/\*/g, () => indices[i++] ?? '*');
+  });
+}
+
 // Bug #12: register wildcard dependency keys directly so empty-array deps are pre-compiled.
 export function compileDependencyScopes(
   dependencies: Record<string, string[] | undefined>,
   initialValues: any
-): Record<string, string[]> {
-  const resolvedScopes: Record<string, string[]> = {};
+): { preComputedScopes: Record<string, string[]>; wildcardDependencies: WildcardDependency[] } {
+  const preComputedScopes: Record<string, string[]> = {};
+  const wildcardDependencies: WildcardDependency[] = [];
   const allFieldPaths = extractAllPaths(initialValues);
+
+  const isWildcardEntry = (key: string, val: string[] | undefined) =>
+    key.includes('*') || (val ?? []).some((v) => v.includes('*'));
+
+  const staticDependencies: Record<string, string[] | undefined> = {};
+  Object.entries(dependencies).forEach(([key, val]) => {
+    if (isWildcardEntry(key, val)) {
+      wildcardDependencies.push({ pattern: key, dependents: val ?? [] });
+    } else {
+      staticDependencies[key] = val;
+    }
+  });
 
   const resolveTransitiveClosure = (currentPath: string, visited: Set<string>) => {
     if (visited.has(currentPath)) return;
     visited.add(currentPath);
-    const directDependents = dependencies[currentPath];
+    const directDependents = staticDependencies[currentPath];
     if (directDependents) {
       for (const dep of directDependents) resolveTransitiveClosure(dep, visited);
     }
@@ -563,19 +604,19 @@ export function compileDependencyScopes(
   allFieldPaths.forEach((path) => {
     const visited = new Set<string>();
     resolveTransitiveClosure(path, visited);
-    resolvedScopes[path] = Array.from(visited);
+    preComputedScopes[path] = Array.from(visited);
   });
 
-  // Register dependency keys not present in initialValues (e.g. wildcard paths on empty arrays)
-  Object.keys(dependencies).forEach((path) => {
-    if (!resolvedScopes[path]) {
+  // Register static dependency keys not present in initialValues (e.g. on empty arrays)
+  Object.keys(staticDependencies).forEach((path) => {
+    if (!preComputedScopes[path]) {
       const visited = new Set<string>();
       resolveTransitiveClosure(path, visited);
-      resolvedScopes[path] = Array.from(visited);
+      preComputedScopes[path] = Array.from(visited);
     }
   });
 
-  return resolvedScopes;
+  return { preComputedScopes, wildcardDependencies };
 }
 
 // ---------------------------------------------------------------------------
@@ -937,9 +978,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   const activeAbortControllers = new Map<string, AbortController>();
   let mutationObserver: MutationObserver | null = null;
 
-  const preComputedScopes = config.dependencies
+  const { preComputedScopes, wildcardDependencies } = config.dependencies
     ? compileDependencyScopes(config.dependencies, initialValues)
-    : {};
+    : { preComputedScopes: {} as Record<string, string[]>, wildcardDependencies: [] as WildcardDependency[] };
 
   const rawDebounce = config.asyncDebounceMs ?? 300;
   const asyncDebounceMs =
@@ -1075,7 +1116,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
 
     let expandedScope: string[] | undefined;
-    if (scopePaths && Object.keys(preComputedScopes).length > 0) {
+    if (scopePaths && (Object.keys(preComputedScopes).length > 0 || wildcardDependencies.length > 0)) {
       const expandedSet = new Set<string>();
       for (const path of scopePaths) {
         let resolved = preComputedScopes[path];
@@ -1093,6 +1134,14 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         } else {
           expandedSet.add(path);
         }
+        // Apply runtime wildcard dependency resolution
+        wildcardDependencies.forEach(({ pattern, dependents }) => {
+          const indices = matchesWildcardPattern(pattern, path);
+          if (indices !== null) {
+            const resolved = resolveWildcardDependents(dependents, indices);
+            resolved.forEach((p) => expandedSet.add(p));
+          }
+        });
       }
       expandedScope = Array.from(expandedSet);
     } else if (scopePaths) {
