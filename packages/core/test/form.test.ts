@@ -4470,7 +4470,18 @@ describe('onSubmitSuccess / onSubmitError hooks', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Prototype B — Computed / Derived Fields (0.4.0 candidate)
+// ---------------------------------------------------------------------------
+// PROTOTYPE B — Computed / Derived Fields (v0.4.0 candidate, NOT public API)
+//
+// These tests are intentionally skipped. The feature is implemented in
+// packages/core/src/index.ts (see FormConfig.computed) but is NOT part of
+// the v0.3.0 public API. They are kept here rather than deleted so that:
+//   1. The intended behaviour is unambiguously documented.
+//   2. They can be un-skipped to verify the implementation at any time.
+//
+// To validate before the v0.4.0 release decision: remove `.skip` temporarily,
+// run the suite, then restore it. DO NOT ship with them un-skipped unless
+// computed fields are being officially released.
 // ---------------------------------------------------------------------------
 
 describe.skip('computed fields prototype (0.4.0 candidate)', () => {

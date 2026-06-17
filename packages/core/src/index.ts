@@ -174,9 +174,18 @@ export interface FormConfig<T extends object> {
   onSubmitSuccess?: (payload: Partial<T>) => void | Promise<void>;
   onSubmitError?: (error: unknown, payload: Partial<T>) => void | Promise<void>;
   /**
-   * Prototype B (0.4.0 candidate) — Computed / Derived Fields.
-   * Each key maps to a pure function that derives its value from the full form values.
-   * Computed fields are re-evaluated after every set() call. set() on a computed field is a no-op.
+   * PROTOTYPE — NOT PUBLIC API (v0.4.0 candidate)
+   *
+   * Computed / Derived Fields: each key maps to a pure function that derives its value
+   * from the full form values object. Computed fields are re-evaluated synchronously
+   * after every set() call. Calling set() on a computed field is a no-op (dev warning
+   * is logged). Chain dependencies (A→B→C) resolve in a single two-pass sweep.
+   *
+   * This option is accepted by createForm but is NOT documented or advertised in v0.3.0.
+   * It exists so the implementation can be benchmarked and validated before the v0.4.0
+   * release decision. Do not rely on it in production code — the API may change.
+   *
+   * See: packages/core/test/form.test.ts — describe.skip('computed fields prototype …')
    */
   computed?: {
     [K in keyof T]?: (values: T) => T[K]
@@ -1016,7 +1025,14 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           return 300;
         })();
 
-  // Prototype B (0.4.0 candidate) — Computed / Derived Fields
+  // ---------------------------------------------------------------------------
+  // PROTOTYPE B — Computed / Derived Fields (v0.4.0 candidate, NOT public API)
+  //
+  // The implementation lives here so it can be benchmarked in realistic conditions,
+  // but the `computed` config option is intentionally undocumented in v0.3.0.
+  // Release gate: benchmarks must confirm ≤1 extra notification cycle per set() for
+  // any chain depth. Tests live in form.test.ts under describe.skip().
+  // ---------------------------------------------------------------------------
   const computedFields = config.computed ?? ({} as NonNullable<typeof config.computed>)
   const computedKeys = Object.keys(computedFields) as Array<keyof T>
 
