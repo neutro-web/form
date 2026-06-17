@@ -4019,4 +4019,16 @@ describe('isDirty / isFieldDirty predicates', () => {
     form.set('email', '') // same value as initial
     expect(form.isFieldDirty('email')).toBe(true)
   })
+
+  it('isDirty() is true after arrayInsert()', () => {
+    const form = createForm({ initialValues: { items: [{ name: '' }] } })
+    form.arrayInsert('items', 0, { name: 'new' })
+    expect(form.isDirty()).toBe(true)
+  })
+
+  it('isDirty() is true after arrayRemove()', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } })
+    form.arrayRemove('items', 0)
+    expect(form.isDirty()).toBe(true)
+  })
 })
