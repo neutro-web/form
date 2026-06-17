@@ -3151,24 +3151,44 @@ run(el) {
         <input id="w-pass" type="password" placeholder="Won't trigger log" />
       </div>
       <div class="btn-row" style="margin-bottom:12px;">
-        <button class="btn danger" id="w-stop">Stop watching</button>
+        <button class="btn primary" id="w-start">Start watching</button>
+        <button class="btn danger" id="w-stop" disabled>Stop watching</button>
         <button class="btn sm" id="w-clear">Clear log</button>
       </div>
       <div class="sec">Watch log</div>
-      <div class="box" id="w-log" style="max-height:160px;font-size:11px;">(waiting for changes to email or username…)</div>
+      <div class="box" id="w-log" style="max-height:160px;font-size:11px;">(click Start watching to begin…)</div>
     </div>`;
 
   const log = el.querySelector('#w-log');
   const ts = () => new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
   let lineCount = 0;
-  let active = true;
+  let stopFn = null;
 
-  const stop = form.watch(['email', 'username'], ({ email, username }) => {
-    lineCount++;
-    const entry = `[${ts()}] #${lineCount} email="${email}" username="${username}"`;
-    log.textContent = (log.textContent === '(waiting for changes to email or username…)' ? '' : log.textContent + '\n') + entry;
-    log.scrollTop = log.scrollHeight;
-  });
+  const startBtn = el.querySelector('#w-start');
+  const stopBtn  = el.querySelector('#w-stop');
+
+  const startWatch = () => {
+    stopFn = form.watch(['email', 'username'], ({ email, username }) => {
+      lineCount++;
+      const entry = `[${ts()}] #${lineCount} email="${email}" username="${username}"`;
+      log.textContent = (log.textContent.startsWith('(') ? '' : log.textContent + '\n') + entry;
+      log.scrollTop = log.scrollHeight;
+    });
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    log.textContent += (log.textContent.startsWith('(') ? '' : log.textContent + '\n') + '[watching started]';
+    log.textContent = log.textContent.startsWith('(') ? '[watching started]' : log.textContent;
+  };
+
+  const stopWatch = () => {
+    if (stopFn) { stopFn(); stopFn = null; }
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    log.textContent += '\n[watch stopped — further changes will not appear]';
+  };
+
+  startBtn.addEventListener('click', startWatch);
+  stopBtn.addEventListener('click',  stopWatch);
 
   const emailInput = el.querySelector('#w-email');
   const userInput  = el.querySelector('#w-user');
@@ -3178,23 +3198,12 @@ run(el) {
   userInput.addEventListener('input',  e => form.set('username', e.target.value));
   passInput.addEventListener('input',  e => form.set('password', e.target.value));
 
-  const stopBtn = el.querySelector('#w-stop');
-  stopBtn.addEventListener('click', () => {
-    if (active) {
-      stop();
-      active = false;
-      stopBtn.textContent = 'Watching stopped';
-      stopBtn.disabled = true;
-      log.textContent += '\n[watch stopped — further changes will not appear]';
-    }
-  });
-
   el.querySelector('#w-clear').addEventListener('click', () => {
-    log.textContent = '(waiting for changes to email or username…)';
+    log.textContent = stopFn ? '(cleared — watching…)' : '(cleared — click Start watching to begin…)';
     lineCount = 0;
   });
 
-  el._cleanup = () => { if (active) stop(); };
+  el._cleanup = () => { if (stopFn) stopFn(); };
   return form;
 },
 },
@@ -3469,6 +3478,9 @@ run(el) {
         <div class="ferr" id="ft-doc-err"></div>
       </div>
       <p style="font-size:11px;color:var(--t2);line-height:1.6;margin-top:4px;">Try uploading an image, a video, a PDF, or a text file to see wildcard matching in action.</p>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn" id="ft-reset">Reset</button>
+      </div>
     </div>`;
 
   const handleFile = async (inputId, field, mimeId, badgeId, errId) => {
@@ -3477,9 +3489,9 @@ run(el) {
       const file = input.files[0];
       if (!file) return;
       form.set(field, file);
-      const mimeEl = document.getElementById(mimeId);
-      const badgeEl = document.getElementById(badgeId);
-      const errEl  = document.getElementById(errId);
+      const mimeEl = el.querySelector('#' + mimeId);
+      const badgeEl = el.querySelector('#' + badgeId);
+      const errEl  = el.querySelector('#' + errId);
       mimeEl.textContent = 'MIME: ' + (file.type || '(unknown)');
       await form.validate([field]);
       const state = form.getState();
@@ -3497,6 +3509,14 @@ run(el) {
 
   handleFile('ft-avatar', 'avatar', 'ft-avatar-mime', 'ft-avatar-badge', 'ft-avatar-err');
   handleFile('ft-doc', 'document', 'ft-doc-mime', 'ft-doc-badge', 'ft-doc-err');
+
+  el.querySelector('#ft-reset').addEventListener('click', () => {
+    form.reset();
+    ['ft-avatar', 'ft-doc'].forEach(id => { el.querySelector('#' + id).value = ''; });
+    ['ft-avatar-mime', 'ft-doc-mime'].forEach(id => { el.querySelector('#' + id).textContent = ''; });
+    ['ft-avatar-badge', 'ft-doc-badge'].forEach(id => { const b = el.querySelector('#' + id); b.style.display = 'none'; b.textContent = ''; });
+    ['ft-avatar-err', 'ft-doc-err'].forEach(id => { el.querySelector('#' + id).textContent = ''; });
+  });
 
   return form;
 },
@@ -3544,6 +3564,7 @@ run(el) {
         <button class="btn sm" id="ff-focus-name">Focus name</button>
         <button class="btn sm" id="ff-focus-email">Focus email</button>
         <button class="btn primary" id="ff-val-focus">Validate + Focus First Error</button>
+        <button class="btn" id="ff-reset">Reset</button>
       </div>
       <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
         <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">Currently focused</div>
@@ -3589,6 +3610,15 @@ run(el) {
     await form.validate();
     const result = form.focusFirstError();
     if (result === false) updateFocused('none — no errors found');
+  });
+
+  el.querySelector('#ff-reset').addEventListener('click', () => {
+    form.reset();
+    nameInput.value  = '';
+    emailInput.value = '';
+    document.getElementById('ff-name-err').textContent  = '';
+    document.getElementById('ff-email-err').textContent = '';
+    updateFocused('none');
   });
 
   el._cleanup = () => unsub();
@@ -5190,7 +5220,7 @@ function renderNav() {
 
 // ─── ROUTER ──────────────────────────────────────────────────────────────────
 
-function navigate(fw, idx) {
+function navigate(fw, idx, { pushState = true } = {}) {
   currentFw = fw;
   currentIdx = idx;
   const step = FRAMEWORKS.find(f => f.key === fw).steps[idx];
@@ -5203,7 +5233,24 @@ function navigate(fw, idx) {
 
   const lang = (fw === 'svelte' || fw === 'angular') ? fw : 'javascript';
   document.getElementById('codeLang').textContent = lang;
+
+  if (pushState) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('fw', fw);
+    url.searchParams.set('step', idx);
+    history.pushState(null, '', url.toString());
+  }
 }
+
+window.addEventListener('popstate', () => {
+  const params = new URLSearchParams(window.location.search);
+  const fw  = params.get('fw')   || 'vanilla';
+  const idx = parseInt(params.get('step') || '0', 10);
+  const fwDef = FRAMEWORKS.find(f => f.key === fw);
+  if (fwDef && idx >= 0 && idx < fwDef.steps.length) {
+    navigate(fw, idx, { pushState: false });
+  }
+});
 
 // ─── EVENT BINDINGS ──────────────────────────────────────────────────────────
 
@@ -5223,7 +5270,14 @@ document.addEventListener('keydown', e => {
 });
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-navigate('vanilla', 0);
+(function initFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const fw  = params.get('fw')   || 'vanilla';
+  const idx = parseInt(params.get('step') || '0', 10);
+  const fwDef = FRAMEWORKS.find(f => f.key === fw);
+  const safeIdx = (fwDef && idx >= 0 && idx < fwDef.steps.length) ? idx : 0;
+  navigate(fwDef ? fw : 'vanilla', safeIdx, { pushState: false });
+})();
 </script>
 </body>
 </html>
