@@ -2,9 +2,11 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "release-type": "node",
   "packages": {
-    "packages/alias": {
+    ".": {
       "component": "form",
-      "include-component-in-tag": false
+      "include-component-in-tag": false,
+      "version-file": "packages/alias/package.json",
+      "changelog-path": "CHANGELOG.md"
     }
   },
   "changelog-sections": [
