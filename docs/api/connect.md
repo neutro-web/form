@@ -125,22 +125,27 @@ submitButton.addEventListener('click', async () => {
 
 ## `useFormConnect` (React Zero-Rerender Pattern)
 
-The React adapter's `useFormConnect` hook wires up `connect` inside a `useEffect`, giving you an uncontrolled field that never causes a React re-render:
+The React adapter's `useFormConnect` hook returns a stable curried ref-callback factory. Call it with a path (and optional `ConnectOptions`) to get a React ref callback — attach that callback to any DOM element for zero-rerender form integration:
 
 ```tsx
 import { useFormConnect } from '@neutro/form/adapters/react'
 
 function PhoneField({ form }: { form: ReturnType<typeof createForm> }) {
-  const ref = useFormConnect(form, 'phone', {
-    persist: false,
-    format: (v) => formatPhone(String(v)),
-  })
+  const register = useFormConnect(form)
 
-  return <input ref={ref} type="tel" />
+  return (
+    <input
+      ref={register('phone', {
+        persist: false,
+        format: (v) => formatPhone(String(v)),
+      })}
+      type="tel"
+    />
+  )
 }
 ```
 
-The hook returns a React `ref` that you attach to the DOM element. When the element mounts, `form.connect` is called; when it unmounts, the returned disconnect function is called.
+`useFormConnect(form)` returns a stable factory (memoised via `useCallback`). Calling `register(path, options?)` returns a React ref callback — when the element mounts, `form.connect` is called; when it unmounts, the disconnect cleanup runs automatically.
 
 ---
 

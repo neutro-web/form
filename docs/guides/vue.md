@@ -197,7 +197,7 @@ const email = useVueFormPath(form, 'email')
 
 ## Return Shape Reference
 
-`useVueForm(form)` returns `{ state, get, set, connect, submit, handleSubmit, reset, batch, arrayAppend, arrayInsert, arrayRemove, arrayMove, arraySwap }`. Destructure `state` to get the reactive `ShallowRef<FormState<T>>` — Vue auto-unwraps it in templates so `state.values.email` works without `.value`.
+`useVueForm(form)` returns `{ state, get, set, connect, submit, handleSubmit, reset, batch, validate, subscribeToPath, getPayload, getAriaProps, getFieldMode, getConnectedCount, destroy, arrayAppend, arrayInsert, arrayRemove, arrayMove, arraySwap, setErrors, clearErrors, resetField }`. Destructure `state` to get the reactive `ShallowRef<FormState<T>>` — Vue auto-unwraps it in templates so `state.values.email` works without `.value`.
 
 `useVueFormPath(form, path)` returns `{ value, fieldState }` — both are readonly refs. `value` holds the field's current value; `fieldState` holds `{ error?, touched?, dirty? }` or `null`. Access them as `field.value` and `field.fieldState?.error` in templates (Vue unwraps the refs automatically).
 

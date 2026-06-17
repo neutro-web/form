@@ -295,7 +295,9 @@ const form = createForm({
 For `useFormConnect`-wired inputs this is automatic. Pass `validateOn` to override for one element:
 
 ```tsx
-const ref = useFormConnect(form, 'email', { validateOn: 'onBlur' })
+const register = useFormConnect(form)
+// ...
+<input ref={register('email', { validateOn: 'onBlur' })} />
 ```
 
 For controlled inputs, call `form.getFieldMode(path)` to implement the right event wiring:

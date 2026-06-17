@@ -13,7 +13,7 @@ npm install @neutro/form
 | `useSvelteForm` | `{ state: Readable<FormState<T>>, ...methods }` | Submit button, form-level status |
 | `useSvelteFormPath` | `Readable<{ value, fieldState: { error?, touched?, dirty? } }>` | Individual field components |
 
-> **Important:** Call both hooks during component initialisation — not inside event handlers or `setTimeout`. They call `onDestroy` internally to unsubscribe, which requires a live Svelte component context.
+> **Important:** Call both hooks during component initialisation — not inside event handlers or `setTimeout`. The returned stores automatically unsubscribe when the last reactive consumer detaches (Svelte's built-in `readable()` cleanup), so no manual teardown is needed.
 
 ---
 
@@ -227,13 +227,15 @@ Call `form.resetField(path)` to reset one field. The Svelte store updates reacti
 
 ```svelte
 <script>
-  import { createSvelteForm } from '@neutro/form/adapters/svelte'
-  const { state, form } = createSvelteForm({ initialValues: { email: '' } })
+  import { createForm } from '@neutro/form/core'
+  import { useSvelteForm } from '@neutro/form/adapters/svelte'
+  const form = createForm({ initialValues: { email: '' } })
+  const { state, resetField } = useSvelteForm(form)
 </script>
 
 <input bind:value={$state.values.email} />
 {#if $state.errors.email}
-  <button on:click={() => form.resetField('email')}>Reset</button>
+  <button on:click={() => resetField('email')}>Reset</button>
 {/if}
 ```
 

@@ -88,10 +88,12 @@ interface FormConfig<T> {
 ## `FormState<T>`
 
 ```ts
+// Inline shape passed to PathSubscriber callbacks — all fields are optional
+// because they are only populated once the field has been interacted with.
 interface FieldState {
-  error: string | undefined
-  touched: boolean
-  dirty: boolean
+  error?: string
+  touched?: boolean
+  dirty?: boolean
 }
 
 interface FormState<T> {
