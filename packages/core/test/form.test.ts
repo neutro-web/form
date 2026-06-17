@@ -4468,3 +4468,46 @@ describe('onSubmitSuccess / onSubmitError hooks', () => {
     spy.mockRestore()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Prototype B — Computed / Derived Fields (0.4.0 candidate)
+// ---------------------------------------------------------------------------
+
+describe.skip('computed fields prototype (0.4.0 candidate)', () => {
+  test('computed field updates when dependency changes', () => {
+    const form = createForm({
+      initialValues: { qty: 1, unitPrice: 10, total: 0 },
+      computed: {
+        total: (values) => (values as any).qty * (values as any).unitPrice,
+      },
+    })
+    form.set('qty', 3)
+    expect(form.getState().values.total).toBe(30)
+  })
+
+  test('set() on a computed field is a no-op', () => {
+    const form = createForm({
+      initialValues: { qty: 2, unitPrice: 5, total: 0 },
+      computed: { total: (values) => (values as any).qty * (values as any).unitPrice },
+    })
+    form.set('total' as any, 999)
+    expect(form.getState().values.total).toBe(10) // 2 * 5
+  })
+
+  test('chain A→B→C: exactly one extra notification cycle per set()', () => {
+    let notifyCount = 0
+    const form = createForm({
+      initialValues: { a: 1, b: 0, c: 0 },
+      computed: {
+        b: (values) => (values as any).a * 2,
+        c: (values) => (values as any).b + 1,
+      },
+    })
+    form.subscribe(() => { notifyCount++ })
+    notifyCount = 0
+    form.set('a', 2)
+    // Baseline (no computed) = 1 notification. With computed = at most 2 (one extra pass).
+    expect(notifyCount).toBeLessThanOrEqual(2)
+    expect(form.getState().values.c).toBe(5) // a=2 → b=4 → c=5
+  })
+})
