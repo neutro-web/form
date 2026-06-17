@@ -58,6 +58,10 @@ export interface FormState<T> {
   isValidating: boolean;
   /** null = not yet validated; true = last full validation passed; false = errors exist */
   isValid: boolean | null;
+  /** Number of times submit() has been called, including failed validation attempts */
+  submissionAttempts: number;
+  /** Deep snapshot of all form values at last successful submission; null before first success */
+  lastSubmittedValues: Partial<T> | null;
 }
 
 export type FormSubscriber<T> = (state: FormState<T>) => void;
@@ -165,6 +169,8 @@ export interface FormConfig<T extends object> {
   /** Per-field validation trigger mode. Defaults to 'onTouched'. */
   validationMode?: ValidationMode | ValidationModeConfig<T>;
   persistence?: PersistenceConfig<T>;
+  onSubmitSuccess?: (payload: Partial<T>) => void | Promise<void>;
+  onSubmitError?: (error: unknown, payload: Partial<T>) => void | Promise<void>;
 }
 
 export interface ConnectOptions {
@@ -963,6 +969,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   let isValidating = false;
   let hasValidated = false;
   let isHydrating = false;
+  let submissionAttempts = 0;
+  let lastSubmittedValues: Partial<T> | null = null;
   let persistenceWriteTimer: ReturnType<typeof setTimeout> | null = null;
   let persistenceUnsubscribe: (() => void) | null = null;
 
@@ -1004,6 +1012,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     isSubmitting,
     isValidating,
     isValid: hasValidated ? Object.keys(errors).length === 0 : null,
+    submissionAttempts,
+    lastSubmittedValues,
   });
 
   const actionListeners = new Set<(action: FormAction, state: FormState<T>) => void>();
@@ -1720,22 +1730,46 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   ): Promise<boolean> => {
     dispatchAction({ type: 'SUBMIT' });
     if (isSubmitting) return false;
+
     isSubmitting = true;
+    submissionAttempts++;
     extractAllPaths(values).forEach((p) => {
       touched[p] = true;
     });
     notify();
+
     try {
       const isValid = await runValidation();
-      if (isValid) {
-        const payload = _getPayload(values, connectionRegistry, connectedPaths, persistedPaths);
-        await onSubmitCallback(payload);
-        return true;
+      if (!isValid) {
+        isSubmitting = false;
+        notify();
+        return false;
       }
-      return false;
-    } catch (err) {
-      console.error('[NeutroForm Submit Error]: ', err);
-      return false;
+
+      const callbackPayload = _getPayload(values, connectionRegistry, connectedPaths, persistedPaths);
+      const valuesSnapshot = deepClone(values) as Partial<T>;
+
+      try {
+        await onSubmitCallback(callbackPayload);
+        lastSubmittedValues = valuesSnapshot;
+        try {
+          await config.onSubmitSuccess?.(valuesSnapshot);
+        } catch (hookErr) {
+          console.error('[NeutroForm] onSubmitSuccess threw:', hookErr);
+        }
+        return true;
+      } catch (submitErr) {
+        if (config.onSubmitError) {
+          try {
+            await config.onSubmitError(submitErr, valuesSnapshot);
+          } catch (hookErr) {
+            console.error('[NeutroForm] onSubmitError threw:', hookErr);
+          }
+          throw submitErr;
+        }
+        console.error('[NeutroForm Submit Error]: ', submitErr);
+        return false;
+      }
     } finally {
       isSubmitting = false;
       notify();
@@ -2025,6 +2059,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         isSubmitting = false;
         isValidating = false;
         hasValidated = false;
+        submissionAttempts = 0;
+        lastSubmittedValues = null;
       });
       connectionRegistry.forEach((ref, path) => {
         const el = ref.deref();
