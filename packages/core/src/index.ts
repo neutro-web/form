@@ -580,12 +580,11 @@ export function compileDependencyScopes(
   const wildcardDependencies: WildcardDependency[] = [];
   const allFieldPaths = extractAllPaths(initialValues);
 
-  const isWildcardEntry = (key: string, val: string[] | undefined) =>
-    key.includes('*') || (val ?? []).some((v) => v.includes('*'));
+  const isWildcardEntry = (key: string) => key.includes('*');
 
   const staticDependencies: Record<string, string[] | undefined> = {};
   Object.entries(dependencies).forEach(([key, val]) => {
-    if (isWildcardEntry(key, val)) {
+    if (isWildcardEntry(key)) {
       wildcardDependencies.push({ pattern: key, dependents: val ?? [] });
     } else {
       staticDependencies[key] = val;
@@ -1192,10 +1191,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
               clearTimeout(localTimer);
               resolve(errors);
             };
-            abortController.signal.addEventListener('abort', onAbort, { once: true });
+            abortController!.signal.addEventListener('abort', onAbort, { once: true });
             localTimer = setTimeout(async () => {
-              abortController.signal.removeEventListener('abort', onAbort);
-              if (abortController.signal.aborted) {
+              abortController!.signal.removeEventListener('abort', onAbort);
+              if (abortController!.signal.aborted) {
                 resolve(errors);
                 return;
               }
@@ -1215,7 +1214,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
             }, asyncDebounceMs);
           });
 
-          if (activeEpoch === asyncEpoch && !abortController.signal.aborted) {
+          if (activeEpoch === asyncEpoch && !abortController!.signal.aborted) {
             const combined = { ...builtInErrors, ...resolvedErrors };
             errors = expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined;
           }
