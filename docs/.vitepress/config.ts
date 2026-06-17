@@ -18,6 +18,7 @@ export default defineConfig({
       { text: 'Guides', link: '/guides/react' },
       { text: 'Playground', link: '/playground.html', target: '_self' },
       { text: 'Community', link: '/community' },
+      { text: 'Contributing', link: '/contributing' },
     ],
 
     sidebar: {
