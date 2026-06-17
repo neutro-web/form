@@ -1100,6 +1100,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
 
     const activeEpoch = ++asyncEpoch;
+    let abortController: AbortController | undefined;
 
     try {
       if (expandedScope) {
@@ -1108,7 +1109,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           activeAbortControllers.delete(path);
         }
       }
-      const abortController = new AbortController();
+      abortController = new AbortController();
       if (expandedScope) {
         for (const path of expandedScope) activeAbortControllers.set(path, abortController);
       }
@@ -1193,7 +1194,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       // Populate validatedPaths: for a scoped run reuse expandedScope; for a full run
       // walk current values. (extractAllPaths is not called for scoped runs.)
       if (expandedScope) {
-        for (const path of expandedScope) validatedPaths.add(path);
+        if (activeEpoch === asyncEpoch && !abortController?.signal.aborted) {
+          for (const path of expandedScope) validatedPaths.add(path);
+        }
       } else if (activeEpoch === asyncEpoch) {
         extractAllPaths(values).forEach((p) => validatedPaths.add(p));
       }
@@ -1331,8 +1334,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       wasSet = shiftMap(wasSet) as Record<string, boolean>;
       // Update validatedPaths for the structural change.
       // For insert: shift existing indices ≥ targetIndex up by 1 so tracking follows items.
-      // For remove: drop all paths under the array prefix — structural removal invalidates
-      //             positional tracking for the entire array.
+      // For remove: drop the removed index, renumber survivors above it.
       const updatedValidated = new Set<string>();
       const arrPrefix = `${basePath}.`;
       if (action === 'remove') {
