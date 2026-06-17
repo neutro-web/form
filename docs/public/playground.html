@@ -2914,6 +2914,688 @@ async run(el) {
 },
 },
 
+// ── Demo: isDirty / isFieldDirty ────────────────────────────────────────────
+{
+title: 'isDirty / isFieldDirty — Call-Tracking Dirty',
+desc: 'isDirty() returns true if any field has been set since last reset. isFieldDirty(path) returns true if that specific field (or any child path) was set — even if the value matches initialValues.',
+code: `const form = createForm({ initialValues: { name: '', address: { city: '' } } });
+
+// Initially clean
+console.log(form.isDirty());           // false
+console.log(form.isFieldDirty('name')); // false
+
+form.set('name', ''); // same value — still marks dirty
+console.log(form.isDirty());           // true
+console.log(form.isFieldDirty('name')); // true
+
+form.set('address.city', 'London');
+console.log(form.isFieldDirty('address')); // true (prefix match)
+
+form.reset();
+console.log(form.isDirty()); // false — reset clears it`,
+
+run(el) {
+  const form = createForm({ initialValues: { name: '', address: { city: '' } } });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">isDirty / isFieldDirty — Call-Tracking Dirty</div>
+      <div class="fld">
+        <label>Name</label>
+        <input id="dd-name" type="text" placeholder="Type anything (even empty)…" />
+      </div>
+      <div class="fld">
+        <label>City</label>
+        <input id="dd-city" type="text" placeholder="Type a city…" />
+      </div>
+      <div class="btn-row" style="margin-bottom:14px;">
+        <button class="btn" id="dd-reset">Reset</button>
+      </div>
+      <div class="sec">Live dirty state</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">isDirty()</div>
+          <span class="badge r" id="dd-dirty">false</span>
+        </div>
+        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">isFieldDirty('name')</div>
+          <span class="badge r" id="dd-name-dirty">false</span>
+        </div>
+        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">isFieldDirty('address.city')</div>
+          <span class="badge r" id="dd-city-dirty">false</span>
+        </div>
+        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">isFieldDirty('address')</div>
+          <span class="badge r" id="dd-addr-dirty">false</span>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--t2);line-height:1.6;">Tip: typing then deleting back to empty still shows dirty — it tracks <em>calls</em>, not value changes.</p>
+    </div>`;
+
+  const refresh = () => {
+    const dirty = form.isDirty();
+    const nameDirty = form.isFieldDirty('name');
+    const cityDirty = form.isFieldDirty('address.city');
+    const addrDirty = form.isFieldDirty('address');
+    const set = (id, val) => {
+      const el2 = document.getElementById(id);
+      el2.textContent = String(val);
+      el2.className = 'badge ' + (val ? 'g' : 'r');
+    };
+    set('dd-dirty', dirty);
+    set('dd-name-dirty', nameDirty);
+    set('dd-city-dirty', cityDirty);
+    set('dd-addr-dirty', addrDirty);
+  };
+
+  const nameInput = el.querySelector('#dd-name');
+  const cityInput = el.querySelector('#dd-city');
+
+  nameInput.addEventListener('input', e => { form.set('name', e.target.value); refresh(); });
+  cityInput.addEventListener('input', e => { form.set('address.city', e.target.value); refresh(); });
+
+  el.querySelector('#dd-reset').addEventListener('click', () => {
+    form.reset();
+    nameInput.value = '';
+    cityInput.value = '';
+    refresh();
+  });
+
+  refresh();
+  return form;
+},
+},
+
+// ── Demo: isFieldValid ───────────────────────────────────────────────────────
+{
+title: 'isFieldValid — Per-Field Validity',
+desc: 'Returns null before first validation (never validated), true if validated with no error, false if validated with an error. Use it to show field-level validation badges independently of the full form state.',
+code: `const form = createForm({
+  initialValues: { email: '', username: '' },
+  rules: { email: ['required', 'email'], username: ['required', { minLength: 3 }] },
+});
+
+// Before validation
+console.log(form.isFieldValid('email')); // null
+
+await form.validate(['email']);
+console.log(form.isFieldValid('email')); // false (empty — required fails)
+
+form.set('email', 'alice@example.com');
+await form.validate(['email']);
+console.log(form.isFieldValid('email')); // true
+
+form.reset();
+console.log(form.isFieldValid('email')); // null (reset clears it)`,
+
+run(el) {
+  const form = createForm({
+    initialValues: { email: '', username: '' },
+    rules: { email: ['required', 'email'], username: ['required', { minLength: 3 }] },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">Per-Field Validity Badges</div>
+      <div class="fld">
+        <label>Email</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="fv-email" type="text" placeholder="user@example.com" style="flex:1;" />
+          <span class="badge b" id="fv-email-badge">—</span>
+        </div>
+        <div class="ferr" id="fv-email-err"></div>
+      </div>
+      <div class="btn-row" style="margin-bottom:14px;">
+        <button class="btn primary" id="fv-val-email">Validate email</button>
+      </div>
+      <div class="fld">
+        <label>Username</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="fv-user" type="text" placeholder="min 3 chars" style="flex:1;" />
+          <span class="badge b" id="fv-user-badge">—</span>
+        </div>
+        <div class="ferr" id="fv-user-err"></div>
+      </div>
+      <div class="btn-row" style="margin-bottom:14px;">
+        <button class="btn primary" id="fv-val-user">Validate username</button>
+        <button class="btn" id="fv-reset">Reset all</button>
+      </div>
+      <p style="font-size:11px;color:var(--t2);line-height:1.6;margin-top:4px;">
+        <span class="badge b">—</span> = never validated &nbsp;
+        <span class="badge g">✓ valid</span> = clean &nbsp;
+        <span class="badge r">✗ invalid</span> = has error
+      </p>
+    </div>`;
+
+  const emailInput = el.querySelector('#fv-email');
+  const userInput  = el.querySelector('#fv-user');
+
+  const refreshBadge = (path, badgeId, errId) => {
+    const valid = form.isFieldValid(path);
+    const badge = document.getElementById(badgeId);
+    const errEl = document.getElementById(errId);
+    if (valid === null) {
+      badge.textContent = '—'; badge.className = 'badge b';
+    } else if (valid) {
+      badge.textContent = '✓ valid'; badge.className = 'badge g';
+    } else {
+      badge.textContent = '✗ invalid'; badge.className = 'badge r';
+    }
+    const state = form.getState();
+    errEl.textContent = state.errors[path] ?? '';
+  };
+
+  emailInput.addEventListener('input', e => form.set('email', e.target.value));
+  userInput.addEventListener('input',  e => form.set('username', e.target.value));
+
+  el.querySelector('#fv-val-email').addEventListener('click', async () => {
+    await form.validate(['email']);
+    refreshBadge('email', 'fv-email-badge', 'fv-email-err');
+  });
+
+  el.querySelector('#fv-val-user').addEventListener('click', async () => {
+    await form.validate(['username']);
+    refreshBadge('username', 'fv-user-badge', 'fv-user-err');
+  });
+
+  el.querySelector('#fv-reset').addEventListener('click', () => {
+    form.reset();
+    emailInput.value = '';
+    userInput.value = '';
+    refreshBadge('email', 'fv-email-badge', 'fv-email-err');
+    refreshBadge('username', 'fv-user-badge', 'fv-user-err');
+  });
+
+  return form;
+},
+},
+
+// ── Demo: watch ──────────────────────────────────────────────────────────────
+{
+title: 'watch — Targeted Field Observation',
+desc: 'Subscribe to one or more field values without subscribing to all form state. The callback fires only when a watched path changes, not on subscription, not when other fields change.',
+code: `const form = createForm({
+  initialValues: { email: '', username: '', password: '' },
+});
+
+// Watch only email + username
+const stop = form.watch(['email', 'username'], ({ email, username }) => {
+  console.log('Watched values changed:', { email, username });
+});
+
+form.set('email', 'alice@example.com'); // fires callback
+form.set('password', 'secret');         // does NOT fire callback
+
+stop(); // unsubscribe
+form.set('email', 'new@email.com');     // no longer fires`,
+
+run(el) {
+  const form = createForm({
+    initialValues: { email: '', username: '', password: '' },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">Targeted Watch (email + username)</div>
+      <div class="fld">
+        <label>Email <span class="badge b" style="font-size:9px;vertical-align:middle;">watched</span></label>
+        <input id="w-email" type="text" placeholder="user@example.com" />
+      </div>
+      <div class="fld">
+        <label>Username <span class="badge b" style="font-size:9px;vertical-align:middle;">watched</span></label>
+        <input id="w-user" type="text" placeholder="Your username" />
+      </div>
+      <div class="fld">
+        <label>Password <span class="badge y" style="font-size:9px;vertical-align:middle;">not watched</span></label>
+        <input id="w-pass" type="password" placeholder="Won't trigger log" />
+      </div>
+      <div class="btn-row" style="margin-bottom:12px;">
+        <button class="btn danger" id="w-stop">Stop watching</button>
+        <button class="btn sm" id="w-clear">Clear log</button>
+      </div>
+      <div class="sec">Watch log</div>
+      <div class="box" id="w-log" style="max-height:160px;font-size:11px;">(waiting for changes to email or username…)</div>
+    </div>`;
+
+  const log = el.querySelector('#w-log');
+  const ts = () => new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  let lineCount = 0;
+  let active = true;
+
+  const stop = form.watch(['email', 'username'], ({ email, username }) => {
+    lineCount++;
+    const entry = `[${ts()}] #${lineCount} email="${email}" username="${username}"`;
+    log.textContent = (log.textContent === '(waiting for changes to email or username…)' ? '' : log.textContent + '\n') + entry;
+    log.scrollTop = log.scrollHeight;
+  });
+
+  const emailInput = el.querySelector('#w-email');
+  const userInput  = el.querySelector('#w-user');
+  const passInput  = el.querySelector('#w-pass');
+
+  emailInput.addEventListener('input', e => form.set('email', e.target.value));
+  userInput.addEventListener('input',  e => form.set('username', e.target.value));
+  passInput.addEventListener('input',  e => form.set('password', e.target.value));
+
+  const stopBtn = el.querySelector('#w-stop');
+  stopBtn.addEventListener('click', () => {
+    if (active) {
+      stop();
+      active = false;
+      stopBtn.textContent = 'Watching stopped';
+      stopBtn.disabled = true;
+      log.textContent += '\n[watch stopped — further changes will not appear]';
+    }
+  });
+
+  el.querySelector('#w-clear').addEventListener('click', () => {
+    log.textContent = '(waiting for changes to email or username…)';
+    lineCount = 0;
+  });
+
+  el._cleanup = () => { if (active) stop(); };
+  return form;
+},
+},
+
+// ── Demo: submissionAttempts + lastSubmittedValues ───────────────────────────
+{
+title: 'submissionAttempts + lastSubmittedValues',
+desc: 'submissionAttempts increments on every submit() call including failed validation. lastSubmittedValues is a deep snapshot of the form values at the last successful submission — null until first success, unchanged if the handler throws.',
+code: `const form = createForm({
+  initialValues: { email: '', message: '' },
+  rules: { email: ['required', 'email'], message: 'required' },
+});
+
+// First attempt — validation fails
+await form.submit(async (values) => { /* send */ });
+console.log(form.getState().submissionAttempts);    // 1
+console.log(form.getState().lastSubmittedValues);   // null (validation failed)
+
+// Fill in valid values, submit again
+form.set('email', 'alice@example.com');
+form.set('message', 'Hello!');
+await form.submit(async (values) => { /* send */ });
+console.log(form.getState().submissionAttempts);    // 2
+console.log(form.getState().lastSubmittedValues);   // { email: 'alice@...', message: 'Hello!' }`,
+
+run(el) {
+  const form = createForm({
+    initialValues: { email: '', message: '' },
+    rules: { email: ['required', 'email'], message: 'required' },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">Submission Tracking</div>
+      <div class="fld">
+        <label>Email</label>
+        <input id="sa-email" type="text" placeholder="user@example.com" />
+        <div class="ferr" id="sa-email-err"></div>
+      </div>
+      <div class="fld">
+        <label>Message</label>
+        <textarea id="sa-msg" rows="3" placeholder="Your message…" style="resize:vertical;"></textarea>
+        <div class="ferr" id="sa-msg-err"></div>
+      </div>
+      <div class="btn-row" style="margin-bottom:14px;">
+        <button class="btn primary" id="sa-submit">Submit</button>
+        <button class="btn" id="sa-reset">Reset</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:2px;">Attempts</div>
+          <div style="font-size:28px;font-weight:700;font-family:monospace;color:var(--blue);" id="sa-attempts">0</div>
+        </div>
+        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:2px;">Status</div>
+          <span class="badge b" id="sa-status">idle</span>
+        </div>
+      </div>
+      <div class="sec">Last submitted values</div>
+      <div class="box" id="sa-last" style="max-height:100px;">(none yet)</div>
+    </div>`;
+
+  const emailInput = el.querySelector('#sa-email');
+  const msgInput   = el.querySelector('#sa-msg');
+
+  emailInput.addEventListener('input', e => form.set('email', e.target.value, { touch: true }));
+  msgInput.addEventListener('input',   e => form.set('message', e.target.value, { touch: true }));
+
+  const refresh = (state) => {
+    document.getElementById('sa-attempts').textContent = state.submissionAttempts;
+    const last = document.getElementById('sa-last');
+    last.textContent = state.lastSubmittedValues ? JSON.stringify(state.lastSubmittedValues, null, 2) : '(none yet)';
+    document.getElementById('sa-email-err').textContent = state.errors.email ?? '';
+    document.getElementById('sa-msg-err').textContent   = state.errors.message ?? '';
+  };
+
+  const unsub = form.subscribe(refresh);
+
+  const statusEl = document.getElementById('sa-status');
+  const submitBtn = el.querySelector('#sa-submit');
+  submitBtn.addEventListener('click', async () => {
+    submitBtn.disabled = true;
+    statusEl.textContent = 'submitting…'; statusEl.className = 'badge y';
+    await form.submit(async () => {
+      await new Promise(r => setTimeout(r, 500));
+    });
+    const s = form.getState();
+    if (s.lastSubmittedValues) {
+      statusEl.textContent = 'success'; statusEl.className = 'badge g';
+    } else {
+      statusEl.textContent = 'validation failed'; statusEl.className = 'badge r';
+    }
+    submitBtn.disabled = false;
+    refresh(s);
+  });
+
+  el.querySelector('#sa-reset').addEventListener('click', () => {
+    form.reset();
+    emailInput.value = '';
+    msgInput.value = '';
+    statusEl.textContent = 'idle'; statusEl.className = 'badge b';
+    refresh(form.getState());
+  });
+
+  refresh(form.getState());
+  el._cleanup = () => unsub();
+  return form;
+},
+},
+
+// ── Demo: onSubmitSuccess / onSubmitError ────────────────────────────────────
+{
+title: 'onSubmitSuccess / onSubmitError — Lifecycle Hooks',
+desc: 'onSubmitSuccess is called after the submit handler resolves. onSubmitError is called when it rejects — the original error is re-thrown after the hook runs, so you can both react to it and propagate it.',
+code: `const form = createForm({
+  initialValues: { email: '' },
+  rules: { email: ['required', 'email'] },
+  onSubmitSuccess: (payload) => {
+    console.log('Saved!', payload);
+    // analytics.track('form_submit', payload)
+  },
+  onSubmitError: (error, payload) => {
+    console.error('Submit failed:', error.message);
+    form.setErrors({ email: 'Server error — try again' });
+  },
+});
+
+await form.submit(async (payload) => {
+  const res = await fetch('/api/save', { method: 'POST', body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error('Server error');
+});`,
+
+run(el) {
+  const ts = () => new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+  let form;
+  const rebuildForm = (simulateFail) => {
+    form = createForm({
+      initialValues: { email: '' },
+      rules: { email: ['required', 'email'] },
+      onSubmitSuccess: (payload) => {
+        appendLog('onSubmitSuccess', `payload: ${JSON.stringify(payload)}`, 'g');
+      },
+      onSubmitError: (error) => {
+        appendLog('onSubmitError', `error: "${error.message}"`, 'r');
+        form.setErrors({ email: 'Server error — try again' });
+      },
+    });
+    const emailInput = el.querySelector('#se-email');
+    if (emailInput) form.set('email', emailInput.value);
+  };
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">Submit Lifecycle Hooks</div>
+      <div class="fld">
+        <label>Email</label>
+        <input id="se-email" type="text" placeholder="user@example.com" />
+        <div class="ferr" id="se-email-err"></div>
+      </div>
+      <div class="fld" style="margin-bottom:10px;">
+        <label>Simulate server response</label>
+        <div style="display:flex;gap:10px;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--t0);text-transform:none;letter-spacing:0;font-weight:400;">
+            <input type="radio" name="se-mode" value="ok" checked /> Success
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--t0);text-transform:none;letter-spacing:0;font-weight:400;">
+            <input type="radio" name="se-mode" value="fail" /> Fail (500)
+          </label>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-bottom:12px;">
+        <button class="btn primary" id="se-submit">Submit</button>
+        <button class="btn sm" id="se-clear-log">Clear log</button>
+      </div>
+      <div class="sec">Event log</div>
+      <div class="box" id="se-log" style="max-height:180px;font-size:11px;">(no events yet)</div>
+    </div>`;
+
+  const logEl = document.getElementById('se-log');
+  let logCount = 0;
+  const appendLog = (hook, detail, cls) => {
+    logCount++;
+    const line = `[${ts()}] #${logCount} ${hook}() — ${detail}`;
+    logEl.textContent = (logEl.textContent === '(no events yet)' ? '' : logEl.textContent + '\n') + line;
+    logEl.scrollTop = logEl.scrollHeight;
+  };
+
+  rebuildForm(false);
+
+  const emailInput = el.querySelector('#se-email');
+  emailInput.addEventListener('input', e => {
+    form.set('email', e.target.value, { touch: true });
+    document.getElementById('se-email-err').textContent = form.getState().errors.email ?? '';
+  });
+
+  const unsub = () => {};
+  form.subscribe(state => {
+    document.getElementById('se-email-err').textContent = state.errors.email ?? '';
+  });
+
+  const submitBtn = el.querySelector('#se-submit');
+  submitBtn.addEventListener('click', async () => {
+    const mode = el.querySelector('input[name="se-mode"]:checked').value;
+    submitBtn.disabled = true;
+    appendLog('submit called', `mode=${mode}`, 'b');
+    try {
+      await form.submit(async (payload) => {
+        await new Promise(r => setTimeout(r, 400));
+        if (mode === 'fail') throw new Error('500 Internal Server Error');
+      });
+    } catch (e) {
+      // error already handled in onSubmitError hook
+    }
+    submitBtn.disabled = false;
+  });
+
+  el.querySelector('#se-clear-log').addEventListener('click', () => {
+    logEl.textContent = '(no events yet)';
+    logCount = 0;
+  });
+
+  return form;
+},
+},
+
+// ── Demo: fileTypes Wildcard MIME ────────────────────────────────────────────
+{
+title: 'fileTypes — Wildcard MIME Types',
+desc: 'fileTypes rules accept MIME wildcards like image/* or video/* in addition to exact types. Matching is case-insensitive.',
+code: `const form = createForm({
+  initialValues: { avatar: null, document: null },
+  rules: {
+    avatar:   [{ fileTypes: ['image/*'] }],         // any image
+    document: [{ fileTypes: ['application/pdf', 'application/msword'] }], // exact types
+  },
+});
+
+// File from an <input type="file"> change event
+form.set('avatar', event.target.files[0]);
+await form.validate(['avatar']);
+// image/jpeg → passes; video/mp4 → "Invalid file type"`,
+
+run(el) {
+  const form = createForm({
+    initialValues: { avatar: null, document: null },
+    rules: {
+      avatar:   [{ fileTypes: ['image/*'] }],
+      document: [{ fileTypes: ['application/pdf', 'application/msword'] }],
+    },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">File Type Validation</div>
+      <div class="fld">
+        <label>Avatar <span style="color:var(--t2);font-weight:400;text-transform:none;letter-spacing:0;">(accepts: image/*)</span></label>
+        <input id="ft-avatar" type="file" style="color:var(--t1);font-size:12px;" />
+        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+          <span id="ft-avatar-mime" style="font-size:11px;color:var(--t2);font-family:monospace;"></span>
+          <span id="ft-avatar-badge" class="badge b" style="display:none;"></span>
+        </div>
+        <div class="ferr" id="ft-avatar-err"></div>
+      </div>
+      <div class="fld">
+        <label>Document <span style="color:var(--t2);font-weight:400;text-transform:none;letter-spacing:0;">(accepts: PDF, DOC)</span></label>
+        <input id="ft-doc" type="file" style="color:var(--t1);font-size:12px;" />
+        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
+          <span id="ft-doc-mime" style="font-size:11px;color:var(--t2);font-family:monospace;"></span>
+          <span id="ft-doc-badge" class="badge b" style="display:none;"></span>
+        </div>
+        <div class="ferr" id="ft-doc-err"></div>
+      </div>
+      <p style="font-size:11px;color:var(--t2);line-height:1.6;margin-top:4px;">Try uploading an image, a video, a PDF, or a text file to see wildcard matching in action.</p>
+    </div>`;
+
+  const handleFile = async (inputId, field, mimeId, badgeId, errId) => {
+    const input = el.querySelector('#' + inputId);
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      if (!file) return;
+      form.set(field, file);
+      const mimeEl = document.getElementById(mimeId);
+      const badgeEl = document.getElementById(badgeId);
+      const errEl  = document.getElementById(errId);
+      mimeEl.textContent = 'MIME: ' + (file.type || '(unknown)');
+      await form.validate([field]);
+      const state = form.getState();
+      const err = state.errors[field];
+      badgeEl.style.display = '';
+      if (err) {
+        badgeEl.textContent = '✗ rejected'; badgeEl.className = 'badge r';
+        errEl.textContent = err;
+      } else {
+        badgeEl.textContent = '✓ accepted'; badgeEl.className = 'badge g';
+        errEl.textContent = '';
+      }
+    });
+  };
+
+  handleFile('ft-avatar', 'avatar', 'ft-avatar-mime', 'ft-avatar-badge', 'ft-avatar-err');
+  handleFile('ft-doc', 'document', 'ft-doc-mime', 'ft-doc-badge', 'ft-doc-err');
+
+  return form;
+},
+},
+
+// ── Demo: focus / focusFirstError ────────────────────────────────────────────
+{
+title: 'focus / focusFirstError — Programmatic Focus',
+desc: 'focus(path) focuses the element connected via form.connect(). focusFirstError() scans all error paths and focuses the first element in DOM document order. Both return false if no connected element is found.',
+code: `const form = createForm({
+  initialValues: { name: '', email: '' },
+  rules: { name: 'required', email: ['required', 'email'] },
+});
+
+// Wire inputs to the form
+const nameInput  = document.getElementById('name');
+const emailInput = document.getElementById('email');
+form.connect('name', nameInput);
+form.connect('email', emailInput);
+
+// Programmatic focus
+form.focus('email');       // focuses emailInput directly
+form.focusFirstError();    // after validation, focuses the first field with an error`,
+
+run(el) {
+  const form = createForm({
+    initialValues: { name: '', email: '' },
+    rules: { name: 'required', email: ['required', 'email'] },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">Programmatic Focus via form.connect()</div>
+      <div class="fld">
+        <label>Name</label>
+        <input id="ff-name" type="text" placeholder="Required field" />
+        <div class="ferr" id="ff-name-err"></div>
+      </div>
+      <div class="fld">
+        <label>Email</label>
+        <input id="ff-email" type="text" placeholder="Required, must be valid email" />
+        <div class="ferr" id="ff-email-err"></div>
+      </div>
+      <div class="btn-row" style="margin-bottom:14px;">
+        <button class="btn sm" id="ff-focus-name">Focus name</button>
+        <button class="btn sm" id="ff-focus-email">Focus email</button>
+        <button class="btn primary" id="ff-val-focus">Validate + Focus First Error</button>
+      </div>
+      <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">Currently focused</div>
+        <span class="badge b" id="ff-focused">none</span>
+      </div>
+    </div>`;
+
+  const nameInput  = el.querySelector('#ff-name');
+  const emailInput = el.querySelector('#ff-email');
+  const focusedEl  = document.getElementById('ff-focused');
+
+  // Connect inputs to the form
+  form.connect('name',  nameInput);
+  form.connect('email', emailInput);
+
+  const updateFocused = (label) => {
+    focusedEl.textContent = label;
+    focusedEl.className = 'badge ' + (label === 'none' ? 'b' : 'g');
+  };
+
+  nameInput.addEventListener('focus',  () => updateFocused('name'));
+  emailInput.addEventListener('focus', () => updateFocused('email'));
+  nameInput.addEventListener('blur',   () => updateFocused('none'));
+  emailInput.addEventListener('blur',  () => updateFocused('none'));
+
+  nameInput.addEventListener('input',  e => form.set('name',  e.target.value, { touch: true }));
+  emailInput.addEventListener('input', e => form.set('email', e.target.value, { touch: true }));
+
+  const unsub = form.subscribe(state => {
+    document.getElementById('ff-name-err').textContent  = state.errors.name  ?? '';
+    document.getElementById('ff-email-err').textContent = state.errors.email ?? '';
+  });
+
+  el.querySelector('#ff-focus-name').addEventListener('click', () => {
+    form.focus('name');
+  });
+
+  el.querySelector('#ff-focus-email').addEventListener('click', () => {
+    form.focus('email');
+  });
+
+  el.querySelector('#ff-val-focus').addEventListener('click', async () => {
+    await form.validate();
+    const result = form.focusFirstError();
+    if (result === false) updateFocused('none — no errors found');
+  });
+
+  el._cleanup = () => unsub();
+  return form;
+},
+},
+
 // ── Step 20 ─────────────────────────────────────────────────────────────────
 {
 title: 'Performance Lab',
@@ -3033,695 +3715,6 @@ run(el) {
 
   return form;
 }
-},
-
-// ── Demo: isDirty / isFieldDirty ────────────────────────────────────────────
-{
-title: 'isDirty / isFieldDirty — Call-Tracking Dirty',
-desc: 'isDirty() returns true if any field has been set since last reset. isFieldDirty(path) returns true if that specific field (or any child path) was set — even if the value matches initialValues.',
-code: `const form = createForm({ initialValues: { name: '', address: { city: '' } } });
-
-// Initially clean
-console.log(form.isDirty());           // false
-console.log(form.isFieldDirty('name')); // false
-
-form.set('name', ''); // same value — still marks dirty
-console.log(form.isDirty());           // true
-console.log(form.isFieldDirty('name')); // true
-
-form.set('address.city', 'London');
-console.log(form.isFieldDirty('address')); // true (prefix match)
-
-form.reset();
-console.log(form.isDirty()); // false — reset clears it`,
-
-run(el) {
-  const { createForm } = agwForm;
-  const form = createForm({ initialValues: { name: '', address: { city: '' } } });
-
-  el.innerHTML = `
-    <div class="df">
-      <div class="sec">isDirty / isFieldDirty — Call-Tracking Dirty</div>
-      <div class="fld">
-        <label>Name</label>
-        <input id="dd-name" type="text" placeholder="Type anything (even empty)…" />
-      </div>
-      <div class="fld">
-        <label>City</label>
-        <input id="dd-city" type="text" placeholder="Type a city…" />
-      </div>
-      <div class="btn-row" style="margin-bottom:14px;">
-        <button class="btn" id="dd-reset">Reset</button>
-      </div>
-      <div class="sec">Live dirty state</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">isDirty()</div>
-          <span class="badge r" id="dd-dirty">false</span>
-        </div>
-        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">isFieldDirty('name')</div>
-          <span class="badge r" id="dd-name-dirty">false</span>
-        </div>
-        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">isFieldDirty('address.city')</div>
-          <span class="badge r" id="dd-city-dirty">false</span>
-        </div>
-        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">isFieldDirty('address')</div>
-          <span class="badge r" id="dd-addr-dirty">false</span>
-        </div>
-      </div>
-      <p style="font-size:11px;color:var(--t2);line-height:1.6;">Tip: typing then deleting back to empty still shows dirty — it tracks <em>calls</em>, not value changes.</p>
-    </div>`;
-
-  const refresh = () => {
-    const dirty = form.isDirty();
-    const nameDirty = form.isFieldDirty('name');
-    const cityDirty = form.isFieldDirty('address.city');
-    const addrDirty = form.isFieldDirty('address');
-    const set = (id, val) => {
-      const el2 = document.getElementById(id);
-      el2.textContent = String(val);
-      el2.className = 'badge ' + (val ? 'g' : 'r');
-    };
-    set('dd-dirty', dirty);
-    set('dd-name-dirty', nameDirty);
-    set('dd-city-dirty', cityDirty);
-    set('dd-addr-dirty', addrDirty);
-  };
-
-  const nameInput = el.querySelector('#dd-name');
-  const cityInput = el.querySelector('#dd-city');
-
-  nameInput.addEventListener('input', e => { form.set('name', e.target.value); refresh(); });
-  cityInput.addEventListener('input', e => { form.set('address.city', e.target.value); refresh(); });
-
-  el.querySelector('#dd-reset').addEventListener('click', () => {
-    form.reset();
-    nameInput.value = '';
-    cityInput.value = '';
-    refresh();
-  });
-
-  refresh();
-  return form;
-},
-},
-
-// ── Demo: isFieldValid ───────────────────────────────────────────────────────
-{
-title: 'isFieldValid — Per-Field Validity',
-desc: 'Returns null before first validation (never validated), true if validated with no error, false if validated with an error. Use it to show field-level validation badges independently of the full form state.',
-code: `const form = createForm({
-  initialValues: { email: '', username: '' },
-  rules: { email: ['required', 'email'], username: ['required', { minLength: 3 }] },
-});
-
-// Before validation
-console.log(form.isFieldValid('email')); // null
-
-await form.validate(['email']);
-console.log(form.isFieldValid('email')); // false (empty — required fails)
-
-form.set('email', 'alice@example.com');
-await form.validate(['email']);
-console.log(form.isFieldValid('email')); // true
-
-form.reset();
-console.log(form.isFieldValid('email')); // null (reset clears it)`,
-
-run(el) {
-  const { createForm } = agwForm;
-  const form = createForm({
-    initialValues: { email: '', username: '' },
-    rules: { email: ['required', 'email'], username: ['required', { minLength: 3 }] },
-  });
-
-  el.innerHTML = `
-    <div class="df">
-      <div class="sec">Per-Field Validity Badges</div>
-      <div class="fld">
-        <label>Email</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input id="fv-email" type="text" placeholder="user@example.com" style="flex:1;" />
-          <span class="badge b" id="fv-email-badge">—</span>
-        </div>
-        <div class="ferr" id="fv-email-err"></div>
-      </div>
-      <div class="btn-row" style="margin-bottom:14px;">
-        <button class="btn primary" id="fv-val-email">Validate email</button>
-      </div>
-      <div class="fld">
-        <label>Username</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input id="fv-user" type="text" placeholder="min 3 chars" style="flex:1;" />
-          <span class="badge b" id="fv-user-badge">—</span>
-        </div>
-        <div class="ferr" id="fv-user-err"></div>
-      </div>
-      <div class="btn-row" style="margin-bottom:14px;">
-        <button class="btn primary" id="fv-val-user">Validate username</button>
-        <button class="btn" id="fv-reset">Reset all</button>
-      </div>
-      <p style="font-size:11px;color:var(--t2);line-height:1.6;margin-top:4px;">
-        <span class="badge b">—</span> = never validated &nbsp;
-        <span class="badge g">✓ valid</span> = clean &nbsp;
-        <span class="badge r">✗ invalid</span> = has error
-      </p>
-    </div>`;
-
-  const emailInput = el.querySelector('#fv-email');
-  const userInput  = el.querySelector('#fv-user');
-
-  const refreshBadge = (path, badgeId, errId) => {
-    const valid = form.isFieldValid(path);
-    const badge = document.getElementById(badgeId);
-    const errEl = document.getElementById(errId);
-    if (valid === null) {
-      badge.textContent = '—'; badge.className = 'badge b';
-    } else if (valid) {
-      badge.textContent = '✓ valid'; badge.className = 'badge g';
-    } else {
-      badge.textContent = '✗ invalid'; badge.className = 'badge r';
-    }
-    const state = form.getState();
-    errEl.textContent = state.errors[path] ?? '';
-  };
-
-  emailInput.addEventListener('input', e => form.set('email', e.target.value));
-  userInput.addEventListener('input',  e => form.set('username', e.target.value));
-
-  el.querySelector('#fv-val-email').addEventListener('click', async () => {
-    await form.validate(['email']);
-    refreshBadge('email', 'fv-email-badge', 'fv-email-err');
-  });
-
-  el.querySelector('#fv-val-user').addEventListener('click', async () => {
-    await form.validate(['username']);
-    refreshBadge('username', 'fv-user-badge', 'fv-user-err');
-  });
-
-  el.querySelector('#fv-reset').addEventListener('click', () => {
-    form.reset();
-    emailInput.value = '';
-    userInput.value = '';
-    refreshBadge('email', 'fv-email-badge', 'fv-email-err');
-    refreshBadge('username', 'fv-user-badge', 'fv-user-err');
-  });
-
-  return form;
-},
-},
-
-// ── Demo: watch ──────────────────────────────────────────────────────────────
-{
-title: 'watch — Targeted Field Observation',
-desc: 'Subscribe to one or more field values without subscribing to all form state. The callback fires only when a watched path changes, not on subscription, not when other fields change.',
-code: `const form = createForm({
-  initialValues: { email: '', username: '', password: '' },
-});
-
-// Watch only email + username
-const stop = form.watch(['email', 'username'], ({ email, username }) => {
-  console.log('Watched values changed:', { email, username });
-});
-
-form.set('email', 'alice@example.com'); // fires callback
-form.set('password', 'secret');         // does NOT fire callback
-
-stop(); // unsubscribe
-form.set('email', 'new@email.com');     // no longer fires`,
-
-run(el) {
-  const { createForm } = agwForm;
-  const form = createForm({
-    initialValues: { email: '', username: '', password: '' },
-  });
-
-  el.innerHTML = `
-    <div class="df">
-      <div class="sec">Targeted Watch (email + username)</div>
-      <div class="fld">
-        <label>Email <span class="badge b" style="font-size:9px;vertical-align:middle;">watched</span></label>
-        <input id="w-email" type="text" placeholder="user@example.com" />
-      </div>
-      <div class="fld">
-        <label>Username <span class="badge b" style="font-size:9px;vertical-align:middle;">watched</span></label>
-        <input id="w-user" type="text" placeholder="Your username" />
-      </div>
-      <div class="fld">
-        <label>Password <span class="badge y" style="font-size:9px;vertical-align:middle;">not watched</span></label>
-        <input id="w-pass" type="password" placeholder="Won't trigger log" />
-      </div>
-      <div class="btn-row" style="margin-bottom:12px;">
-        <button class="btn danger" id="w-stop">Stop watching</button>
-        <button class="btn sm" id="w-clear">Clear log</button>
-      </div>
-      <div class="sec">Watch log</div>
-      <div class="box" id="w-log" style="max-height:160px;font-size:11px;">(waiting for changes to email or username…)</div>
-    </div>`;
-
-  const log = el.querySelector('#w-log');
-  const ts = () => new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  let lineCount = 0;
-  let active = true;
-
-  const stop = form.watch(['email', 'username'], ({ email, username }) => {
-    lineCount++;
-    const entry = `[${ts()}] #${lineCount} email="${email}" username="${username}"`;
-    log.textContent = (log.textContent === '(waiting for changes to email or username…)' ? '' : log.textContent + '\n') + entry;
-    log.scrollTop = log.scrollHeight;
-  });
-
-  const emailInput = el.querySelector('#w-email');
-  const userInput  = el.querySelector('#w-user');
-  const passInput  = el.querySelector('#w-pass');
-
-  emailInput.addEventListener('input', e => form.set('email', e.target.value));
-  userInput.addEventListener('input',  e => form.set('username', e.target.value));
-  passInput.addEventListener('input',  e => form.set('password', e.target.value));
-
-  const stopBtn = el.querySelector('#w-stop');
-  stopBtn.addEventListener('click', () => {
-    if (active) {
-      stop();
-      active = false;
-      stopBtn.textContent = 'Watching stopped';
-      stopBtn.disabled = true;
-      log.textContent += '\n[watch stopped — further changes will not appear]';
-    }
-  });
-
-  el.querySelector('#w-clear').addEventListener('click', () => {
-    log.textContent = '(waiting for changes to email or username…)';
-    lineCount = 0;
-  });
-
-  el._cleanup = () => { if (active) stop(); };
-  return form;
-},
-},
-
-// ── Demo: submissionAttempts + lastSubmittedValues ───────────────────────────
-{
-title: 'submissionAttempts + lastSubmittedValues',
-desc: 'submissionAttempts increments on every submit() call including failed validation. lastSubmittedValues is a deep snapshot of the form values at the last successful submission — null until first success, unchanged if the handler throws.',
-code: `const form = createForm({
-  initialValues: { email: '', message: '' },
-  rules: { email: ['required', 'email'], message: 'required' },
-});
-
-// First attempt — validation fails
-await form.submit(async (values) => { /* send */ });
-console.log(form.getState().submissionAttempts);    // 1
-console.log(form.getState().lastSubmittedValues);   // null (validation failed)
-
-// Fill in valid values, submit again
-form.set('email', 'alice@example.com');
-form.set('message', 'Hello!');
-await form.submit(async (values) => { /* send */ });
-console.log(form.getState().submissionAttempts);    // 2
-console.log(form.getState().lastSubmittedValues);   // { email: 'alice@...', message: 'Hello!' }`,
-
-run(el) {
-  const { createForm } = agwForm;
-  const form = createForm({
-    initialValues: { email: '', message: '' },
-    rules: { email: ['required', 'email'], message: 'required' },
-  });
-
-  el.innerHTML = `
-    <div class="df">
-      <div class="sec">Submission Tracking</div>
-      <div class="fld">
-        <label>Email</label>
-        <input id="sa-email" type="text" placeholder="user@example.com" />
-        <div class="ferr" id="sa-email-err"></div>
-      </div>
-      <div class="fld">
-        <label>Message</label>
-        <textarea id="sa-msg" rows="3" placeholder="Your message…" style="resize:vertical;"></textarea>
-        <div class="ferr" id="sa-msg-err"></div>
-      </div>
-      <div class="btn-row" style="margin-bottom:14px;">
-        <button class="btn primary" id="sa-submit">Submit</button>
-        <button class="btn" id="sa-reset">Reset</button>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:2px;">Attempts</div>
-          <div style="font-size:28px;font-weight:700;font-family:monospace;color:var(--blue);" id="sa-attempts">0</div>
-        </div>
-        <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
-          <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:2px;">Status</div>
-          <span class="badge b" id="sa-status">idle</span>
-        </div>
-      </div>
-      <div class="sec">Last submitted values</div>
-      <div class="box" id="sa-last" style="max-height:100px;">(none yet)</div>
-    </div>`;
-
-  const emailInput = el.querySelector('#sa-email');
-  const msgInput   = el.querySelector('#sa-msg');
-
-  emailInput.addEventListener('input', e => form.set('email', e.target.value, { touch: true }));
-  msgInput.addEventListener('input',   e => form.set('message', e.target.value, { touch: true }));
-
-  const refresh = (state) => {
-    document.getElementById('sa-attempts').textContent = state.submissionAttempts;
-    const last = document.getElementById('sa-last');
-    last.textContent = state.lastSubmittedValues ? JSON.stringify(state.lastSubmittedValues, null, 2) : '(none yet)';
-    document.getElementById('sa-email-err').textContent = state.errors.email ?? '';
-    document.getElementById('sa-msg-err').textContent   = state.errors.message ?? '';
-  };
-
-  const unsub = form.subscribe(refresh);
-
-  const statusEl = document.getElementById('sa-status');
-  const submitBtn = el.querySelector('#sa-submit');
-  submitBtn.addEventListener('click', async () => {
-    submitBtn.disabled = true;
-    statusEl.textContent = 'submitting…'; statusEl.className = 'badge y';
-    await form.submit(async () => {
-      await new Promise(r => setTimeout(r, 500));
-    });
-    const s = form.getState();
-    if (s.lastSubmittedValues) {
-      statusEl.textContent = 'success'; statusEl.className = 'badge g';
-    } else {
-      statusEl.textContent = 'validation failed'; statusEl.className = 'badge r';
-    }
-    submitBtn.disabled = false;
-    refresh(s);
-  });
-
-  el.querySelector('#sa-reset').addEventListener('click', () => {
-    form.reset();
-    emailInput.value = '';
-    msgInput.value = '';
-    statusEl.textContent = 'idle'; statusEl.className = 'badge b';
-    refresh(form.getState());
-  });
-
-  refresh(form.getState());
-  el._cleanup = () => unsub();
-  return form;
-},
-},
-
-// ── Demo: onSubmitSuccess / onSubmitError ────────────────────────────────────
-{
-title: 'onSubmitSuccess / onSubmitError — Lifecycle Hooks',
-desc: 'onSubmitSuccess is called after the submit handler resolves. onSubmitError is called when it rejects — the original error is re-thrown after the hook runs, so you can both react to it and propagate it.',
-code: `const form = createForm({
-  initialValues: { email: '' },
-  rules: { email: ['required', 'email'] },
-  onSubmitSuccess: (payload) => {
-    console.log('Saved!', payload);
-    // analytics.track('form_submit', payload)
-  },
-  onSubmitError: (error, payload) => {
-    console.error('Submit failed:', error.message);
-    form.setErrors({ email: 'Server error — try again' });
-  },
-});
-
-await form.submit(async (payload) => {
-  const res = await fetch('/api/save', { method: 'POST', body: JSON.stringify(payload) });
-  if (!res.ok) throw new Error('Server error');
-});`,
-
-run(el) {
-  const { createForm } = agwForm;
-  const ts = () => new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-  let form;
-  const rebuildForm = (simulateFail) => {
-    form = createForm({
-      initialValues: { email: '' },
-      rules: { email: ['required', 'email'] },
-      onSubmitSuccess: (payload) => {
-        appendLog('onSubmitSuccess', `payload: ${JSON.stringify(payload)}`, 'g');
-      },
-      onSubmitError: (error) => {
-        appendLog('onSubmitError', `error: "${error.message}"`, 'r');
-        form.setErrors({ email: 'Server error — try again' });
-      },
-    });
-    const emailInput = el.querySelector('#se-email');
-    if (emailInput) form.set('email', emailInput.value);
-  };
-
-  el.innerHTML = `
-    <div class="df">
-      <div class="sec">Submit Lifecycle Hooks</div>
-      <div class="fld">
-        <label>Email</label>
-        <input id="se-email" type="text" placeholder="user@example.com" />
-        <div class="ferr" id="se-email-err"></div>
-      </div>
-      <div class="fld" style="margin-bottom:10px;">
-        <label>Simulate server response</label>
-        <div style="display:flex;gap:10px;margin-top:6px;">
-          <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--t0);text-transform:none;letter-spacing:0;font-weight:400;">
-            <input type="radio" name="se-mode" value="ok" checked /> Success
-          </label>
-          <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--t0);text-transform:none;letter-spacing:0;font-weight:400;">
-            <input type="radio" name="se-mode" value="fail" /> Fail (500)
-          </label>
-        </div>
-      </div>
-      <div class="btn-row" style="margin-bottom:12px;">
-        <button class="btn primary" id="se-submit">Submit</button>
-        <button class="btn sm" id="se-clear-log">Clear log</button>
-      </div>
-      <div class="sec">Event log</div>
-      <div class="box" id="se-log" style="max-height:180px;font-size:11px;">(no events yet)</div>
-    </div>`;
-
-  const logEl = document.getElementById('se-log');
-  let logCount = 0;
-  const appendLog = (hook, detail, cls) => {
-    logCount++;
-    const line = `[${ts()}] #${logCount} ${hook}() — ${detail}`;
-    logEl.textContent = (logEl.textContent === '(no events yet)' ? '' : logEl.textContent + '\n') + line;
-    logEl.scrollTop = logEl.scrollHeight;
-  };
-
-  rebuildForm(false);
-
-  const emailInput = el.querySelector('#se-email');
-  emailInput.addEventListener('input', e => {
-    form.set('email', e.target.value, { touch: true });
-    document.getElementById('se-email-err').textContent = form.getState().errors.email ?? '';
-  });
-
-  const unsub = () => {};
-  form.subscribe(state => {
-    document.getElementById('se-email-err').textContent = state.errors.email ?? '';
-  });
-
-  const submitBtn = el.querySelector('#se-submit');
-  submitBtn.addEventListener('click', async () => {
-    const mode = el.querySelector('input[name="se-mode"]:checked').value;
-    submitBtn.disabled = true;
-    appendLog('submit called', `mode=${mode}`, 'b');
-    try {
-      await form.submit(async (payload) => {
-        await new Promise(r => setTimeout(r, 400));
-        if (mode === 'fail') throw new Error('500 Internal Server Error');
-      });
-    } catch (e) {
-      // error already handled in onSubmitError hook
-    }
-    submitBtn.disabled = false;
-  });
-
-  el.querySelector('#se-clear-log').addEventListener('click', () => {
-    logEl.textContent = '(no events yet)';
-    logCount = 0;
-  });
-
-  return form;
-},
-},
-
-// ── Demo: fileTypes Wildcard MIME ────────────────────────────────────────────
-{
-title: 'fileTypes — Wildcard MIME Types',
-desc: 'fileTypes rules accept MIME wildcards like image/* or video/* in addition to exact types. Matching is case-insensitive.',
-code: `const form = createForm({
-  initialValues: { avatar: null, document: null },
-  rules: {
-    avatar:   [{ fileTypes: ['image/*'] }],         // any image
-    document: [{ fileTypes: ['application/pdf', 'application/msword'] }], // exact types
-  },
-});
-
-// File from an <input type="file"> change event
-form.set('avatar', event.target.files[0]);
-await form.validate(['avatar']);
-// image/jpeg → passes; video/mp4 → "Invalid file type"`,
-
-run(el) {
-  const { createForm } = agwForm;
-  const form = createForm({
-    initialValues: { avatar: null, document: null },
-    rules: {
-      avatar:   [{ fileTypes: ['image/*'] }],
-      document: [{ fileTypes: ['application/pdf', 'application/msword'] }],
-    },
-  });
-
-  el.innerHTML = `
-    <div class="df">
-      <div class="sec">File Type Validation</div>
-      <div class="fld">
-        <label>Avatar <span style="color:var(--t2);font-weight:400;text-transform:none;letter-spacing:0;">(accepts: image/*)</span></label>
-        <input id="ft-avatar" type="file" style="color:var(--t1);font-size:12px;" />
-        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
-          <span id="ft-avatar-mime" style="font-size:11px;color:var(--t2);font-family:monospace;"></span>
-          <span id="ft-avatar-badge" class="badge b" style="display:none;"></span>
-        </div>
-        <div class="ferr" id="ft-avatar-err"></div>
-      </div>
-      <div class="fld">
-        <label>Document <span style="color:var(--t2);font-weight:400;text-transform:none;letter-spacing:0;">(accepts: PDF, DOC)</span></label>
-        <input id="ft-doc" type="file" style="color:var(--t1);font-size:12px;" />
-        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
-          <span id="ft-doc-mime" style="font-size:11px;color:var(--t2);font-family:monospace;"></span>
-          <span id="ft-doc-badge" class="badge b" style="display:none;"></span>
-        </div>
-        <div class="ferr" id="ft-doc-err"></div>
-      </div>
-      <p style="font-size:11px;color:var(--t2);line-height:1.6;margin-top:4px;">Try uploading an image, a video, a PDF, or a text file to see wildcard matching in action.</p>
-    </div>`;
-
-  const handleFile = async (inputId, field, mimeId, badgeId, errId) => {
-    const input = el.querySelector('#' + inputId);
-    input.addEventListener('change', async () => {
-      const file = input.files[0];
-      if (!file) return;
-      form.set(field, file);
-      const mimeEl = document.getElementById(mimeId);
-      const badgeEl = document.getElementById(badgeId);
-      const errEl  = document.getElementById(errId);
-      mimeEl.textContent = 'MIME: ' + (file.type || '(unknown)');
-      await form.validate([field]);
-      const state = form.getState();
-      const err = state.errors[field];
-      badgeEl.style.display = '';
-      if (err) {
-        badgeEl.textContent = '✗ rejected'; badgeEl.className = 'badge r';
-        errEl.textContent = err;
-      } else {
-        badgeEl.textContent = '✓ accepted'; badgeEl.className = 'badge g';
-        errEl.textContent = '';
-      }
-    });
-  };
-
-  handleFile('ft-avatar', 'avatar', 'ft-avatar-mime', 'ft-avatar-badge', 'ft-avatar-err');
-  handleFile('ft-doc', 'document', 'ft-doc-mime', 'ft-doc-badge', 'ft-doc-err');
-
-  return form;
-},
-},
-
-// ── Demo: focus / focusFirstError ────────────────────────────────────────────
-{
-title: 'focus / focusFirstError — Programmatic Focus',
-desc: 'focus(path) focuses the element connected via form.connect(). focusFirstError() scans all error paths and focuses the first element in DOM document order. Both return false if no connected element is found.',
-code: `const form = createForm({
-  initialValues: { name: '', email: '' },
-  rules: { name: 'required', email: ['required', 'email'] },
-});
-
-// Wire inputs to the form
-const nameInput  = document.getElementById('name');
-const emailInput = document.getElementById('email');
-form.connect('name', nameInput);
-form.connect('email', emailInput);
-
-// Programmatic focus
-form.focus('email');       // focuses emailInput directly
-form.focusFirstError();    // after validation, focuses the first field with an error`,
-
-run(el) {
-  const { createForm } = agwForm;
-  const form = createForm({
-    initialValues: { name: '', email: '' },
-    rules: { name: 'required', email: ['required', 'email'] },
-  });
-
-  el.innerHTML = `
-    <div class="df">
-      <div class="sec">Programmatic Focus via form.connect()</div>
-      <div class="fld">
-        <label>Name</label>
-        <input id="ff-name" type="text" placeholder="Required field" />
-        <div class="ferr" id="ff-name-err"></div>
-      </div>
-      <div class="fld">
-        <label>Email</label>
-        <input id="ff-email" type="text" placeholder="Required, must be valid email" />
-        <div class="ferr" id="ff-email-err"></div>
-      </div>
-      <div class="btn-row" style="margin-bottom:14px;">
-        <button class="btn sm" id="ff-focus-name">Focus name</button>
-        <button class="btn sm" id="ff-focus-email">Focus email</button>
-        <button class="btn primary" id="ff-val-focus">Validate + Focus First Error</button>
-      </div>
-      <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">Currently focused</div>
-        <span class="badge b" id="ff-focused">none</span>
-      </div>
-    </div>`;
-
-  const nameInput  = el.querySelector('#ff-name');
-  const emailInput = el.querySelector('#ff-email');
-  const focusedEl  = document.getElementById('ff-focused');
-
-  // Connect inputs to the form
-  form.connect('name',  nameInput);
-  form.connect('email', emailInput);
-
-  const updateFocused = (label) => {
-    focusedEl.textContent = label;
-    focusedEl.className = 'badge ' + (label === 'none' ? 'b' : 'g');
-  };
-
-  nameInput.addEventListener('focus',  () => updateFocused('name'));
-  emailInput.addEventListener('focus', () => updateFocused('email'));
-  nameInput.addEventListener('blur',   () => updateFocused('none'));
-  emailInput.addEventListener('blur',  () => updateFocused('none'));
-
-  nameInput.addEventListener('input',  e => form.set('name',  e.target.value, { touch: true }));
-  emailInput.addEventListener('input', e => form.set('email', e.target.value, { touch: true }));
-
-  const unsub = form.subscribe(state => {
-    document.getElementById('ff-name-err').textContent  = state.errors.name  ?? '';
-    document.getElementById('ff-email-err').textContent = state.errors.email ?? '';
-  });
-
-  el.querySelector('#ff-focus-name').addEventListener('click', () => {
-    form.focus('name');
-  });
-
-  el.querySelector('#ff-focus-email').addEventListener('click', () => {
-    form.focus('email');
-  });
-
-  el.querySelector('#ff-val-focus').addEventListener('click', async () => {
-    await form.validate();
-    const result = form.focusFirstError();
-    if (result === false) updateFocused('none — no errors found');
-  });
-
-  el._cleanup = () => unsub();
-  return form;
-},
 },
 
 );  // end VANILLA.push()
