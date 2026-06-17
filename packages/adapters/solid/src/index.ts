@@ -97,6 +97,7 @@ export function useSolidWatch<T extends object>(
 ): () => Record<string, unknown> {
   const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[]
   const initial: Record<string, unknown> = {}
+  pathArray.forEach(p => { initial[p] = form.get(p as any) })
 
   const [watched, setWatched] = createSignal<Record<string, unknown>>(initial)
   const stop = form.watch(pathArray, (vals) => setWatched({ ...vals }))
