@@ -179,9 +179,9 @@ export interface SetOptions {
 }
 
 export interface ResetFieldOptions {
-  keepError?: boolean;   // retain errors[path] — default false
+  keepError?: boolean; // retain errors[path] — default false
   keepTouched?: boolean; // retain touched[path] — default false
-  keepDirty?: boolean;   // retain dirty[path] — default false
+  keepDirty?: boolean; // retain dirty[path] — default false
 }
 
 export interface PersistenceAdapter<T> {
@@ -571,12 +571,19 @@ export function compileDependencyScopes(
 // Built-in rule runner
 // ---------------------------------------------------------------------------
 
-function isFileLike(v: unknown): v is { name: string; size: number; type: string; lastModified: number } {
+function isFileLike(
+  v: unknown
+): v is { name: string; size: number; type: string; lastModified: number } {
   if (v === null || typeof v !== 'object') return false;
   if (typeof File !== 'undefined' && v instanceof File) return true;
   // Duck-type for environments where File is unavailable (Node/test)
   const o = v as any;
-  return typeof o.name === 'string' && typeof o.size === 'number' && typeof o.type === 'string' && typeof o.lastModified === 'number';
+  return (
+    typeof o.name === 'string' &&
+    typeof o.size === 'number' &&
+    typeof o.type === 'string' &&
+    typeof o.lastModified === 'number'
+  );
 }
 
 function isFileListLike(v: unknown): v is { length: number; item: (i: number) => File | null } {
@@ -584,7 +591,9 @@ function isFileListLike(v: unknown): v is { length: number; item: (i: number) =>
   if (typeof FileList !== 'undefined' && v instanceof FileList) return true;
   // Duck-type for environments where FileList is unavailable (Node/test)
   // Must not match a single file-like object that also has .length/.item (unlikely but safe)
-  return typeof (v as any).length === 'number' && typeof (v as any).item === 'function' && !isFileLike(v);
+  return (
+    typeof (v as any).length === 'number' && typeof (v as any).item === 'function' && !isFileLike(v)
+  );
 }
 
 function isEmpty(v: unknown): boolean {
@@ -792,7 +801,8 @@ function applyBuiltInRules<T>(
           // ── File validation ───────────────────────────────────────────────
         } else if ('maxFileSize' in rule) {
           const limit = (rule as { maxFileSize: number; message?: string }).maxFileSize;
-          const msg = (rule as { message?: string }).message ?? `File must be at most ${formatBytes(limit)}`;
+          const msg =
+            (rule as { message?: string }).message ?? `File must be at most ${formatBytes(limit)}`;
           const files: Array<{ size: number; type: string }> = [];
           if (isFileLike(value)) {
             files.push(value);
@@ -805,7 +815,8 @@ function applyBuiltInRules<T>(
           if (present && files.some((f) => f.size > limit)) error = msg;
         } else if ('minFileSize' in rule) {
           const limit = (rule as { minFileSize: number; message?: string }).minFileSize;
-          const msg = (rule as { message?: string }).message ?? `File must be at least ${formatBytes(limit)}`;
+          const msg =
+            (rule as { message?: string }).message ?? `File must be at least ${formatBytes(limit)}`;
           const files: Array<{ size: number; type: string }> = [];
           if (isFileLike(value)) {
             files.push(value);
@@ -833,18 +844,14 @@ function applyBuiltInRules<T>(
           if (present && files.some((f) => !types.includes(f.type))) error = msg;
         } else if ('maxFiles' in rule) {
           const max = (rule as { maxFiles: number; message?: string }).maxFiles;
-          const count = isFileListLike(value)
-            ? (value as any).length
-            : (isFileLike(value) ? 1 : 0);
+          const count = isFileListLike(value) ? (value as any).length : isFileLike(value) ? 1 : 0;
           if (count > max)
             error =
               (rule as { message?: string }).message ??
               `Select at most ${max} file${max === 1 ? '' : 's'}`;
         } else if ('minFiles' in rule) {
           const min = (rule as { minFiles: number; message?: string }).minFiles;
-          const count = isFileListLike(value)
-            ? (value as any).length
-            : (isFileLike(value) ? 1 : 0);
+          const count = isFileListLike(value) ? (value as any).length : isFileLike(value) ? 1 : 0;
           if (count < min)
             error =
               (rule as { message?: string }).message ??
@@ -1521,11 +1528,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       return getNestedValue(values, targetPath);
     },
 
-    set: ((
-      path: any,
-      val: any,
-      options?: SetOptions
-    ) => {
+    set: ((path: any, val: any, options?: SetOptions) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       setFieldValue(targetPath, val, options);
       dispatchAction({ type: 'SET', path: targetPath, value: val, options });
@@ -1739,11 +1742,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         } else if (el instanceof HTMLSelectElement && el.multiple) {
           const arr = Array.isArray(fresh) ? fresh : [];
           for (const opt of el.options) opt.selected = arr.includes(opt.value);
-        } else if (
-          el instanceof HTMLInputElement &&
-          el.type === 'date' &&
-          fresh instanceof Date
-        ) {
+        } else if (el instanceof HTMLInputElement && el.type === 'date' && fresh instanceof Date) {
           el.value = fresh.toISOString().substring(0, 10);
         } else if (
           el instanceof HTMLInputElement &&
@@ -1771,10 +1770,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       dispatchAction({ type: 'RESET', newValues });
     },
 
-    resetField: (
-      path: Path<T> | (string & {}) | string[],
-      options?: ResetFieldOptions
-    ): void => {
+    resetField: (path: Path<T> | (string & {}) | string[], options?: ResetFieldOptions): void => {
       const targetPath = Array.isArray(path) ? path.join('.') : (path as string);
       const initialVal = getNestedValue(initialValues, targetPath);
       const freshVal = deepClone(initialVal);
@@ -1898,7 +1894,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         // subscribe() calls the callback synchronously on registration; skip that initial invocation.
         let skipFirst = true;
         persistenceUnsubscribe = subscribe((state) => {
-          if (skipFirst) { skipFirst = false; return; }
+          if (skipFirst) {
+            skipFirst = false;
+            return;
+          }
           const toWrite = buildToWrite(state);
           if (persistenceWriteTimer !== null) clearTimeout(persistenceWriteTimer);
           persistenceWriteTimer = setTimeout(() => {
@@ -1912,7 +1911,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         // subscribe() calls the callback synchronously on registration; skip that initial invocation.
         let skipFirst = true;
         persistenceUnsubscribe = subscribe((state) => {
-          if (skipFirst) { skipFirst = false; return; }
+          if (skipFirst) {
+            skipFirst = false;
+            return;
+          }
           const toWrite = buildToWrite(state);
           Promise.resolve(cfg.adapter.write(toWrite)).catch((err: unknown) => {
             console.error('[NeutroForm persistence] write() failed:', err);

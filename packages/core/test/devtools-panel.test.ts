@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { createForm } from '../src/index';
 import { createNeutroFormDevtoolsPanel } from '../src/devtools';
+import { createForm } from '../src/index';
 
 function makeContainer() {
   const el = document.createElement('div');
@@ -116,7 +116,9 @@ describe('createNeutroFormDevtoolsPanel', () => {
     const form = createForm({ initialValues: { email: '' } });
     const unsub1 = createNeutroFormDevtoolsPanel(form);
     const unsub2 = createNeutroFormDevtoolsPanel(form);
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('floating panel is already mounted'));
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('floating panel is already mounted')
+    );
     unsub1();
     unsub2();
     warnSpy.mockRestore();
