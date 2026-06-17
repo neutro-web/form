@@ -96,11 +96,16 @@ export function useAngularWatch<T extends object>(
   paths: Array<Path<T> | string> | Path<T> | string
 ): Signal<Record<string, unknown>> {
   const destroyRef = inject(DestroyRef)
+  const zone = inject(NgZone, { optional: true })
   const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[]
+
   const initial: Record<string, unknown> = {}
+  pathArray.forEach(p => { initial[p] = form.get(p as any) })
 
   const watched = signal<Record<string, unknown>>(initial)
-  const stop = form.watch(pathArray, (vals) => watched.set({ ...vals }))
+  const stop = form.watch(pathArray, (vals) => {
+    zone ? zone.run(() => watched.set({ ...vals })) : watched.set({ ...vals })
+  })
   destroyRef.onDestroy(stop)
 
   return watched.asReadonly()
