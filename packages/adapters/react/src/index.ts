@@ -1,5 +1,5 @@
 import type { FormInstance, FormState, GetPathValue, Path } from '@neutro/form-core';
-import { useCallback, useRef, useSyncExternalStore } from 'react';
+import React, { useCallback, useRef, useSyncExternalStore } from 'react';
 
 export function useForm<T extends object>(
   form: FormInstance<T>
@@ -45,6 +45,25 @@ export function useFormPath<T extends object, P extends Path<T>>(
   );
   const getSnapshot = useCallback(() => form.get(path), [form, path]);
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot) as GetPathValue<T, P>;
+}
+
+export function useWatch<T extends object>(
+  form: FormInstance<T>,
+  paths: Path<T> | string | Array<Path<T> | string>
+): Record<string, unknown> {
+  const pathArray = Array.isArray(paths) ? paths : [paths]
+  const [watched, setWatched] = React.useState<Record<string, unknown>>(() => {
+    const snap: Record<string, unknown> = {}
+    pathArray.forEach(p => { snap[p as string] = form.get(p as any) })
+    return snap
+  })
+
+  React.useEffect(() => {
+    const stop = form.watch(paths, (vals) => setWatched({ ...vals }))
+    return stop
+  }, [form, JSON.stringify(pathArray)])
+
+  return watched
 }
 
 // Zero-rerender hook: wires a DOM input directly via form.connect() without

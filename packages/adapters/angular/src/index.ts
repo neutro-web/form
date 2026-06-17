@@ -1,5 +1,5 @@
 import { DestroyRef, inject, NgZone, type Signal, signal } from '@angular/core';
-import type { FormInstance, FormState } from '@neutro/form-core';
+import type { FormInstance, FormState, Path } from '@neutro/form-core';
 
 export interface AngularFormReturn<T extends object> {
   state: Signal<FormState<T>>;
@@ -89,4 +89,19 @@ export function useAngularFormPath<T extends object>(form: FormInstance<T>, path
   });
   inject(DestroyRef).onDestroy(unsubscribe);
   return { value: value.asReadonly(), fieldState: fieldState.asReadonly() };
+}
+
+export function useAngularWatch<T extends object>(
+  form: FormInstance<T>,
+  paths: Array<Path<T> | string> | Path<T> | string
+): Signal<Record<string, unknown>> {
+  const destroyRef = inject(DestroyRef)
+  const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[]
+  const initial: Record<string, unknown> = {}
+
+  const watched = signal<Record<string, unknown>>(initial)
+  const stop = form.watch(pathArray, (vals) => watched.set({ ...vals }))
+  destroyRef.onDestroy(stop)
+
+  return watched.asReadonly()
 }

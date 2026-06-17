@@ -1,4 +1,4 @@
-import type { FormInstance, FormState } from '@neutro/form-core';
+import type { FormInstance, FormState, Path } from '@neutro/form-core';
 import { createSignal, onCleanup } from 'solid-js';
 import { createStore, reconcile, type Store } from 'solid-js/store';
 
@@ -89,4 +89,18 @@ export function useSolidFormPath<T extends object>(form: FormInstance<T>, path: 
   });
   onCleanup(unsubscribe);
   return { value, fieldState };
+}
+
+export function useSolidWatch<T extends object>(
+  form: FormInstance<T>,
+  paths: Array<Path<T> | string> | Path<T> | string
+): () => Record<string, unknown> {
+  const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[]
+  const initial: Record<string, unknown> = {}
+
+  const [watched, setWatched] = createSignal<Record<string, unknown>>(initial)
+  const stop = form.watch(pathArray, (vals) => setWatched({ ...vals }))
+  onCleanup(stop)
+
+  return watched
 }
