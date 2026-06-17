@@ -13,6 +13,8 @@ Neutro is a collection of focused, zero-dependency primitives for the web. Each 
 
 ## Filing Issues & Feature Requests
 
+When contributing code, use [Conventional Commits](/contributing) format — releases are automated based on commit prefixes.
+
 All issues and requests are tracked on GitHub.
 
 - **Bug report** — something isn't working as documented → [Open an issue](https://github.com/neutro-web/form/issues/new)
