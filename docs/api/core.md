@@ -505,7 +505,7 @@ Optional. Configure auto-save behaviour:
 persistence?: {
   adapter: PersistenceAdapter<T>
   debounceMs?: number  // default 300. Set to 0 to write on every change.
-  exclude?: string[]   // paths to exclude from read and write
+  exclude?: Array<Path<T> | (string & {})>  // typed paths to exclude from read and write
 }
 ```
 

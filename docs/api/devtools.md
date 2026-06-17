@@ -90,7 +90,9 @@ type FormAction =
   | { type: 'VALIDATE'; paths?: string[] }
   | { type: 'SUBMIT' }
   | { type: 'RESET'; newValues?: unknown }
+  | { type: 'RESET_FIELD'; path: string }
   | { type: 'SET_ERRORS'; errors: Record<string, string> }
+  | { type: 'CLEAR_ERRORS' }
   | { type: 'CONNECT'; path: string }
   | { type: 'DISCONNECT'; path: string }
   | { type: 'BLUR'; path: string }

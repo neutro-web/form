@@ -181,6 +181,18 @@ const form = createForm({
 | `{ requiredIf: 'path' }` | required when field at path is truthy | "This field is required" |
 | `{ requiredUnless: 'path' }` | required unless field at path is truthy | "This field is required" |
 
+**File / FileList**
+
+| Rule | Checks | Default message |
+|---|---|---|
+| `{ maxFileSize: n }` | `File.size <= n` bytes (per-file for FileList) | "File must be at most N MB" |
+| `{ minFileSize: n }` | `File.size >= n` bytes (per-file for FileList) | "File must be at least N KB" |
+| `{ fileTypes: [...] }` | `File.type` in allow-list (per-file for FileList) | "File type must be one of: ..." |
+| `{ maxFiles: n }` | `FileList.length <= n` | "Select at most N files" |
+| `{ minFiles: n }` | `FileList.length >= n` | "Select at least N files" |
+
+Use `minFiles: 1` instead of `'required'` for file inputs — it's clearer about intent and handles `FileList` correctly. Size/type rules are no-ops when the field value is `null` or empty.
+
 Every rule accepts an optional `message` property to override the default.
 
 Rules run first; a custom `validator` can run alongside them and its errors are merged in

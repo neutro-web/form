@@ -6,7 +6,7 @@ Neutro is a collection of focused, zero-dependency primitives for the web. Each 
 
 | Package | Description | Status |
 |---|---|---|
-| [`@neutro/form`](https://github.com/neutro-web/form) | Reactive form engine for every framework | `v0.1.0` — stable |
+| [`@neutro/form`](https://github.com/neutro-web/form) | Reactive form engine for every framework | `v0.2.0` — stable |
 | `@neutro/fluid` | Physics-grounded glass material system for the web | In development |
 
 ---
