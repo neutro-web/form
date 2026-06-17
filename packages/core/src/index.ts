@@ -579,6 +579,15 @@ export function compileDependencyScopes(
 // Built-in rule runner
 // ---------------------------------------------------------------------------
 
+function matchesMimeType(ruleType: string, fileType: string): boolean {
+  const normalRule = ruleType.toLowerCase()
+  const normalFile = fileType.toLowerCase()
+  if (normalRule.endsWith('/*')) {
+    return normalFile.startsWith(normalRule.slice(0, -1))
+  }
+  return normalRule === normalFile
+}
+
 function isFileLike(
   v: unknown
 ): v is { name: string; size: number; type: string; lastModified: number } {
@@ -849,7 +858,7 @@ function applyBuiltInRules<T>(
               if (f) files.push(f);
             }
           }
-          if (present && files.some((f) => !types.includes(f.type))) error = msg;
+          if (present && files.some((f) => !types.some((r) => matchesMimeType(r, f.type)))) error = msg;
         } else if ('maxFiles' in rule) {
           const max = (rule as { maxFiles: number; message?: string }).maxFiles;
           const count = isFileListLike(value) ? (value as any).length : isFileLike(value) ? 1 : 0;
