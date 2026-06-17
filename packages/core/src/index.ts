@@ -3,6 +3,8 @@
  * High-Performance, Zero-Dependency, Framework-Agnostic Reactive Form Engine.
  */
 
+import { buildPathTrie, isKnownPath } from './path-trie.js'
+
 export type Primitive = string | number | boolean | null | undefined | Date | File;
 
 export type DeepPartial<T> = T extends Primitive
@@ -1006,6 +1008,19 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           return 300;
         })();
 
+  // Dev-only runtime path validation trie (Prototype A — v0.4.0 release decision pending)
+  // Use a try/catch to safely read process.env in Node; in browser builds process is undefined.
+  const __isProduction = (() => {
+    try { return (globalThis as any).process?.env?.NODE_ENV === 'production' } catch { return false }
+  })()
+  const __devPathTrie = !__isProduction ? buildPathTrie(config.initialValues) : null
+
+  const __warnUnknownPath = (path: string): void => {
+    if (__devPathTrie && !isKnownPath(__devPathTrie, path)) {
+      console.warn(`[NeutroForm] Unknown path: "${path}". Check your initialValues schema.`)
+    }
+  }
+
   const getState = (): FormState<T> => ({
     values: deepClone(values),
     errors: { ...errors },
@@ -1631,6 +1646,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   ) => {
     if (!element || typeof window === 'undefined') return () => {};
     const stringPath = Array.isArray(path) ? path.join('.') : path;
+    __warnUnknownPath(stringPath);
     const mode = resolveFieldMode(stringPath, options.validateOn);
     initMutationObserver();
     connectionRegistry.set(stringPath, new WeakRef(element));
@@ -1871,11 +1887,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
     get: (path: Path<T> | string | string[]) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
+      __warnUnknownPath(targetPath);
       return getNestedValue(values, targetPath);
     },
 
     set: ((path: any, val: any, options?: SetOptions) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
+      __warnUnknownPath(targetPath);
       setFieldValue(targetPath, val, options);
       dispatchAction({ type: 'SET', path: targetPath, value: val, options });
     }) as FormInstance<T>['set'],
