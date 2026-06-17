@@ -817,9 +817,10 @@ describe('Validator adapters', () => {
 
 describe('compileDependencyScopes', () => {
   it('registers wildcard keys even when initialValues array is empty', () => {
-    const scopes = compileDependencyScopes({ 'items.*.name': ['items.*.price'] }, { items: [] });
-    expect(scopes['items.*.name']).toBeDefined();
-    expect(scopes['items.*.name']).toContain('items.*.price');
+    const { wildcardDependencies } = compileDependencyScopes({ 'items.*.name': ['items.*.price'] }, { items: [] });
+    const entry = wildcardDependencies.find((w) => w.pattern === 'items.*.name');
+    expect(entry).toBeDefined();
+    expect(entry!.dependents).toContain('items.*.price');
   });
 });
 
@@ -4162,5 +4163,78 @@ describe('isFieldValid(path)', () => {
     form.arraySwap('items', 0, 1)
     expect(form.isFieldValid('items.1.name')).not.toBeNull() // was items.0, now items.1
     expect(form.isFieldValid('items.0.name')).toBeNull()     // was items.1 (unvalidated)
+  })
+})
+
+describe('nested array wildcard dependencies', () => {
+  it('validate destinations.1.url also validates destinations.1.name via wildcard dep', async () => {
+    const form = createForm({
+      initialValues: { destinations: [{ url: '', name: '' }, { url: '', name: '' }] },
+      dependencies: { 'destinations.*.url': ['destinations.*.name'] },
+      validator: () => ({}),
+    })
+    await form.validate(['destinations.1.url'])
+    // Both should now be in validatedPaths (isFieldValid returns non-null)
+    expect(form.isFieldValid('destinations.1.url')).not.toBeNull()
+    expect(form.isFieldValid('destinations.1.name')).not.toBeNull()
+  })
+
+  it('wildcard resolves correctly after arrayRemove shifts indices', async () => {
+    const form = createForm({
+      initialValues: {
+        destinations: [{ url: 'a', name: '' }, { url: 'b', name: '' }, { url: 'c', name: '' }]
+      },
+      dependencies: { 'destinations.*.url': ['destinations.*.name'] },
+      validator: () => ({}),
+    })
+    form.arrayRemove('destinations', 0)
+    // After remove: old index 1 is now 0, old index 2 is now 1
+    await form.validate(['destinations.0.url'])
+    expect(form.isFieldValid('destinations.0.name')).not.toBeNull()
+  })
+
+  it('static (non-wildcard) dependencies are unaffected — existing behavior preserved', async () => {
+    const form = createForm({
+      initialValues: { email: '', confirmEmail: '' },
+      dependencies: { email: ['confirmEmail'] },
+      validator: (values) => {
+        const errors: Record<string, string> = {}
+        if ((values as any).email !== (values as any).confirmEmail) {
+          errors.confirmEmail = 'Emails must match'
+        }
+        return errors
+      },
+    })
+    form.set('email', 'a@b.com')
+    form.set('confirmEmail', 'x@y.com')
+    await form.validate(['email'])
+    expect(form.getState().errors['confirmEmail']).toBe('Emails must match')
+  })
+
+  it('cross-array-to-static: items.*.qty triggers summary.total validation', async () => {
+    const form = createForm({
+      initialValues: { items: [{ qty: 1 }], summary: { total: 0 } },
+      dependencies: { 'items.*.qty': ['summary.total'] },
+      validator: (values) => {
+        const errors: Record<string, string> = {}
+        const total = ((values as any).items as any[]).reduce((sum: number, item: any) => sum + item.qty, 0)
+        if (total > 10) errors['summary.total'] = 'Total exceeds 10'
+        return errors
+      },
+    })
+    form.set('items.0.qty', 99)
+    await form.validate(['items.0.qty'])
+    expect(form.getState().errors['summary.total']).toBe('Total exceeds 10')
+  })
+
+  it('non-numeric segment does not trigger wildcard match', async () => {
+    const form = createForm({
+      initialValues: { items: [{ url: '', name: '' }] },
+      dependencies: { 'items.*.url': ['items.*.name'] },
+      validator: () => ({}),
+    })
+    // 'items.0.url' should match, 'items.foo.url' (non-numeric) should not
+    await form.validate(['items.0.url'])
+    expect(form.isFieldValid('items.0.name')).not.toBeNull() // valid numeric index matched
   })
 })
