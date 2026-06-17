@@ -18,7 +18,7 @@ Both `useAngularForm` and `useAngularFormPath` **must be called inside an inject
 
 ## `useAngularForm` — Global Signal
 
-`useAngularForm` returns an Angular signal containing the full `FormState<T>`. Read it inside the template or in computed expressions with `state()`.
+`useAngularForm` returns an `AngularFormReturn<T>` object — a `state` Signal containing the full `FormState<T>`, plus all form methods (`set`, `validate`, `resetField`, etc.) forwarded from the core instance. Expose `state` as a class property and read it in templates with `state()`.
 
 ```ts
 import { Component } from '@angular/core'
@@ -67,7 +67,8 @@ export class LoginFormComponent {
   })
 
   // Must be called in the constructor (injection context)
-  readonly state = useAngularForm(this.form)
+  private readonly _adapter = useAngularForm(this.form)
+  readonly state = this._adapter.state
 
   async handleSubmit() {
     await this.form.validate()
@@ -177,7 +178,8 @@ export class ProfileFormComponent {
   })
 
   // All three called in constructor — injection context required
-  readonly state = useAngularForm(this.form)
+  private readonly _adapter = useAngularForm(this.form)
+  readonly state = this._adapter.state
   readonly username = useAngularFormPath(this.form, 'username')
   readonly email = useAngularFormPath(this.form, 'email')
 }
@@ -199,16 +201,22 @@ Both hooks inject `DestroyRef` and register an `onDestroy` callback to unsubscri
 @Component({
   template: `
     <input [value]="state().values.email" (input)="onEmail($event)" />
-    <button *ngIf="state().errors.email" (click)="form.resetField('email')">
+    <button *ngIf="state().errors['email']" (click)="form.resetField('email')">
       Reset
     </button>
   `,
 })
 export class EmailFieldComponent {
-  { state } = useAngularForm(this.formInstance, this.destroyRef)
+  readonly form = createForm({
+    initialValues: { email: '' },
+    rules: { email: ['required', 'email'] },
+  })
+
+  private readonly _adapter = useAngularForm(this.form)
+  readonly state = this._adapter.state
 
   onEmail(e: Event) {
-    this.formInstance.set('email', (e.target as HTMLInputElement).value, { touch: true })
+    this.form.set('email', (e.target as HTMLInputElement).value, { touch: true })
   }
 }
 ```
@@ -263,7 +271,8 @@ export class RegisterFormComponent {
     rules: { email: ['required', 'email'], username: 'required' },
   })
 
-  readonly state = useAngularForm(this.form)
+  private readonly _adapter = useAngularForm(this.form)
+  readonly state = this._adapter.state
 
   async handleSubmit() {
     const valid = await this.form.validate()

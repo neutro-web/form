@@ -112,7 +112,7 @@ const form = createForm({
 
 | Rule | Checks | Default message |
 |---|---|---|
-| `'required'` | non-empty (string, array, value) | "This field is required" |
+| `'required'` | non-empty (string, array, value) | "Required" |
 | `'accepted'` | must be `true` (checkbox / terms) | "This field must be accepted" |
 
 **Format**
@@ -178,8 +178,8 @@ const form = createForm({
 
 | Rule | Checks | Default message |
 |---|---|---|
-| `{ requiredIf: 'path' }` | required when field at path is truthy | "This field is required" |
-| `{ requiredUnless: 'path' }` | required unless field at path is truthy | "This field is required" |
+| `{ requiredIf: 'path' }` | required when field at path is truthy | "Required" |
+| `{ requiredUnless: 'path' }` | required unless field at path is truthy | "Required" |
 
 **File / FileList**
 
