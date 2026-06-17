@@ -92,3 +92,63 @@ form.resetField(['items', '0', 'name'])       // segment-array path
 | `keepError` | `boolean` | `false` | Keep `errors[path]` |
 | `keepTouched` | `boolean` | `false` | Keep `touched[path]` |
 | `keepDirty` | `boolean` | `false` | Keep `dirty[path]` |
+
+## Type Inference from `initialValues`
+
+TypeScript infers the form's value type `T` from `initialValues` automatically — you do not need to write `createForm<Values>({...})` in most cases.
+
+```ts
+// T is inferred as { email: string; username: string }
+const form = createForm({
+  initialValues: { email: '', username: '' },
+})
+```
+
+Inference also works when a schema validator is used:
+
+```ts
+import { z } from 'zod'
+import { createForm, zodAdapter } from '@neutro/form/core'
+
+const schema = z.object({ email: z.string(), username: z.string() })
+
+// T is inferred from initialValues — zodAdapter does not affect inference
+const form = createForm({
+  initialValues: { email: '', username: '' },
+  validator: zodAdapter(schema),
+})
+```
+
+## Typing Form State in Tests (v0.3.0)
+
+If you mock `FormState<T>` in tests, v0.3.0 added two required fields:
+
+```ts
+// v0.2.x mock (incomplete for v0.3.0):
+const mockState: FormState<Values> = {
+  values, errors, touched, dirty, isSubmitting, isValidating, isValid
+}
+
+// v0.3.0 mock — add the two new required fields:
+const mockState: FormState<Values> = {
+  values, errors, touched, dirty, isSubmitting, isValidating, isValid,
+  submissionAttempts: 0,
+  lastSubmittedValues: null,
+}
+```
+
+## Typing Form Instance in Tests (v0.3.0)
+
+If you mock `FormInstance<T>`, v0.3.0 added six new methods:
+
+```ts
+const mockForm: Partial<FormInstance<Values>> = {
+  // ... existing mocks ...
+  isFieldValid: () => null,
+  isDirty: () => false,
+  isFieldDirty: () => false,
+  watch: () => () => {},
+  focus: () => false,
+  focusFirstError: () => false,
+}
+```

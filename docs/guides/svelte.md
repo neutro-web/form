@@ -241,6 +241,21 @@ Call `form.resetField(path)` to reset one field. The Svelte store updates reacti
 
 ---
 
+## `useSvelteWatch` — Observe Field Values
+
+```svelte
+<script>
+  import { useSvelteWatch } from '@neutro/form/adapters/svelte'
+  const watched = useSvelteWatch(form, ['email', 'username'])
+</script>
+
+<p>{$watched.email} — {$watched.username}</p>
+```
+
+`useSvelteWatch` returns a `Readable` store. Use the `$watched` shorthand in templates to auto-subscribe.
+
+---
+
 ## Validation Modes
 
 Configure when validation triggers globally and per field via `validationMode` in `createForm`:

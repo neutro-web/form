@@ -329,6 +329,43 @@ await form.submit(async (values) => {
 })
 ```
 
+#### How do I know if a specific field has been validated?
+
+Use `form.isFieldValid(path)` — returns `null` before first validation, `true` if the field is valid, `false` if errors exist.
+
+```ts
+const valid = form.isFieldValid('email')
+// null  → never validated
+// true  → validated, no error
+// false → validated, has error
+```
+
+#### How do I focus the first error after submission?
+
+Call `form.focusFirstError()` — it focuses the first error element in DOM document order. Requires fields to be connected via `form.connect()`. Returns `false` if no errors or no connected elements.
+
+```ts
+const ok = await form.submit(onValid)
+if (!ok) form.focusFirstError()
+```
+
+#### How do I run logic after a successful or failed submission?
+
+Use `onSubmitSuccess` and `onSubmitError` in `createForm` config:
+
+```ts
+const form = createForm({
+  initialValues: { email: '' },
+  onSubmitSuccess: (payload) => {
+    toast.success('Saved!')
+    analytics.track('form_submit', payload)
+  },
+  onSubmitError: (error, payload) => {
+    console.error('Submit failed', error)
+  },
+})
+```
+
 ---
 
 ### Dynamic Forms & Arrays
@@ -442,6 +479,17 @@ If you subscribe to the whole form state (`useForm()`, `form.subscribe()`), yes 
 
 General pattern: use `useForm()` for form-level concerns (submit button disabled state, error summary) and `useFormPath()` per field for everything else.
 
+#### How do I observe field values without re-rendering my whole component?
+
+Use the framework-specific watch hook — `useWatch` (React), `useVueWatch` (Vue), `useSvelteWatch` (Svelte), `useAngularWatch` (Angular), or `useSolidWatch` (SolidJS). Each subscribes to one or more field values and updates only when those paths change, leaving unrelated state changes unnoticed.
+
+```tsx
+// React example
+const { email, username } = useWatch(form, ['email', 'username'])
+```
+
+See each framework guide for details.
+
 #### Are array operations (append, remove, move) efficient?
 
 Array operations run inside `batch()`, so all index-shifting happens before subscribers are notified. Subscribers receive a single notification regardless of how many keys were renumbered. This avoids the cascade of intermediate re-renders that uncoordinated mutations cause.
@@ -545,7 +593,7 @@ The DOM bridge (`connect()`) requires an `HTMLElement` and does not apply in Rea
 
 These are things `@neutro/form` does not do cleanly yet. They are not workarounds — if your project needs them, know this going in.
 
-**Strongly typed field paths — path typos not caught (intentional)** — `form.set('emal', value)` compiles without error. Catching path typos would require removing the dynamic-path escape hatch, which would break `const p: string = ...; form.set(p, value)`. The current design preserves dynamic paths at the cost of not catching typos. Fully strict path checking is on the roadmap.
+**Strongly typed field paths — path typos not caught (intentional)** — `form.set('emal', value)` compiles without error. Catching path typos would require removing the dynamic-path escape hatch, which would break `const p: string = ...; form.set(p, value)`. The current design preserves dynamic paths at the cost of not catching typos. Compile-time type inference is available (v0.3.0); runtime path validation is in active development for v0.4.0.
 
 **React Native adapter** — the core works but there is no official adapter with RN-idiomatic patterns.
 

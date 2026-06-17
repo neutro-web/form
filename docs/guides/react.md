@@ -278,6 +278,23 @@ export function RegisterForm() {
 }
 ```
 
+## `useWatch` — Observe Field Values
+
+`useWatch(form, paths)` subscribes to one or more field values and re-renders the component only when those paths change.
+
+```tsx
+import { useWatch } from '@neutro/form/adapters/react'
+
+function SummaryBar({ form }) {
+  const { email, username } = useWatch(form, ['email', 'username'])
+  return <p>{email} — {username}</p>
+}
+```
+
+Unlike `useForm`, `useWatch` does not re-render when unrelated fields change. This is its primary use case: reading a subset of form values in a component that should not re-render on full-form state updates.
+
+---
+
 ## Validation Modes
 
 Configure when validation triggers globally and per field via `validationMode` in `createForm`:

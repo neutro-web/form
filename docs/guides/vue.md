@@ -282,6 +282,20 @@ async function handleSubmit() {
 </template>
 ```
 
+## `useVueWatch` — Observe Field Values
+
+```ts
+import { useVueWatch } from '@neutro/form/adapters/vue'
+
+const watched = useVueWatch(form, ['email', 'username'])
+// In template: watched.email, watched.username
+// Vue auto-unwraps the readonly ref in templates
+```
+
+Use `useVueWatch` when a component only needs to react to specific field values without subscribing to the full form state.
+
+---
+
 ## Validation Modes
 
 Configure when validation triggers globally and per field via `validationMode` in `createForm`:
