@@ -4,13 +4,13 @@ import {
   createForm,
   deepClone,
   extractAllPaths,
+  type FormAction,
   getNestedValue,
   isDeepEqual,
   setNestedValue,
   valibotAdapter,
   yupAdapter,
   zodAdapter,
-  type FormAction,
 } from '../src/index';
 
 // ---------------------------------------------------------------------------
@@ -717,7 +717,7 @@ describe('Validator adapters', () => {
         constraints: undefined,
         children: [
           { property: 'city', constraints: { isNotEmpty: 'city is required' }, children: [] },
-          { property: 'zip',  constraints: { isNotEmpty: 'zip is required'  }, children: [] },
+          { property: 'zip', constraints: { isNotEmpty: 'zip is required' }, children: [] },
         ],
       },
     ]);
@@ -729,13 +729,15 @@ describe('Validator adapters', () => {
     await form.validate();
     expect(form.getState().errors['address.city']).toBe('city is required');
     expect(form.getState().errors['address.zip']).toBe('zip is required');
-    expect(form.getState().errors['address']).toBeUndefined();
+    expect(form.getState().errors.address).toBeUndefined();
   });
 
   it('existing flat DTO behaviour is unchanged', async () => {
-    const mockValidate = vi.fn().mockResolvedValue([
-      { property: 'email', constraints: { isEmail: 'invalid email' }, children: [] },
-    ]);
+    const mockValidate = vi
+      .fn()
+      .mockResolvedValue([
+        { property: 'email', constraints: { isEmail: 'invalid email' }, children: [] },
+      ]);
     const { classValidatorAdapter } = await import('../src/index');
     const form = createForm({
       initialValues: { email: '' },
@@ -749,13 +751,17 @@ describe('Validator adapters', () => {
     const mockValidate = vi.fn().mockResolvedValue([
       {
         property: 'order',
-        children: [{
-          property: 'billing',
-          children: [{
-            property: 'postalCode',
-            constraints: { isNotEmpty: 'postal code required' },
-          }],
-        }],
+        children: [
+          {
+            property: 'billing',
+            children: [
+              {
+                property: 'postalCode',
+                constraints: { isNotEmpty: 'postal code required' },
+              },
+            ],
+          },
+        ],
       },
     ]);
     const { classValidatorAdapter } = await import('../src/index');
@@ -772,9 +778,7 @@ describe('Validator adapters', () => {
       {
         property: 'address',
         constraints: undefined,
-        children: [
-          { property: 'city', constraints: undefined, children: [] },
-        ],
+        children: [{ property: 'city', constraints: undefined, children: [] }],
       },
     ]);
     const { classValidatorAdapter } = await import('../src/index');
@@ -802,7 +806,7 @@ describe('Validator adapters', () => {
       validator: classValidatorAdapter(class {} as any, mockValidate as any),
     });
     await form.validate();
-    expect(form.getState().errors['address']).toBe('must be an object');
+    expect(form.getState().errors.address).toBe('must be an object');
     expect(form.getState().errors['address.city']).toBe('city required');
   });
 });
@@ -3576,8 +3580,8 @@ describe('built-in rules — file validation', () => {
       makeFileList(
         makeFile('a.pdf', 'application/pdf', 100),
         makeFile('b.pdf', 'application/pdf', 100),
-        makeFile('c.pdf', 'application/pdf', 100),
-      ),
+        makeFile('c.pdf', 'application/pdf', 100)
+      )
     );
     await form.validate();
     expect(form.getState().errors.docs).toMatch(/at most 2/);
@@ -3602,8 +3606,8 @@ describe('built-in rules — file validation', () => {
       'docs',
       makeFileList(
         makeFile('ok.pdf', 'application/pdf', 100),
-        makeFile('big.pdf', 'application/pdf', 1000),
-      ),
+        makeFile('big.pdf', 'application/pdf', 1000)
+      )
     );
     await form.validate();
     expect(form.getState().errors.docs).toBeTruthy();

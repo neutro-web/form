@@ -260,16 +260,20 @@ export function createNeutroFormDevtoolsPanel(
   // ── Duplicate guard ──────────────────────────────────────────────────────
   if (floatingMode) {
     if (floatingRegistry.has(form)) {
-      console.warn('[NeutroForm devtools] A floating panel is already mounted for this form — returning no-op; keep the unsubscribe returned by the first call');
+      console.warn(
+        '[NeutroForm devtools] A floating panel is already mounted for this form — returning no-op; keep the unsubscribe returned by the first call'
+      );
       return () => {};
     }
     floatingRegistry.add(form);
   } else {
-    const container = options.container!;
+    const container = options.container as HTMLElement;
     if (!inlinePanelRegistry.has(form)) inlinePanelRegistry.set(form, new WeakSet());
-    const formSet = inlinePanelRegistry.get(form)!;
+    const formSet = inlinePanelRegistry.get(form) as WeakSet<HTMLElement>;
     if (formSet.has(container)) {
-      console.warn('[NeutroForm devtools] createNeutroFormDevtoolsPanel called twice on the same form+container — returning no-op; keep the unsubscribe returned by the first call');
+      console.warn(
+        '[NeutroForm devtools] createNeutroFormDevtoolsPanel called twice on the same form+container — returning no-op; keep the unsubscribe returned by the first call'
+      );
       return () => {};
     }
     formSet.add(container);
@@ -286,7 +290,8 @@ export function createNeutroFormDevtoolsPanel(
   if (floatingMode) {
     // ── Floating overlay ───────────────────────────────────────────────────
     const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:2147483647;font-family:"SF Mono",Menlo,monospace;font-size:12px;';
+    wrapper.style.cssText =
+      'position:fixed;bottom:16px;right:16px;z-index:2147483647;font-family:"SF Mono",Menlo,monospace;font-size:12px;';
     document.body.appendChild(wrapper);
     root = wrapper;
 
@@ -294,31 +299,38 @@ export function createNeutroFormDevtoolsPanel(
 
     const panelEl = document.createElement('div');
     panelEl.style.cssText = [
-      'width:320px;max-height:500px;display:' + (panelOpen ? 'flex' : 'none') + ';flex-direction:column;',
+      'width:320px;max-height:500px;display:' +
+        (panelOpen ? 'flex' : 'none') +
+        ';flex-direction:column;',
       'background:#1e1e2e;color:#cdd6f4;border:1px solid #45475a;border-radius:8px;',
       'margin-bottom:8px;box-shadow:0 8px 32px rgba(0,0,0,.6);overflow:hidden;',
     ].join('');
 
     // Header
     const headerEl = document.createElement('div');
-    headerEl.style.cssText = 'background:#181825;padding:8px 12px;border-bottom:1px solid #45475a;display:flex;align-items:center;gap:6px;flex-shrink:0;';
+    headerEl.style.cssText =
+      'background:#181825;padding:8px 12px;border-bottom:1px solid #45475a;display:flex;align-items:center;gap:6px;flex-shrink:0;';
 
     const titleEl = document.createElement('span');
-    titleEl.style.cssText = 'font-weight:bold;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    titleEl.style.cssText =
+      'font-weight:bold;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
     titleEl.textContent = `NeutroForm: ${name}`;
     headerEl.appendChild(titleEl);
 
     validBadge = document.createElement('span');
-    validBadge.style.cssText = 'font-size:10px;padding:1px 6px;border-radius:10px;white-space:nowrap;background:#313244;color:#cdd6f4;';
+    validBadge.style.cssText =
+      'font-size:10px;padding:1px 6px;border-radius:10px;white-space:nowrap;background:#313244;color:#cdd6f4;';
     headerEl.appendChild(validBadge);
 
     submittingBadge = document.createElement('span');
-    submittingBadge.style.cssText = 'font-size:10px;padding:1px 6px;border-radius:10px;white-space:nowrap;background:#fab387;color:#1e1e2e;display:none;';
+    submittingBadge.style.cssText =
+      'font-size:10px;padding:1px 6px;border-radius:10px;white-space:nowrap;background:#fab387;color:#1e1e2e;display:none;';
     submittingBadge.textContent = 'submitting';
     headerEl.appendChild(submittingBadge);
 
     validatingBadge = document.createElement('span');
-    validatingBadge.style.cssText = 'font-size:10px;padding:1px 6px;border-radius:10px;white-space:nowrap;background:#89b4fa;color:#1e1e2e;display:none;';
+    validatingBadge.style.cssText =
+      'font-size:10px;padding:1px 6px;border-radius:10px;white-space:nowrap;background:#89b4fa;color:#1e1e2e;display:none;';
     validatingBadge.textContent = 'validating…';
     headerEl.appendChild(validatingBadge);
 
@@ -329,16 +341,19 @@ export function createNeutroFormDevtoolsPanel(
     bodyEl.style.cssText = 'padding:8px 12px;overflow-y:auto;flex:1;';
 
     const stateLabel = document.createElement('div');
-    stateLabel.style.cssText = 'color:#89b4fa;font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;';
+    stateLabel.style.cssText =
+      'color:#89b4fa;font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;';
     stateLabel.textContent = 'State';
     bodyEl.appendChild(stateLabel);
 
     stateNode = document.createElement('pre');
-    stateNode.style.cssText = 'margin:0 0 8px;font-size:11px;white-space:pre-wrap;word-break:break-all;color:#a6e3a1;max-height:180px;overflow-y:auto;';
+    stateNode.style.cssText =
+      'margin:0 0 8px;font-size:11px;white-space:pre-wrap;word-break:break-all;color:#a6e3a1;max-height:180px;overflow-y:auto;';
     bodyEl.appendChild(stateNode);
 
     const logLabel = document.createElement('div');
-    logLabel.style.cssText = 'color:#89b4fa;font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;';
+    logLabel.style.cssText =
+      'color:#89b4fa;font-weight:bold;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;';
     logLabel.textContent = 'Action log';
     bodyEl.appendChild(logLabel);
 
@@ -351,20 +366,24 @@ export function createNeutroFormDevtoolsPanel(
 
     // Toggle button
     const toggleBtn = document.createElement('button');
-    toggleBtn.style.cssText = 'display:block;margin-left:auto;background:#6c6f85;color:#cdd6f4;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-family:inherit;font-size:11px;font-weight:bold;';
+    toggleBtn.style.cssText =
+      'display:block;margin-left:auto;background:#6c6f85;color:#cdd6f4;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-family:inherit;font-size:11px;font-weight:bold;';
     toggleBtn.textContent = panelOpen ? '▾ NF' : '▴ NF';
-    toggleBtn.addEventListener('mouseenter', () => { toggleBtn.style.background = '#7f849c'; });
-    toggleBtn.addEventListener('mouseleave', () => { toggleBtn.style.background = '#6c6f85'; });
+    toggleBtn.addEventListener('mouseenter', () => {
+      toggleBtn.style.background = '#7f849c';
+    });
+    toggleBtn.addEventListener('mouseleave', () => {
+      toggleBtn.style.background = '#6c6f85';
+    });
     toggleBtn.addEventListener('click', () => {
       panelOpen = !panelOpen;
       panelEl.style.display = panelOpen ? 'flex' : 'none';
       toggleBtn.textContent = panelOpen ? '▾ NF' : '▴ NF';
     });
     wrapper.appendChild(toggleBtn);
-
   } else {
     // ── Inline mode ────────────────────────────────────────────────────────
-    const container = options.container!;
+    const container = options.container as HTMLElement;
 
     // Reuse existing shadowRoot if present (handles remount after unsub)
     if (container.shadowRoot) {
@@ -455,7 +474,8 @@ export function createNeutroFormDevtoolsPanel(
     const iv = state.isValid;
     validBadge.textContent = iv === null ? 'unknown' : iv ? 'valid' : 'invalid';
     if (floatingMode) {
-      validBadge.style.background = iv === true ? 'rgba(166,227,161,.3)' : iv === false ? 'rgba(243,139,168,.3)' : '#313244';
+      validBadge.style.background =
+        iv === true ? 'rgba(166,227,161,.3)' : iv === false ? 'rgba(243,139,168,.3)' : '#313244';
       validBadge.style.color = iv === true ? '#a6e3a1' : iv === false ? '#f38ba8' : '#cdd6f4';
     } else {
       validBadge.className = `nf-badge${iv === true ? ' nf-badge-valid' : iv === false ? ' nf-badge-invalid' : ''}`;
@@ -477,7 +497,9 @@ export function createNeutroFormDevtoolsPanel(
     const entry = document.createElement('div');
     const typeSpan = document.createElement('span');
     typeSpan.textContent = action.type;
-    const timeNode = document.createTextNode(` ${new Date().toLocaleTimeString('en', { hour12: false } as Intl.DateTimeFormatOptions)}`);
+    const timeNode = document.createTextNode(
+      ` ${new Date().toLocaleTimeString('en', { hour12: false } as Intl.DateTimeFormatOptions)}`
+    );
     entry.appendChild(typeSpan);
     entry.appendChild(timeNode);
     if (floatingMode) {
@@ -489,7 +511,7 @@ export function createNeutroFormDevtoolsPanel(
     }
     logList.insertBefore(entry, logList.firstChild);
     while (logList.children.length > maxLogEntries) {
-      logList.removeChild(logList.lastChild!);
+      if (logList.lastChild) logList.removeChild(logList.lastChild);
     }
   };
 
@@ -517,7 +539,7 @@ export function createNeutroFormDevtoolsPanel(
       floatingRegistry.delete(form);
       (root as HTMLElement).remove();
     } else {
-      const container = options.container!;
+      const container = options.container as HTMLElement;
       inlinePanelRegistry.get(form)?.delete(container);
       root.replaceChildren();
     }
