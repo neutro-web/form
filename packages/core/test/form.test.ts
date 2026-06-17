@@ -4140,4 +4140,27 @@ describe('isFieldValid(path)', () => {
     // new items.0.name never validated
     expect(form.isFieldValid('items.0.name')).toBeNull()
   })
+
+  it('arrayMove preserves isFieldValid state across moved indices', async () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }, { name: 'c' }] } })
+    await form.validate(['items.0.name', 'items.1.name', 'items.2.name'])
+    // Move index 0 to index 2: a→2, b→0, c→1
+    form.arrayMove('items', 0, 2)
+    // All three items still have validation state (moved, not lost)
+    expect(form.isFieldValid('items.0.name')).not.toBeNull()
+    expect(form.isFieldValid('items.1.name')).not.toBeNull()
+    expect(form.isFieldValid('items.2.name')).not.toBeNull()
+  })
+
+  it('arraySwap preserves isFieldValid state for swapped indices', async () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } })
+    await form.validate(['items.0.name'])
+    // Only items.0 is validated
+    expect(form.isFieldValid('items.0.name')).not.toBeNull()
+    expect(form.isFieldValid('items.1.name')).toBeNull()
+    // Swap 0 and 1 — the validated state should follow the element
+    form.arraySwap('items', 0, 1)
+    expect(form.isFieldValid('items.1.name')).not.toBeNull() // was items.0, now items.1
+    expect(form.isFieldValid('items.0.name')).toBeNull()     // was items.1 (unvalidated)
+  })
 })
