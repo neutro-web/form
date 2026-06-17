@@ -452,10 +452,13 @@ export function deepClone<T>(val: T, hash = new WeakMap()): T {
   return cloneObj;
 }
 
+const DANGEROUS_PATH_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 export function getNestedValue(obj: any, path: string): any {
   const parts = path.split('.');
   let current = obj;
   for (const part of parts) {
+    if (DANGEROUS_PATH_KEYS.has(part)) return undefined;
     if (current === null || current === undefined) return undefined;
     current = current[part];
   }
@@ -464,6 +467,10 @@ export function getNestedValue(obj: any, path: string): any {
 
 export function setNestedValue(obj: any, path: string, value: any): void {
   const parts = path.split('.');
+  if (parts.some((p) => DANGEROUS_PATH_KEYS.has(p))) {
+    console.error('[NeutroForm] Blocked dangerous path segment:', path);
+    return;
+  }
   let current = obj;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
@@ -505,7 +512,8 @@ export function isDeepEqual(a: any, b: any, hash = new WeakMap()): boolean {
   return true;
 }
 
-export function extractAllPaths(obj: any, prefix = ''): string[] {
+export function extractAllPaths(obj: any, prefix = '', _depth = 0): string[] {
+  if (_depth > 50) return prefix ? [prefix] : [];
   if (
     obj === null ||
     typeof obj !== 'object' ||
@@ -522,10 +530,10 @@ export function extractAllPaths(obj: any, prefix = ''): string[] {
       if (Array.isArray(obj[key])) {
         paths.push(currentPath);
         obj[key].forEach((item: any, index: number) => {
-          paths.push(...extractAllPaths(item, `${currentPath}.${index}`));
+          paths.push(...extractAllPaths(item, `${currentPath}.${index}`, _depth + 1));
         });
       } else {
-        paths.push(...extractAllPaths(obj[key], currentPath));
+        paths.push(...extractAllPaths(obj[key], currentPath, _depth + 1));
       }
     }
   }
@@ -873,13 +881,15 @@ function applyBuiltInRules<T>(
 // ---------------------------------------------------------------------------
 
 export function createForm<T extends object>(config: FormConfig<T>): FormInstance<T> {
-  const deepMerge = (base: any, override: any): any => {
+  const deepMerge = (base: any, override: any, seen = new WeakSet()): any => {
     if (override === null || override === undefined) return base;
     if (typeof override !== 'object' || Array.isArray(override)) return override;
     if (typeof base !== 'object' || base === null) return override;
+    if (seen.has(override)) return base;
+    seen.add(override);
     const result: any = { ...base };
     for (const key of Object.keys(override)) {
-      result[key] = deepMerge(base[key], override[key]);
+      result[key] = deepMerge(base[key], override[key], seen);
     }
     return result;
   };
@@ -892,6 +902,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   let isSubmitting = false;
   let isValidating = false;
   let hasValidated = false;
+  let isHydrating = false;
   let persistenceWriteTimer: ReturnType<typeof setTimeout> | null = null;
   let persistenceUnsubscribe: (() => void) | null = null;
 
@@ -913,6 +924,17 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   const preComputedScopes = config.dependencies
     ? compileDependencyScopes(config.dependencies, initialValues)
     : {};
+
+  const rawDebounce = config.asyncDebounceMs ?? 300;
+  const asyncDebounceMs =
+    Number.isFinite(rawDebounce) && rawDebounce >= 0
+      ? rawDebounce
+      : (() => {
+          console.warn(
+            `[NeutroForm] asyncDebounceMs must be a finite non-negative number (got ${rawDebounce}); using 300ms`
+          );
+          return 300;
+        })();
 
   const getState = (): FormState<T> => ({
     values: deepClone(values),
@@ -937,6 +959,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     });
   };
 
+  const notifyGlobalSubscribers = (snapshot: FormState<T>) => {
+    for (const fn of globalSubscribers) {
+      try {
+        fn(snapshot);
+      } catch (err) {
+        console.error('[NeutroForm] subscriber threw:', err);
+      }
+    }
+  };
+
   // Shared path fan-out logic used by notify(), _flushNotifications(), and reset().
   const notifyPathSubscribers = (paths: string[]) => {
     paths.forEach((mutatedPath) => {
@@ -951,8 +983,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const listeners = pathSubscribers.get(p);
         if (!listeners) continue;
         const val = p === '*' ? deepClone(values) : deepClone(getNestedValue(values, p));
-        for (const cb of listeners)
-          cb(val, { error: errors[p], touched: touched[p], dirty: dirty[p] });
+        for (const cb of listeners) {
+          try {
+            cb(val, { error: errors[p], touched: touched[p], dirty: dirty[p] });
+          } catch (err) {
+            console.error('[NeutroForm] path subscriber threw:', err);
+          }
+        }
       }
     });
   };
@@ -960,8 +997,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   // Called when a batch flushes: notifies global subscribers once, then replays each path.
   const _flushNotifications = (paths: Array<string | undefined>) => {
     if (globalSubscribers.size > 0) {
-      const snapshot = getState();
-      for (const fn of globalSubscribers) fn(snapshot);
+      notifyGlobalSubscribers(getState());
     }
     const unique = [...new Set(paths.filter((p): p is string => p !== undefined))];
     notifyPathSubscribers(unique);
@@ -975,8 +1011,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       return;
     }
     if (globalSubscribers.size > 0) {
-      const snapshot = getState();
-      for (const fn of globalSubscribers) fn(snapshot);
+      notifyGlobalSubscribers(getState());
     }
     if (mutatedPath) notifyPathSubscribers([mutatedPath]);
   };
@@ -997,7 +1032,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
   const subscribe = (fn: FormSubscriber<T>) => {
     globalSubscribers.add(fn);
-    fn(getState());
+    try {
+      fn(getState());
+    } catch (err) {
+      console.error('[NeutroForm] subscriber threw on initial call:', err);
+    }
     return () => {
       globalSubscribers.delete(fn);
     };
@@ -1011,8 +1050,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     isValidating = true;
     // isValidating is a global flag — only global subscribers need this notification.
     if (globalSubscribers.size > 0) {
-      const validatingSnapshot = getState();
-      for (const fn of globalSubscribers) fn(validatingSnapshot);
+      notifyGlobalSubscribers(getState());
     }
 
     let expandedScope: string[] | undefined;
@@ -1072,6 +1110,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           abortController.signal
         );
 
+        const isValidatorReturn = (r: unknown): r is Record<string, string> =>
+          r !== null && r !== undefined && typeof r === 'object' && !Array.isArray(r);
+
         if (validationResult instanceof Promise) {
           // Bug #8: per-invocation debounce — uses a local timer, not a shared one.
           const resolvedErrors = await new Promise<Record<string, string>>((resolve) => {
@@ -1088,11 +1129,19 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
                 return;
               }
               try {
-                resolve(await validationResult);
+                const result = await validationResult;
+                if (!isValidatorReturn(result)) {
+                  console.error(
+                    '[NeutroForm] validator must return Record<string,string> or Promise<Record<string,string>>'
+                  );
+                  resolve({});
+                } else {
+                  resolve(result);
+                }
               } catch {
                 resolve({ _global: 'Asynchronous validation transaction failed.' });
               }
-            }, config.asyncDebounceMs ?? 300);
+            }, asyncDebounceMs);
           });
 
           if (activeEpoch === asyncEpoch && !abortController.signal.aborted) {
@@ -1100,7 +1149,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
             errors = expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined;
           }
         } else {
-          const combined = { ...builtInErrors, ...validationResult };
+          if (!isValidatorReturn(validationResult)) {
+            console.error(
+              '[NeutroForm] validator must return Record<string,string> or Promise<Record<string,string>>'
+            );
+          }
+          const safeResult = isValidatorReturn(validationResult) ? validationResult : {};
+          const combined = { ...builtInErrors, ...safeResult };
           errors = expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined;
         }
       } else {
@@ -1115,8 +1170,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       isValidating = false;
       if (!expandedScope && activeEpoch === asyncEpoch) hasValidated = true;
       if (globalSubscribers.size > 0) {
-        const finalSnapshot = getState();
-        for (const fn of globalSubscribers) fn(finalSnapshot);
+        notifyGlobalSubscribers(getState());
       }
       // Notify path subscribers so they see updated error state.
       const pathsToNotify = expandedScope ?? [...pathSubscribers.keys()].filter((p) => p !== '*');
@@ -1189,8 +1243,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       });
       if (clearedPaths.length > 0) {
         if (globalSubscribers.size > 0) {
-          const obsSnapshot = getState();
-          for (const fn of globalSubscribers) fn(obsSnapshot);
+          notifyGlobalSubscribers(getState());
         }
         notifyPathSubscribers(clearedPaths);
       }
@@ -1303,7 +1356,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
     pathSet.add(fn);
     const currentVal = path === '*' ? values : getNestedValue(values, path);
-    fn(deepClone(currentVal), { error: errors[path], touched: touched[path], dirty: dirty[path] });
+    try {
+      fn(deepClone(currentVal), {
+        error: errors[path],
+        touched: touched[path],
+        dirty: dirty[path],
+      });
+    } catch (err) {
+      console.error('[NeutroForm] path subscriber threw on initial call:', err);
+    }
     return () => {
       const listeners = pathSubscribers.get(path);
       if (listeners) {
@@ -1370,7 +1431,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           start = target.selectionStart || 0;
           end = target.selectionEnd || 0;
         }
-        const formatted = options.format(rawVal);
+        let formatted = rawVal;
+        try {
+          formatted = options.format(rawVal);
+        } catch (err) {
+          console.error('[NeutroForm] format() threw:', err);
+        }
         target.value = formatted;
         const diff = formatted.length - rawVal.length;
         if (supportsSelection && document.activeElement === target) {
@@ -1427,7 +1493,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
     const unsubscribeA11y = subscribeToPath(stringPath, (_, fieldState) => {
       element.setAttribute('aria-invalid', fieldState.error ? 'true' : 'false');
-      const errorContainer = document.querySelector(`[data-error="${stringPath}"]`);
+      let errorContainer: Element | null = null;
+      try {
+        const escaped = stringPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        errorContainer = document.querySelector(`[data-error="${escaped}"]`);
+      } catch {
+        // path contains characters invalid in a CSS selector
+      }
       if (errorContainer) {
         if (!errorContainer.id) errorContainer.id = `error-desc-${stringPath.replace(/\./g, '-')}`;
         element.setAttribute('aria-describedby', errorContainer.id);
@@ -1756,15 +1828,18 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       });
       // Notify all subscribers with reset state.
       if (globalSubscribers.size > 0) {
-        const resetSnapshot = getState();
-        for (const fn of globalSubscribers) fn(resetSnapshot);
+        notifyGlobalSubscribers(getState());
       }
       notifyPathSubscribers([...pathSubscribers.keys()].filter((p) => p !== '*'));
       const wildcardListeners = pathSubscribers.get('*');
       if (wildcardListeners) {
         const allValues = deepClone(values);
         for (const cb of wildcardListeners) {
-          cb(allValues, { error: undefined, touched: undefined, dirty: undefined });
+          try {
+            cb(allValues, { error: undefined, touched: undefined, dirty: undefined });
+          } catch (err) {
+            console.error('[NeutroForm] path subscriber threw:', err);
+          }
         }
       }
       dispatchAction({ type: 'RESET', newValues });
@@ -1834,11 +1909,14 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     hydrate: async (): Promise<void> => {
       const cfg = config.persistence;
       if (!cfg) return;
+      if (isHydrating) return;
+      isHydrating = true;
       let stored: T | null | undefined;
       try {
         stored = await cfg.adapter.read();
       } catch (err) {
         console.error('[NeutroForm persistence] read() failed, using initialValues:', err);
+        isHydrating = false;
         return;
       }
       if (stored != null) {
@@ -1865,8 +1943,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           hasValidated = false;
         });
         if (globalSubscribers.size > 0) {
-          const s = getState();
-          for (const fn of globalSubscribers) fn(s);
+          notifyGlobalSubscribers(getState());
         }
         notifyPathSubscribers([...pathSubscribers.keys()].filter((p) => p !== '*'));
       }
@@ -1921,6 +1998,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           });
         });
       }
+      isHydrating = false;
     },
 
     _subscribeToActions: (fn) => {

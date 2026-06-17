@@ -3670,3 +3670,163 @@ describe('built-in rules — file validation', () => {
     expect(form.getState().errors.avatar).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Security & Fault-Tolerance (v0.3.0)
+// ---------------------------------------------------------------------------
+
+describe('Security & Fault-Tolerance', () => {
+  describe('Subscriber exception isolation', () => {
+    it('a throwing global subscriber does not prevent other subscribers from firing', () => {
+      const form = createForm({ initialValues: { name: '' } });
+      const received: string[] = [];
+      form.subscribe(() => {
+        throw new Error('boom');
+      });
+      form.subscribe((s) => {
+        received.push(s.values.name);
+      });
+      form.set('name', 'alice');
+      expect(received).toContain('alice');
+    });
+
+    it('a throwing path subscriber does not prevent other path subscribers from firing', () => {
+      const form = createForm({ initialValues: { name: '' } });
+      const received: string[] = [];
+      let calls = 0;
+      form.subscribeToPath('name', () => {
+        if (calls++ > 0) throw new Error('boom');
+      });
+      form.subscribeToPath('name', (v) => {
+        received.push(v as string);
+      });
+      form.set('name', 'alice');
+      expect(received).toContain('alice');
+    });
+  });
+
+  describe('Prototype pollution protection', () => {
+    it('setNestedValue blocks __proto__ path segment', () => {
+      const form = createForm({ initialValues: { name: '' } as any });
+      expect(() => form.set('__proto__.polluted' as any, 'yes' as any)).not.toThrow();
+      expect((Object.prototype as any).polluted).toBeUndefined();
+    });
+
+    it('setNestedValue blocks constructor.prototype path', () => {
+      const form = createForm({ initialValues: { name: '' } as any });
+      expect(() => form.set('constructor.prototype.evil' as any, 'yes' as any)).not.toThrow();
+      expect((Object.prototype as any).evil).toBeUndefined();
+    });
+
+    it('getNestedValue returns undefined for __proto__ segment', () => {
+      expect(getNestedValue({ name: 'x' }, '__proto__.toString')).toBeUndefined();
+    });
+
+    it('setNestedValue standalone blocks dangerous keys', () => {
+      const obj = { a: 1 };
+      setNestedValue(obj, '__proto__.polluted', 'yes');
+      expect((Object.prototype as any).polluted).toBeUndefined();
+    });
+  });
+
+  describe('Validator return type guard', () => {
+    it('does not crash when validator returns null', async () => {
+      const form = createForm({
+        initialValues: { name: '' },
+        validator: () => null as any,
+      });
+      await expect(form.validate()).resolves.toBe(true);
+    });
+
+    it('does not crash when validator returns a string', async () => {
+      const form = createForm({
+        initialValues: { name: '' },
+        validator: () => 'oops' as any,
+      });
+      await expect(form.validate()).resolves.toBe(true);
+    });
+
+    it('does not crash when async validator resolves to null', async () => {
+      const form = createForm({
+        initialValues: { name: '' },
+        validator: async () => null as any,
+        asyncDebounceMs: 0,
+      });
+      await expect(form.validate()).resolves.toBe(true);
+    });
+  });
+
+  describe('asyncDebounceMs validation', () => {
+    it('clamps NaN to 300ms without throwing', async () => {
+      const form = createForm({
+        initialValues: { name: '' },
+        validator: async () => ({}),
+        asyncDebounceMs: Number.NaN,
+      });
+      await expect(form.validate()).resolves.toBe(true);
+    });
+
+    it('clamps negative value to 300ms without throwing', async () => {
+      const form = createForm({
+        initialValues: { name: '' },
+        validator: async () => ({}),
+        asyncDebounceMs: -100,
+      });
+      await expect(form.validate()).resolves.toBe(true);
+    });
+  });
+
+  describe('deepMerge cycle detection', () => {
+    it('hydrate() does not stack-overflow on circular persistence data', async () => {
+      const circular: any = { name: 'alice' };
+      circular.self = circular;
+
+      const adapter = {
+        read: async () => circular,
+        write: async () => {},
+        clear: async () => {},
+      };
+
+      const form = createForm({
+        initialValues: { name: '' },
+        persistence: { adapter },
+      });
+
+      await expect(form.hydrate()).resolves.toBeUndefined();
+    });
+  });
+
+  describe('concurrent hydrate() guard', () => {
+    it('concurrent hydrate() calls install only one persistence subscriber', async () => {
+      let writeCount = 0;
+      const adapter = {
+        read: async () => ({ name: 'stored' }),
+        write: async () => {
+          writeCount++;
+        },
+        clear: async () => {},
+      };
+
+      const form = createForm({
+        initialValues: { name: '' },
+        persistence: { adapter, debounceMs: 0 },
+      });
+
+      await Promise.all([form.hydrate(), form.hydrate()]);
+
+      writeCount = 0;
+      form.set('name', 'alice');
+      await new Promise((r) => setTimeout(r, 10));
+      expect(writeCount).toBe(1);
+    });
+  });
+
+  describe('extractAllPaths depth guard', () => {
+    it('does not stack-overflow on deeply nested objects', () => {
+      let deep: any = { value: 'leaf' };
+      for (let i = 0; i < 200; i++) deep = { nested: deep };
+
+      expect(() => extractAllPaths(deep)).not.toThrow();
+    });
+  });
+});
