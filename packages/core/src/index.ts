@@ -173,6 +173,14 @@ export interface FormConfig<T extends object> {
   persistence?: PersistenceConfig<T>;
   onSubmitSuccess?: (payload: Partial<T>) => void | Promise<void>;
   onSubmitError?: (error: unknown, payload: Partial<T>) => void | Promise<void>;
+  /**
+   * Prototype B (0.4.0 candidate) — Computed / Derived Fields.
+   * Each key maps to a pure function that derives its value from the full form values.
+   * Computed fields are re-evaluated after every set() call. set() on a computed field is a no-op.
+   */
+  computed?: {
+    [K in keyof T]?: (values: T) => T[K]
+  };
 }
 
 export interface ConnectOptions {
@@ -1008,6 +1016,41 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           return 300;
         })();
 
+  // Prototype B (0.4.0 candidate) — Computed / Derived Fields
+  const computedFields = config.computed ?? ({} as NonNullable<typeof config.computed>)
+  const computedKeys = Object.keys(computedFields) as Array<keyof T>
+
+  /**
+   * Re-evaluates all computed fields against current `values`.
+   * Runs up to two passes so that chained dependencies (A→B→C) resolve correctly
+   * in a single runComputedPass() call regardless of declaration order.
+   * Returns true if any value actually changed.
+   */
+  const runComputedPass = (): boolean => {
+    if (computedKeys.length === 0) return false
+    let changed = false
+    // Two passes: first pass may update B from A; second pass updates C from the new B.
+    for (let pass = 0; pass < 2; pass++) {
+      let passChanged = false
+      for (const key of computedKeys) {
+        const fn = computedFields[key]!
+        const newVal = fn(values)
+        const currentVal = getNestedValue(values, key as string)
+        if (!isDeepEqual(newVal, currentVal)) {
+          setNestedValue(values, key as string, newVal)
+          passChanged = true
+          changed = true
+        }
+      }
+      // Short-circuit: if nothing changed in this pass, further passes are pointless.
+      if (!passChanged) break
+    }
+    return changed
+  }
+
+  // Prototype B: seed computed field values at init time so initial state is already derived.
+  runComputedPass()
+
   // Dev-only runtime path validation trie (Prototype A — v0.4.0 release decision pending)
   // Use a try/catch to safely read process.env in Node; in browser builds process is undefined.
   const __isProduction = (() => {
@@ -1304,6 +1347,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     val: any,
     options: { touch?: boolean; validate?: boolean } = {}
   ) => {
+    // Prototype B: computed fields are read-only — set() is a no-op for them.
+    if (computedKeys.length > 0 && computedKeys.includes(path as keyof T)) {
+      if (!__isProduction) {
+        console.warn(`[NeutroForm] "${path}" is a computed field — set() is a no-op.`)
+      }
+      return
+    }
     wasSet[path] = true;
     const currentVal = getNestedValue(values, path);
     if (isDeepEqual(currentVal, val)) return;
@@ -1317,6 +1367,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // Always notify path subscribers immediately so controlled inputs see the new value
     // before async validation completes.
     notify(path);
+    // Prototype B: after the primary notify, recompute derived fields and fire a second
+    // notification if any computed value changed. This runs outside the batch so
+    // subscribers receive a distinct snapshot for the derived state.
+    if (runComputedPass()) {
+      notify()
+    }
     if (options.validate === true) runValidation([path]);
   };
 
