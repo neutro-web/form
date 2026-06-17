@@ -4032,3 +4032,107 @@ describe('isDirty / isFieldDirty predicates', () => {
     expect(form.isDirty()).toBe(true)
   })
 })
+
+// ---------------------------------------------------------------------------
+// isFieldValid(path)
+// ---------------------------------------------------------------------------
+
+describe('isFieldValid(path)', () => {
+  it('returns null initially (no validation run)', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    expect(form.isFieldValid('email')).toBeNull()
+  })
+
+  it('returns true after validate() on a field with no error', async () => {
+    const form = createForm({
+      initialValues: { email: 'a@b.com' },
+      rules: { email: ['email'] },
+    })
+    await form.validate(['email'])
+    expect(form.isFieldValid('email')).toBe(true)
+  })
+
+  it('returns false after validate() when field has an error', async () => {
+    const form = createForm({
+      initialValues: { email: 'bad' },
+      rules: { email: ['email'] },
+    })
+    await form.validate(['email'])
+    expect(form.isFieldValid('email')).toBe(false)
+  })
+
+  it('after full validate(), validated paths return non-null', async () => {
+    const form = createForm({
+      initialValues: { email: 'bad', username: 'joe' },
+      rules: { email: ['email'] },
+    })
+    await form.validate()
+    expect(form.isFieldValid('email')).toBe(false)
+    expect(form.isFieldValid('username')).not.toBeNull()
+  })
+
+  it('reset() returns all paths to null', async () => {
+    const form = createForm({ initialValues: { email: 'a@b.com' }, rules: { email: ['email'] } })
+    await form.validate()
+    form.reset()
+    expect(form.isFieldValid('email')).toBeNull()
+  })
+
+  it('resetField() returns only that path to null', async () => {
+    const form = createForm({
+      initialValues: { email: 'a@b.com', username: 'joe' },
+      rules: { email: ['email'] },
+    })
+    await form.validate()
+    expect(form.isFieldValid('email')).not.toBeNull()
+    form.resetField('email')
+    expect(form.isFieldValid('email')).toBeNull()
+    expect(form.isFieldValid('username')).not.toBeNull()
+  })
+
+  it('setErrors() before validation: isFieldValid stays null', async () => {
+    const form = createForm({ initialValues: { email: '' } })
+    form.setErrors({ email: 'taken' })
+    expect(form.isFieldValid('email')).toBeNull()
+  })
+
+  it('setErrors() after validation: isFieldValid returns false', async () => {
+    const form = createForm({ initialValues: { email: 'a@b.com' }, rules: { email: ['email'] } })
+    await form.validate()
+    form.setErrors({ email: 'taken' })
+    expect(form.isFieldValid('email')).toBe(false)
+  })
+
+  it('clearErrors() after validation: isFieldValid returns true', async () => {
+    const form = createForm({ initialValues: { email: 'bad' }, rules: { email: ['email'] } })
+    await form.validate()
+    expect(form.isFieldValid('email')).toBe(false)
+    form.clearErrors()
+    expect(form.isFieldValid('email')).toBe(true)
+  })
+
+  it('isFieldValid on unknown path returns null', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    expect(form.isFieldValid('nonexistent')).toBeNull()
+  })
+
+  it('arrayRemove clears isFieldValid for removed index', async () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } })
+    await form.validate(['items.0.name', 'items.1.name'])
+    expect(form.isFieldValid('items.0.name')).not.toBeNull()
+    form.arrayRemove('items', 0)
+    // old items.0 is gone — should be null
+    expect(form.isFieldValid('items.0.name')).toBeNull()
+  })
+
+  it('arrayInsert shifts validatedPaths indices', async () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } })
+    await form.validate(['items.0.name'])
+    expect(form.isFieldValid('items.0.name')).not.toBeNull()
+    form.arrayInsert('items', 0, { name: '' })
+    // old items.0.name shifted to items.1.name
+    expect(form.isFieldValid('items.1.name')).not.toBeNull()
+    // new items.0.name never validated
+    expect(form.isFieldValid('items.0.name')).toBeNull()
+  })
+})

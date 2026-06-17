@@ -27,6 +27,7 @@ export interface AngularFormReturn<T extends object> {
   resetField: FormInstance<T>['resetField'];
   isDirty: FormInstance<T>['isDirty'];
   isFieldDirty: FormInstance<T>['isFieldDirty'];
+  isFieldValid: FormInstance<T>['isFieldValid'];
 }
 
 // Must be called inside an injection context (component constructor or inject() call site).
@@ -65,6 +66,7 @@ export function useAngularForm<T extends object>(form: FormInstance<T>): Angular
     resetField: form.resetField,
     isDirty: form.isDirty,
     isFieldDirty: form.isFieldDirty,
+    isFieldValid: form.isFieldValid,
   };
 }
 
