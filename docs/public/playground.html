@@ -226,7 +226,7 @@
 </footer>
 
 <script type="module">
-import { createForm as _createForm } from './form-core.esm.js';
+import { createForm as _createForm, localStorageAdapter } from './form-core.esm.js';
 let createForm = _createForm;
 
 // Dynamic base URL — works on localhost AND GitHub Pages
@@ -566,16 +566,13 @@ function makeAngularIframe() {
   return `<!DOCTYPE html><html><head><style>${IFRAME_CSS}
 body{font-family:system-ui,sans-serif}
 main{max-width:460px;margin:1.5rem auto;padding:1rem}
-h2{font-size:1.05rem;margin-bottom:1.2rem;color:#1e293b}
+h2{font-size:1.05rem;margin-bottom:1.2rem;color:#e6edf3}
 .field{margin-bottom:.85rem}
-label{display:block;font-size:.7rem;font-weight:600;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;color:#555}
-input,textarea{width:100%;padding:7px 9px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;font-size:13px}
-input:focus,textarea:focus{outline:2px solid #4F46E5;outline-offset:1px}
-.error{color:#dc2626;font-size:.75rem;margin:3px 0 0}
+label{display:block;font-size:.7rem;font-weight:600;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;color:#8b949e}
+.error{color:#f85149;font-size:.75rem;margin:3px 0 0}
 .btn-row{display:flex;gap:8px;margin-top:14px}
-button{padding:7px 14px;border-radius:6px;border:none;cursor:pointer;font-size:13px}
-.primary{background:#4F46E5;color:#fff}
-.secondary{background:#f1f5f9;color:#1e293b;border:1px solid #cbd5e1}
+.primary{background:#1f6feb;border-color:#1f6feb;color:#fff}
+.secondary{background:#21262d;color:#e6edf3;border:1px solid #30363d}
 button:disabled{opacity:.6;cursor:not-allowed}
 <\/style><\/head><body>
 <app-root>Loading…<\/app-root>
@@ -690,7 +687,7 @@ console.log(form.get('email')); // 'alice@example.com'
 
 // Full snapshot
 const state = form.getState();
-// { values, errors, touched, dirty, isSubmitting, isValidating }`,
+// { values, errors, touched, dirty, isSubmitting, isValidating, isValid }`,
 
 run(el) {
   const form = createForm({ initialValues: { name: 'Alice', email: '', age: 25 } });
@@ -1888,16 +1885,16 @@ run(el) {
     <div class="df">
       <div class="fld">
         <label>Name</label>
-        <input id="rf-name" value="Alice" style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--t0);box-sizing:border-box"/>
+        <input id="rf-name" value="Alice" />
       </div>
       <div class="fld">
         <label>Email</label>
-        <input id="rf-email" placeholder="Enter email..." style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--t0);box-sizing:border-box"/>
-        <span class="fhint" id="rf-email-err" style="color:var(--red)"></span>
+        <input id="rf-email" placeholder="Enter email..." />
+        <span class="ferr" id="rf-email-err"></span>
       </div>
       <div class="fld">
         <label>Address City</label>
-        <input id="rf-city" placeholder="City..." style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--t0);box-sizing:border-box"/>
+        <input id="rf-city" placeholder="City..." />
       </div>
       <div class="hr"></div>
       <div class="btn-row">
@@ -2324,15 +2321,17 @@ run(el) {
   const modes = ['onChange', 'onBlur', 'onTouched', 'onSubmitOnly'];
 
   el.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       ${modes.map(mode => `
-      <div>
-        <label style="display:block;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem">${mode}</label>
-        <input id="vm-${mode}" placeholder="Type here..." style="display:block;width:100%;padding:.5rem;border:1px solid #d1d5db;border-radius:.375rem;box-sizing:border-box"/>
-        <div id="vm-${mode}-err" style="color:#dc2626;font-size:.8rem;min-height:1.2em"></div>
+      <div class="fld">
+        <label>${mode}</label>
+        <input id="vm-${mode}" placeholder="Type here..." />
+        <div class="ferr" id="vm-${mode}-err"></div>
       </div>`).join('')}
     </div>
-    <button id="vm-submit" style="margin-top:1rem;padding:.5rem 1.25rem;background:#4f46e5;color:#fff;border:none;border-radius:.375rem;cursor:pointer">Submit (validates all)</button>
+    <div class="btn-row">
+      <button class="btn primary" id="vm-submit">Submit (validates all)</button>
+    </div>
     <div id="vm-log" class="box" style="margin-top:.75rem;min-height:2rem"></div>
   `;
 
@@ -2354,6 +2353,93 @@ run(el) {
   });
 
   el._cleanup = () => { pathUnsubs.forEach(u => u()); globalUnsub(); };
+  return form;
+},
+},
+
+// ── Step 17c ────────────────────────────────────────────────────────────────
+{
+title: 'isValid — Validity State',
+desc: 'state.isValid is a three-value flag: null (not yet validated), true (last full validate() passed), false (errors exist). It is set by form.validate() and form.submit() — scoped validate([path]) does not change it. form.reset() resets it back to null.',
+code: `const form = createForm({
+  initialValues: { email: '' },
+  rules: { email: ['required', 'email'] },
+});
+
+// Initial: null — not yet validated
+console.log(form.getState().isValid); // null
+
+await form.validate();                // full validation
+// Invalid: false — errors exist
+console.log(form.getState().isValid); // false
+
+form.set('email', 'ok@test.com');
+await form.validate();
+// Valid: true — no errors
+console.log(form.getState().isValid); // true
+
+form.reset();
+console.log(form.getState().isValid); // null — reset to null`,
+
+run(el) {
+  const form = createForm({
+    initialValues: { email: '' },
+    rules: { email: ['required', 'email'] },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld">
+        <label>Email</label>
+        <input id="iv-email" placeholder="Enter email…" />
+        <div class="ferr" id="iv-err"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="iv-validate">Validate</button>
+        <button class="btn" id="iv-reset">Reset</button>
+      </div>
+      <div class="hr"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <span style="font-size:12px;color:var(--t2)">state.isValid:</span>
+        <span id="iv-badge" style="font-size:13px;font-weight:700;color:var(--t2)">null</span>
+      </div>
+      <div class="box" style="font-size:12px;margin-top:8px;min-height:2rem" id="iv-log"></div>
+    </div>`;
+
+  const emailInp = el.querySelector('#iv-email');
+  const errDiv   = el.querySelector('#iv-err');
+  const badge    = el.querySelector('#iv-badge');
+  const log      = el.querySelector('#iv-log');
+  const history  = [];
+
+  const appendLog = msg => {
+    history.unshift(msg);
+    if (history.length > 6) history.pop();
+    log.textContent = history.join('\n');
+  };
+
+  emailInp.addEventListener('input', e => form.set('email', e.target.value, { touch: true }));
+
+  const unsub = form.subscribe(state => {
+    errDiv.textContent = state.errors.email ?? '';
+    const iv = state.isValid;
+    if (iv === null)       { badge.textContent = 'null';  badge.style.color = 'var(--t2)'; }
+    else if (iv === true)  { badge.textContent = 'true';  badge.style.color = 'var(--green)'; }
+    else                   { badge.textContent = 'false'; badge.style.color = 'var(--red)'; }
+  });
+
+  el.querySelector('#iv-validate').addEventListener('click', async () => {
+    const ok = await form.validate();
+    appendLog(`validate() → isValid = ${ok}`);
+  });
+
+  el.querySelector('#iv-reset').addEventListener('click', () => {
+    form.reset();
+    emailInp.value = '';
+    appendLog('reset() → isValid = null');
+  });
+
+  el._cleanup = () => unsub();
   return form;
 },
 },
@@ -2408,11 +2494,11 @@ run(el) {
     <div class="df">
       <div class="fld">
         <label>Email</label>
-        <input id="tp-email" placeholder="Enter email..." style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--t0);box-sizing:border-box"/>
+        <input id="tp-email" placeholder="Enter email..." />
       </div>
       <div class="fld">
         <label>Username</label>
-        <input id="tp-username" placeholder="Username..." style="width:100%;padding:.4rem .6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg1);color:var(--t0);box-sizing:border-box"/>
+        <input id="tp-username" placeholder="Username..." />
       </div>
       <div class="sec">SetOptions Demo</div>
       <div class="btn-row">
@@ -2580,7 +2666,162 @@ run(el) {
 },
 },
 
+// ── Step 18b ────────────────────────────────────────────────────────────────
+{
+title: 'Persistence — Auto-Save',
+desc: 'localStorageAdapter(key) saves form values on every change (debounced to 300 ms by default). Call form.hydrate() once after mount to restore previously saved values. form.reset() calls adapter.clear() to remove the storage entry.',
+code: `import { createForm, localStorageAdapter } from '@neutro/form/core';
+
+const form = createForm({
+  initialValues: { name: '', notes: '' },
+  persistence: {
+    adapter: localStorageAdapter('my-form-draft'),
+    debounceMs: 300,
+  },
+});
+
+// Restore saved values on mount — merges storage over initialValues
+await form.hydrate();
+
+// From here every set() auto-saves. form.reset() clears storage.`,
+
+async run(el) {
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld">
+        <label>Name</label>
+        <input id="ps-name" placeholder="Type something — survives page reload…" />
+      </div>
+      <div class="fld">
+        <label>Notes</label>
+        <input id="ps-notes" placeholder="Also persisted…" />
+      </div>
+      <div class="btn-row">
+        <button class="btn sm danger" id="ps-clear">Clear storage &amp; reset</button>
+      </div>
+      <div class="hr"></div>
+      <div class="alert info" style="margin-top:4px;font-size:12px;line-height:1.6;">
+        Values are saved to <strong>localStorage</strong> as you type.<br>
+        Navigate away, reload, return — values will be restored.
+      </div>
+      <div class="sec" style="margin-top:10px">Stored values</div>
+      <div class="box" style="font-size:12px;min-height:2rem" id="ps-box"></div>
+    </div>`;
+
+  const form = createForm({
+    initialValues: { name: '', notes: '' },
+    persistence: {
+      adapter: localStorageAdapter('neutro-playground-persist'),
+      debounceMs: 300,
+    },
+  });
+
+  await form.hydrate();
+
+  const nameInp  = el.querySelector('#ps-name');
+  const notesInp = el.querySelector('#ps-notes');
+  const box      = el.querySelector('#ps-box');
+
+  const s = form.getState();
+  nameInp.value  = s.values.name  ?? '';
+  notesInp.value = s.values.notes ?? '';
+
+  nameInp.addEventListener('input',  e => form.set('name',  e.target.value, { touch: true }));
+  notesInp.addEventListener('input', e => form.set('notes', e.target.value, { touch: true }));
+
+  const unsub = form.subscribe(state => {
+    box.textContent = JSON.stringify(state.values, null, 2);
+  });
+
+  el.querySelector('#ps-clear').addEventListener('click', () => {
+    form.reset();
+    nameInp.value  = '';
+    notesInp.value = '';
+  });
+
+  el._cleanup = () => unsub();
+  return form;
+},
+},
+
 // ── Step 19 ─────────────────────────────────────────────────────────────────
+{
+title: 'Console Devtools',
+desc: 'devtools(form, options?) hooks into the action stream and logs every mutation to the browser console as a styled, collapsible group. Open DevTools → Console to see live action logs, state diffs, and the full snapshot after each change.',
+code: `import { devtools } from '@neutro/form/devtools';
+
+const form = createForm({
+  initialValues: { name: '', email: '' },
+  rules: { email: ['required', 'email'] },
+});
+
+// Attach console logger — open DevTools Console to see output
+const unsub = devtools(form, { name: 'Demo Form', collapsed: false });
+
+// Every mutation is logged: action type, state diff, full state
+form.set('name', 'Alice');  // → SET name
+await form.validate();       // → VALIDATE
+form.reset();                // → RESET
+
+// Remove logger
+unsub();`,
+async run(el) {
+  const { devtools } = await import('./form-devtools.esm.js');
+
+  const form = createForm({
+    initialValues: { name: '', email: '' },
+    rules: { email: ['required', 'email'] },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="fld">
+        <label>Name</label>
+        <input id="cd-name" type="text" placeholder="Type something…" />
+      </div>
+      <div class="fld">
+        <label>Email</label>
+        <input id="cd-email" type="email" placeholder="user@example.com" />
+        <div class="ferr" id="cd-email-err"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="cd-validate">Validate</button>
+        <button class="btn" id="cd-submit">Submit</button>
+        <button class="btn" id="cd-reset">Reset</button>
+      </div>
+      <div class="hr"></div>
+      <div class="alert info" style="margin-top:4px;font-size:12px;line-height:1.6;">
+        Open <strong>DevTools → Console</strong> (F12) to see styled action logs, state diffs, and full snapshots after each change.
+      </div>
+    </div>`;
+
+  const nameInput  = el.querySelector('#cd-name');
+  const emailInput = el.querySelector('#cd-email');
+  const emailErr   = el.querySelector('#cd-email-err');
+
+  nameInput.addEventListener('input',  e => form.set('name',  e.target.value, { touch: true }));
+  emailInput.addEventListener('input', e => form.set('email', e.target.value, { touch: true }));
+
+  const unsubState = form.subscribe(state => {
+    emailErr.textContent = state.errors.email ?? '';
+  });
+
+  el.querySelector('#cd-validate').addEventListener('click', () => form.validate());
+  el.querySelector('#cd-submit').addEventListener('click', () => form.submit(async () => {}));
+  el.querySelector('#cd-reset').addEventListener('click', () => {
+    form.reset();
+    nameInput.value = '';
+    emailInput.value = '';
+  });
+
+  const unsub = devtools(form, { name: 'Demo Form', collapsed: false });
+
+  el._cleanup = () => { unsub(); unsubState(); };
+  return form;
+},
+},
+
+// ── Step 19b ────────────────────────────────────────────────────────────────
 {
 title: 'Devtools Panel',
 desc: 'createNeutroFormDevtoolsPanel(form) mounts a floating overlay in the bottom-right corner — no container div needed. A ▴ NF button toggles it open/closed. It subscribes to form state and action log in real time. Call unsub() to tear it down completely.',
