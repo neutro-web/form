@@ -290,6 +290,28 @@ export class RegisterFormComponent {
 }
 ```
 
+## `useAngularWatch` — Observe Field Values
+
+`useAngularWatch` must be called inside an injection context (same constraint as `useAngularForm`). It returns a readonly Angular Signal.
+
+```ts
+import { Component } from '@angular/core'
+import { useAngularWatch } from '@neutro/form/adapters/angular'
+
+@Component({
+  template: `
+    <p>{{ watched()['email'] }} — {{ watched()['username'] }}</p>
+  `,
+})
+export class SummaryComponent {
+  readonly watched = useAngularWatch(this.form, ['email', 'username'])
+}
+```
+
+Use bracket notation `watched()['email']` to read from the signal — the keys are the dotted path strings.
+
+---
+
 ## Validation Modes
 
 Configure when validation triggers globally and per field via `validationMode` in `createForm`:

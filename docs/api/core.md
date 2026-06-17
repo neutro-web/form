@@ -82,8 +82,29 @@ interface FormConfig<T> {
     default?: ValidationMode
     fields?: Record<string, ValidationMode>
   }
+
+  /**
+   * Called after the submit handler resolves successfully.
+   * If it throws, the error is logged and the successful submission is not reversed.
+   */
+  onSubmitSuccess?: (payload: Partial<T>) => void | Promise<void>
+
+  /**
+   * Called when the submit handler rejects.
+   * The original error is re-thrown after the hook runs.
+   */
+  onSubmitError?: (error: unknown, payload: Partial<T>) => void | Promise<void>
 }
 ```
+
+### Submission Lifecycle Hooks
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `onSubmitSuccess` | `(payload: Partial<T>) => void \| Promise<void>` | `undefined` | Called after the submit handler resolves. If it throws, the error is logged and the successful submission is not reversed. |
+| `onSubmitError` | `(error: unknown, payload: Partial<T>) => void \| Promise<void>` | `undefined` | Called when the submit handler rejects. The original error is re-thrown after the hook runs. |
+
+---
 
 ## `FormState<T>`
 
@@ -116,6 +137,8 @@ interface FormState<T> {
 | `isSubmitting` | `boolean` | `true` while submit handler is running |
 | `isValidating` | `boolean` | `true` while async validation is in flight |
 | `isValid` | `boolean \| null` | `null` = not yet validated; `true` = last full validation passed; `false` = errors exist |
+| `submissionAttempts` | `number` | `0` | Increments on every `submit()` call, including failed validation attempts. |
+| `lastSubmittedValues` | `Partial<T> \| null` | `null` | Deep snapshot of form values at last successful submission. `null` until first success. Cleared by `reset()`. |
 
 ## `createForm<T>(config)`
 
@@ -494,6 +517,114 @@ form.destroy(): void
 ```
 
 Clears all subscriptions, cancels any in-flight async validators, disconnects the `MutationObserver`, and empties the connection registry. Call this when the form is permanently removed from the UI.
+
+---
+
+### `form.isFieldValid(path)`
+
+```ts
+form.isFieldValid(path: string): boolean | null
+```
+
+Returns the validation state for a single field:
+
+- `null` — the field has never been validated (initial state, or after `resetField(path)` / `reset()`).
+- `true` — the field was last validated with no error.
+- `false` — the field was last validated with an error.
+
+```ts
+const valid = form.isFieldValid('email')
+if (valid === null) console.log('Not yet validated')
+if (valid === false) console.log('Has error:', form.getState().errors.email)
+```
+
+---
+
+### `form.isDirty()`
+
+```ts
+form.isDirty(): boolean
+```
+
+Returns `true` if any field has been changed via `set()` since the last reset. Equivalent to `Object.keys(form.getState().dirty).length > 0`.
+
+```ts
+const dirty = form.isDirty()
+```
+
+---
+
+### `form.isFieldDirty(path)`
+
+```ts
+form.isFieldDirty(path: string): boolean
+```
+
+Returns `true` if this field or any child path has been set. Uses prefix matching — `isFieldDirty('address')` returns `true` if `address.city` is dirty.
+
+```ts
+form.isFieldDirty('email')         // exact path
+form.isFieldDirty('address')       // true if any address.* path is dirty
+form.isFieldDirty('items.0.name')  // nested array path
+```
+
+---
+
+### `form.watch(paths, callback)`
+
+Observe one or more field values without subscribing to all form state changes. The callback fires only when a watched path changes — not on initial subscription.
+
+```ts
+// Single path
+const stop = form.watch('email', (v) => console.log(v['email']))
+
+// Multiple paths — callback receives a snapshot of ALL watched values
+const stop = form.watch(['email', 'username'], ({ email, username }) => {
+  console.log(email, username)
+})
+
+stop() // unsubscribe — calling twice is safe (no-op)
+```
+
+For nested paths, the key in the callback argument is the full dotted string:
+```ts
+form.watch('address.city', (v) => console.log(v['address.city']))
+```
+
+To observe all form state changes (including errors, touched, etc.), use `form.subscribe()` instead.
+
+---
+
+### `form.focus(path)`
+
+```ts
+form.focus(path: string): boolean
+```
+
+Focus the element connected to `path` via `form.connect()`. Returns `false` if no element is connected to that path or the element is no longer in the DOM.
+
+```ts
+const focused = form.focus('email')
+if (!focused) console.log('No connected element for email')
+```
+
+---
+
+### `form.focusFirstError()`
+
+```ts
+form.focusFirstError(): boolean
+```
+
+Focus the first error element in DOM document order. Requires fields to be connected via `form.connect()`. Returns `false` if there are no errors or no connected elements match an error path.
+
+```ts
+await form.submit(async (payload) => {
+  await api.save(payload)
+})
+// if submit returns false (validation failed):
+form.focusFirstError()
+```
 
 ---
 
