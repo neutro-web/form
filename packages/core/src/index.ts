@@ -1119,15 +1119,6 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const expandedSet = new Set<string>();
       for (const path of scopePaths) {
         let resolved = preComputedScopes[path];
-        if (!resolved && /\.(\d+)\./.test(path)) {
-          const wildcardPath = path.replace(/\.(\d+)\./g, '.*.');
-          const wildcardDependents = preComputedScopes[wildcardPath];
-          if (wildcardDependents) {
-            const match = path.match(/\.(\d+)\./);
-            const idx = match ? match[1] : '';
-            resolved = wildcardDependents.map((dep) => dep.replace(/\.\*\./g, `.${idx}.`));
-          }
-        }
         if (resolved) {
           for (const p of resolved) expandedSet.add(p);
         } else {
