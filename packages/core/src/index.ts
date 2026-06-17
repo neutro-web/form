@@ -583,7 +583,9 @@ function matchesMimeType(ruleType: string, fileType: string): boolean {
   const normalRule = ruleType.toLowerCase()
   const normalFile = fileType.toLowerCase()
   if (normalRule.endsWith('/*')) {
-    return normalFile.startsWith(normalRule.slice(0, -1))
+    // slice(0,-1) retains the slash, preventing 'imageX/...' false-positives; length check rejects bare 'image/'
+    const prefix = normalRule.slice(0, -1)
+    return normalFile.startsWith(prefix) && normalFile.length > prefix.length
   }
   return normalRule === normalFile
 }

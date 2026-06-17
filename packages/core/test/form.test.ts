@@ -3658,6 +3658,35 @@ describe('built-in rules — file validation', () => {
       await form.validate()
       expect(form.getState().errors['file']).toBeDefined() // 'image' !== 'image/jpeg'
     })
+
+    it('wildcard rule works with FileList-style input (one matching, one not)', async () => {
+      const makeFileList = (types: string[]) => ({
+        length: types.length,
+        item: (i: number) => ({ name: `file${i}`, size: 100, type: types[i], lastModified: 0 }),
+      })
+      const form = createForm({
+        initialValues: { files: null as any },
+        rules: { files: [{ fileTypes: ['image/*'] }] },
+      })
+      // All images — should pass
+      form.set('files', makeFileList(['image/jpeg', 'image/png']))
+      await form.validate()
+      expect(form.getState().errors['files']).toBeUndefined()
+      // Mixed — video/mp4 fails the wildcard
+      form.set('files', makeFileList(['image/jpeg', 'video/mp4']))
+      await form.validate()
+      expect(form.getState().errors['files']).toBeDefined()
+    })
+
+    it('degenerate image/ does not match image/* wildcard', async () => {
+      const form = createForm({
+        initialValues: { file: null as any },
+        rules: { file: [{ fileTypes: ['image/*'] }] },
+      })
+      form.set('file', { name: 'f', size: 100, type: 'image/', lastModified: 0 })
+      await form.validate()
+      expect(form.getState().errors['file']).toBeDefined()
+    })
   })
 
   it('maxFiles rejects a FileList with too many entries', async () => {
