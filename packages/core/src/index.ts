@@ -262,6 +262,8 @@ export interface FormInstance<T extends object> {
    * event handlers, not in render logic.
    */
   getFieldMode: (path: string) => ValidationMode;
+  isDirty(): boolean;
+  isFieldDirty(path: Path<T> | string): boolean;
   _subscribeToActions: (fn: (action: FormAction, state: FormState<T>) => void) => () => void;
 }
 
@@ -910,6 +912,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   let errors: Record<string, string> = {};
   let touched: Record<string, boolean> = {};
   let dirty: Record<string, boolean> = {};
+  let wasSet: Record<string, boolean> = {};
   let isSubmitting = false;
   let isValidating = false;
   let hasValidated = false;
@@ -1214,6 +1217,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     val: any,
     options: { touch?: boolean; validate?: boolean } = {}
   ) => {
+    wasSet[path] = true;
     const currentVal = getNestedValue(values, path);
     if (isDeepEqual(currentVal, val)) return;
     batch(() => {
@@ -1358,6 +1362,14 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
     return 'onTouched';
   };
+
+  const isDirty = (): boolean => Object.keys(wasSet).length > 0
+
+  const isFieldDirty = (path: string): boolean => {
+    if (wasSet[path]) return true
+    const prefix = path + '.'
+    return Object.keys(wasSet).some(k => k.startsWith(prefix))
+  }
 
   const subscribeToPath = (path: Path<T> | '*' | string, fn: PathSubscriber) => {
     let pathSet = pathSubscribers.get(path);
@@ -1659,6 +1671,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     setErrors,
     clearErrors,
     getFieldMode: (path: string) => resolveFieldMode(path),
+    isDirty,
+    isFieldDirty,
 
     arrayAppend: ((path: any, item: any) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
@@ -1808,6 +1822,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         errors = {};
         touched = {};
         dirty = {};
+        wasSet = {};
         isSubmitting = false;
         isValidating = false;
         hasValidated = false;
@@ -1877,6 +1892,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         if (!options?.keepDirty) {
           for (const k of Object.keys(dirty)) {
             if (k === targetPath || k.startsWith(`${targetPath}.`)) delete dirty[k];
+          }
+          for (const k of Object.keys(wasSet)) {
+            if (k === targetPath || k.startsWith(`${targetPath}.`)) delete wasSet[k];
           }
         }
       });
