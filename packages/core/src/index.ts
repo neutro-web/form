@@ -1314,6 +1314,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       errors = shiftMap(errors);
       touched = shiftMap(touched);
       dirty = shiftMap(dirty);
+      wasSet = shiftMap(wasSet) as Record<string, boolean>;
     });
     return shiftedKeys;
   };
@@ -1349,6 +1350,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       errors = shiftMap(errors);
       touched = shiftMap(touched);
       dirty = shiftMap(dirty);
+      wasSet = shiftMap(wasSet) as Record<string, boolean>;
     });
   };
 
@@ -1686,6 +1688,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       const arr = getNestedValue(values, targetPath) || [];
       if (!Array.isArray(arr) || index < 0 || index > arr.length) return;
+      wasSet[targetPath] = true;
       const copy = [...arr];
       copy.splice(index, 0, item);
       batch(() => {
@@ -1703,6 +1706,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       const arr = getNestedValue(values, targetPath) || [];
       if (!Array.isArray(arr) || index < 0 || index >= arr.length) return;
+      wasSet[targetPath] = true;
       const copy = [...arr];
       copy.splice(index, 1);
       batch(() => {
@@ -1728,6 +1732,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         toIndex >= arr.length
       )
         return;
+      wasSet[targetPath] = true;
       const copy = [...arr];
       const [movedItem] = copy.splice(fromIndex, 1);
       copy.splice(toIndex, 0, movedItem);
@@ -1753,6 +1758,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         indexB >= arr.length
       )
         return;
+      wasSet[targetPath] = true;
       const copy = [...arr];
       [copy[indexA], copy[indexB]] = [copy[indexB], copy[indexA]];
       batch(() => {
@@ -1783,6 +1789,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         errors = swapKeys(errors);
         touched = swapKeys(touched);
         dirty = swapKeys(dirty);
+        wasSet = swapKeys(wasSet) as Record<string, boolean>;
         notify(`${targetPath}.${indexA}`);
         notify(`${targetPath}.${indexB}`);
       });
