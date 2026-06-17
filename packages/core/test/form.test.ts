@@ -4238,3 +4238,76 @@ describe('nested array wildcard dependencies', () => {
     expect(form.isFieldValid('items.0.name')).not.toBeNull() // valid numeric index matched
   })
 })
+
+// ---------------------------------------------------------------------------
+// form.watch()
+// ---------------------------------------------------------------------------
+
+describe('form.watch()', () => {
+  it('callback fires when watched path changes', () => {
+    const form = createForm({ initialValues: { email: '', username: '' } })
+    const received: string[] = []
+    form.watch('email', (v) => received.push(v['email'] as string))
+    form.set('email', 'a@b.com')
+    expect(received).toContain('a@b.com')
+  })
+
+  it('callback does NOT fire when unwatched path changes', () => {
+    const form = createForm({ initialValues: { email: '', username: '' } })
+    const received: string[] = []
+    form.watch('email', (v) => received.push(v['email'] as string))
+    form.set('username', 'joe') // not watched
+    expect(received).toHaveLength(0)
+  })
+
+  it('multi-path: callback fires when any watched path changes', () => {
+    const form = createForm({ initialValues: { email: '', username: '' } })
+    const calls: Array<Record<string, unknown>> = []
+    form.watch(['email', 'username'], (v) => calls.push(v))
+    form.set('email', 'a@b.com')
+    expect(calls.length).toBeGreaterThan(0)
+    expect(calls[calls.length - 1]['email']).toBe('a@b.com')
+    expect('username' in calls[calls.length - 1]).toBe(true)
+  })
+
+  it('teardown stops callbacks', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    const received: string[] = []
+    const stop = form.watch('email', (v) => received.push(v['email'] as string))
+    stop()
+    form.set('email', 'x')
+    expect(received).toHaveLength(0)
+  })
+
+  it('double teardown is idempotent — does not throw', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    const stop = form.watch('email', () => {})
+    stop()
+    expect(() => stop()).not.toThrow()
+  })
+
+  it('duplicate paths: watch([email, email]) fires once per change', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    let count = 0
+    form.watch(['email', 'email'], () => { count++ })
+    form.set('email', 'x')
+    expect(count).toBe(1)
+  })
+
+  it('empty paths array: callback never fires', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    let count = 0
+    const stop = form.watch([], () => { count++ })
+    form.set('email', 'x')
+    expect(count).toBe(0)
+    expect(() => stop()).not.toThrow()
+  })
+
+  it('nested path: callback key is the full dotted path string', () => {
+    const form = createForm({ initialValues: { address: { city: '' } } })
+    let lastVal: Record<string, unknown> = {}
+    form.watch('address.city', (v) => { lastVal = v })
+    form.set('address.city', 'London')
+    expect(lastVal['address.city']).toBe('London')
+  })
+})

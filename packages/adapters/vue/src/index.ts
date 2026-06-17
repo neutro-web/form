@@ -1,14 +1,17 @@
-import type { FormInstance, FormState } from '@neutro/form-core';
+import type { FormInstance, FormState, Path } from '@neutro/form-core';
 import {
+  computed,
   type DeepReadonly,
   getCurrentInstance,
   type MaybeRef,
   onUnmounted,
   readonly,
+  ref,
   type ShallowRef,
   shallowRef,
   unref,
   watch,
+  watchEffect,
 } from 'vue';
 
 export interface VueFormReturn<T extends object> {
@@ -104,4 +107,28 @@ export function useVueFormPath<T extends object>(form: FormInstance<T>, path: Ma
   if (getCurrentInstance()) onUnmounted(() => unsubscribe());
 
   return { value: readonly(value), fieldState: readonly(fieldState) };
+}
+
+export function useVueWatch<T extends object>(
+  form: FormInstance<T>,
+  paths: Array<Path<T> | string> | Path<T> | string
+): DeepReadonly<import('vue').Ref<Record<string, unknown>>> {
+  const pathArray = computed(() =>
+    (Array.isArray(paths) ? paths : [paths]) as string[]
+  )
+
+  const watched = ref<Record<string, unknown>>({})
+
+  let stop: (() => void) | null = null
+
+  const resubscribe = () => {
+    if (stop) stop()
+    const current = pathArray.value
+    stop = form.watch(current, (vals) => { watched.value = { ...vals } })
+  }
+
+  watchEffect(resubscribe)
+  if (getCurrentInstance()) onUnmounted(() => { if (stop) stop() })
+
+  return readonly(watched) as DeepReadonly<import('vue').Ref<Record<string, unknown>>>
 }

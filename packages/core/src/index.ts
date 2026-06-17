@@ -265,6 +265,10 @@ export interface FormInstance<T extends object> {
   isDirty(): boolean;
   isFieldDirty(path: Path<T> | string): boolean;
   isFieldValid(path: Path<T> | string): boolean | null;
+  watch(
+    paths: Path<T> | string | Array<Path<T> | string>,
+    callback: (values: Record<string, unknown>) => void
+  ): () => void;
   _subscribeToActions: (fn: (action: FormAction, state: FormState<T>) => void) => () => void;
 }
 
@@ -1528,6 +1532,43 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     };
   };
 
+  const watch = (
+    paths: Path<T> | string | Array<Path<T> | string>,
+    callback: (values: Record<string, unknown>) => void
+  ): (() => void) => {
+    const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[]
+    const uniquePaths = [...new Set(pathArray)]
+
+    if (uniquePaths.length === 0) return () => {}
+
+    const fire = () => {
+      const snapshot: Record<string, unknown> = {}
+      uniquePaths.forEach(p => { snapshot[p] = getNestedValue(values, p) })
+      try { callback(snapshot) } catch (err) {
+        console.error('[NeutroForm] watch callback threw:', err)
+      }
+    }
+
+    const teardowns: Array<() => void> = []
+    let tornDown = false
+
+    uniquePaths.forEach(p => {
+      let firstCall = true
+      const pathSubscriberFn: PathSubscriber = () => {
+        if (firstCall) { firstCall = false; return }
+        fire()
+      }
+      const unsub = subscribeToPath(p as Path<T>, pathSubscriberFn)
+      teardowns.push(unsub)
+    })
+
+    return () => {
+      if (tornDown) return
+      tornDown = true
+      teardowns.forEach(u => u())
+    }
+  }
+
   const connect = (
     path: Path<T> | string | string[],
     element: HTMLElement,
@@ -1805,6 +1846,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     isDirty,
     isFieldDirty,
     isFieldValid,
+    watch,
 
     arrayAppend: ((path: any, item: any) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;

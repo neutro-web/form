@@ -2,7 +2,7 @@
 // compiles with plain tsup without needing the Svelte preprocessor.
 // Consumers use the $ prefix in .svelte templates: $field.value, $field.fieldState
 
-import type { FormInstance, FormState } from '@neutro/form-core';
+import type { FormInstance, FormState, Path } from '@neutro/form-core';
 import { type Readable, readable } from 'svelte/store';
 
 export interface SvelteFormReturn<T extends object> {
@@ -80,4 +80,17 @@ export function useSvelteFormPath<T extends object>(form: FormInstance<T>, path:
     return form.subscribeToPath(path, (v, fs) => set({ value: v, fieldState: fs }));
   });
   return field;
+}
+
+export function useSvelteWatch<T extends object>(
+  form: FormInstance<T>,
+  paths: Array<Path<T> | string> | Path<T> | string
+): Readable<Record<string, unknown>> {
+  const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[]
+  const initial: Record<string, unknown> = {}
+
+  return readable<Record<string, unknown>>(initial, (set) => {
+    const stop = form.watch(pathArray, (vals) => set({ ...vals }))
+    return stop
+  })
 }
