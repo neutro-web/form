@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, test, vi } from 'vitest';
 import {
   compileDependencyScopes,
   createForm,
@@ -4309,5 +4309,162 @@ describe('form.watch()', () => {
     form.watch('address.city', (v) => { lastVal = v })
     form.set('address.city', 'London')
     expect(lastVal['address.city']).toBe('London')
+  })
+})
+
+describe('submissionAttempts and lastSubmittedValues', () => {
+  test('initial state: submissionAttempts=0, lastSubmittedValues=null', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    expect(form.getState().submissionAttempts).toBe(0)
+    expect(form.getState().lastSubmittedValues).toBeNull()
+  })
+
+  test('submissionAttempts increments on each submit() call', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      rules: { email: ['required'] },
+    })
+    await form.submit(async () => {})
+    expect(form.getState().submissionAttempts).toBe(1)
+    await form.submit(async () => {})
+    expect(form.getState().submissionAttempts).toBe(2)
+  })
+
+  test('submissionAttempts increments even when validation fails', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      rules: { email: ['required'] },
+    })
+    await form.submit(async () => {})
+    expect(form.getState().submissionAttempts).toBe(1)
+    expect(form.getState().lastSubmittedValues).toBeNull()
+  })
+
+  test('lastSubmittedValues set after successful submit', async () => {
+    const form = createForm({ initialValues: { email: 'a@b.com' } })
+    await form.submit(async () => {})
+    expect(form.getState().lastSubmittedValues).toMatchObject({ email: 'a@b.com' })
+  })
+
+  test('lastSubmittedValues NOT updated when handler throws', async () => {
+    const form = createForm({ initialValues: { email: 'a@b.com' } })
+    await form.submit(async () => {}) // first success
+    const snap = form.getState().lastSubmittedValues
+    form.set('email', 'new@email.com')
+    await form.submit(async () => { throw new Error('api down') }).catch(() => {})
+    expect(form.getState().lastSubmittedValues).toEqual(snap)
+  })
+
+  test('lastSubmittedValues is a deep clone — mutation does not corrupt it', async () => {
+    const form = createForm({ initialValues: { address: { city: 'London' } } })
+    await form.submit(async () => {})
+    const snap = form.getState().lastSubmittedValues as any
+    form.set('address.city', 'Paris')
+    expect(snap.address?.city).toBe('London')
+  })
+
+  test('reset() clears submissionAttempts and lastSubmittedValues', async () => {
+    const form = createForm({ initialValues: { email: 'a@b.com' } })
+    await form.submit(async () => {})
+    form.reset()
+    expect(form.getState().submissionAttempts).toBe(0)
+    expect(form.getState().lastSubmittedValues).toBeNull()
+  })
+
+  test('reset(newValues) also clears submission state', async () => {
+    const form = createForm({ initialValues: { email: 'a@b.com' } })
+    await form.submit(async () => {})
+    form.reset({ email: 'new@b.com' })
+    expect(form.getState().submissionAttempts).toBe(0)
+    expect(form.getState().lastSubmittedValues).toBeNull()
+  })
+})
+
+describe('onSubmitSuccess / onSubmitError hooks', () => {
+  test('onSubmitSuccess called with payload after handler resolves', async () => {
+    const received: any[] = []
+    const form = createForm({
+      initialValues: { email: 'a@b.com' },
+      onSubmitSuccess: (payload) => { received.push(payload) },
+    })
+    await form.submit(async () => {})
+    expect(received).toHaveLength(1)
+    expect(received[0]).toMatchObject({ email: 'a@b.com' })
+  })
+
+  test('onSubmitSuccess not called when validation fails', async () => {
+    const called: boolean[] = []
+    const form = createForm({
+      initialValues: { email: '' },
+      rules: { email: ['required'] },
+      onSubmitSuccess: () => { called.push(true) },
+    })
+    await form.submit(async () => {})
+    expect(called).toHaveLength(0)
+  })
+
+  test('onSubmitSuccess not called when handler throws', async () => {
+    const called: boolean[] = []
+    const form = createForm({
+      initialValues: { email: 'a@b.com' },
+      onSubmitSuccess: () => { called.push(true) },
+    })
+    await form.submit(async () => { throw new Error('fail') }).catch(() => {})
+    expect(called).toHaveLength(0)
+  })
+
+  test('onSubmitError called with error and payload when handler throws', async () => {
+    const received: any[] = []
+    const form = createForm({
+      initialValues: { email: 'a@b.com' },
+      onSubmitError: (err, payload) => { received.push({ err, payload }) },
+    })
+    await form.submit(async () => { throw new Error('api down') }).catch(() => {})
+    expect(received).toHaveLength(1)
+    expect((received[0].err as Error).message).toBe('api down')
+    expect(received[0].payload).toMatchObject({ email: 'a@b.com' })
+  })
+
+  test('onSubmitError not called when validation fails', async () => {
+    const called: boolean[] = []
+    const form = createForm({
+      initialValues: { email: '' },
+      rules: { email: ['required'] },
+      onSubmitError: () => { called.push(true) },
+    })
+    await form.submit(async () => {})
+    expect(called).toHaveLength(0)
+  })
+
+  test('original error still propagates after onSubmitError fires', async () => {
+    const form = createForm({
+      initialValues: { email: 'a@b.com' },
+      onSubmitError: () => {},
+    })
+    await expect(
+      form.submit(async () => { throw new Error('original') })
+    ).rejects.toThrow('original')
+  })
+
+  test('onSubmitError calling setErrors populates form errors', async () => {
+    const form = createForm({
+      initialValues: { email: 'a@b.com' },
+      onSubmitError: (_err, _payload) => {
+        form.setErrors({ email: 'Already taken' })
+      },
+    })
+    await form.submit(async () => { throw new Error('conflict') }).catch(() => {})
+    expect(form.getState().errors['email']).toBe('Already taken')
+  })
+
+  test('onSubmitSuccess throwing is logged and does not reverse the submission', async () => {
+    const form = createForm({
+      initialValues: { email: 'a@b.com' },
+      onSubmitSuccess: () => { throw new Error('hook exploded') },
+    })
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await form.submit(async () => {})
+    expect(form.getState().lastSubmittedValues).not.toBeNull()
+    spy.mockRestore()
   })
 })
