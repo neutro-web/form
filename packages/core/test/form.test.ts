@@ -4116,13 +4116,18 @@ describe('isFieldValid(path)', () => {
     expect(form.isFieldValid('nonexistent')).toBeNull()
   })
 
-  it('arrayRemove clears isFieldValid for removed index', async () => {
+  it('arrayRemove clears isFieldValid for removed index and renumbers survivors', async () => {
     const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } })
+    // Validate both items
     await form.validate(['items.0.name', 'items.1.name'])
     expect(form.isFieldValid('items.0.name')).not.toBeNull()
+    expect(form.isFieldValid('items.1.name')).not.toBeNull()
+    // Remove index 0 (item a)
     form.arrayRemove('items', 0)
-    // old items.0 is gone — should be null
-    expect(form.isFieldValid('items.0.name')).toBeNull()
+    // items.0 (old items.1, item b) should still have its validation state
+    expect(form.isFieldValid('items.0.name')).not.toBeNull() // survived, renumbered
+    // No items.1 anymore — should be null
+    expect(form.isFieldValid('items.1.name')).toBeNull()
   })
 
   it('arrayInsert shifts validatedPaths indices', async () => {
