@@ -29,6 +29,8 @@ export interface SvelteFormReturn<T extends object> {
   setErrors: FormInstance<T>['setErrors'];
   clearErrors: FormInstance<T>['clearErrors'];
   resetField: FormInstance<T>['resetField'];
+  isDirty: FormInstance<T>['isDirty'];
+  isFieldDirty: FormInstance<T>['isFieldDirty'];
 }
 
 export function useSvelteForm<T extends object>(form: FormInstance<T>): SvelteFormReturn<T> {
@@ -62,6 +64,8 @@ export function useSvelteForm<T extends object>(form: FormInstance<T>): SvelteFo
     setErrors: form.setErrors,
     clearErrors: form.clearErrors,
     resetField: form.resetField,
+    isDirty: form.isDirty,
+    isFieldDirty: form.isFieldDirty,
   };
 }
 

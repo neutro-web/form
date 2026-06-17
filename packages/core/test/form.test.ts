@@ -3949,3 +3949,74 @@ describe('Security & Fault-Tolerance', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// isDirty / isFieldDirty predicates
+// ---------------------------------------------------------------------------
+
+describe('isDirty / isFieldDirty predicates', () => {
+  it('isDirty() is false initially', () => {
+    const form = createForm({ initialValues: { email: '', username: '' } })
+    expect(form.isDirty()).toBe(false)
+  })
+
+  it('isFieldDirty() is false initially', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    expect(form.isFieldDirty('email')).toBe(false)
+  })
+
+  it('isDirty() is true after set()', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    form.set('email', 'a@b.com')
+    expect(form.isDirty()).toBe(true)
+  })
+
+  it('isFieldDirty() is true for the dirty field, false for others', () => {
+    const form = createForm({ initialValues: { email: '', username: '' } })
+    form.set('email', 'x')
+    expect(form.isFieldDirty('email')).toBe(true)
+    expect(form.isFieldDirty('username')).toBe(false)
+  })
+
+  it('reset() clears dirty state', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    form.set('email', 'x')
+    form.reset()
+    expect(form.isDirty()).toBe(false)
+    expect(form.isFieldDirty('email')).toBe(false)
+  })
+
+  it('resetField() clears dirty for that field only', () => {
+    const form = createForm({ initialValues: { email: '', username: '' } })
+    form.set('email', 'x')
+    form.set('username', 'y')
+    form.resetField('email')
+    expect(form.isFieldDirty('email')).toBe(false)
+    expect(form.isFieldDirty('username')).toBe(true)
+  })
+
+  it('isFieldDirty() with prefix matches nested children', () => {
+    const form = createForm({ initialValues: { address: { city: '', zip: '' } } })
+    form.set('address.city', 'London')
+    expect(form.isFieldDirty('address')).toBe(true)
+    expect(form.isFieldDirty('address.city')).toBe(true)
+    expect(form.isFieldDirty('address.zip')).toBe(false)
+  })
+
+  it('isFieldDirty() prefix requires dot separator — addr does not match address.city', () => {
+    const form = createForm({ initialValues: { address: { city: '' } } })
+    form.set('address.city', 'London')
+    expect(form.isFieldDirty('addr')).toBe(false)
+  })
+
+  it('isFieldDirty() on never-set key returns false', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    expect(form.isFieldDirty('phone')).toBe(false)
+  })
+
+  it('isFieldDirty() returns true after set() even when value matches initialValues', () => {
+    const form = createForm({ initialValues: { email: '' } })
+    form.set('email', '') // same value as initial
+    expect(form.isFieldDirty('email')).toBe(true)
+  })
+})

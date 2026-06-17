@@ -25,6 +25,8 @@ export interface SolidFormActions<T extends object> {
   setErrors: FormInstance<T>['setErrors'];
   clearErrors: FormInstance<T>['clearErrors'];
   resetField: FormInstance<T>['resetField'];
+  isDirty: FormInstance<T>['isDirty'];
+  isFieldDirty: FormInstance<T>['isFieldDirty'];
 }
 
 // Bug fix: use createStore + reconcile instead of createSignal so Solid's
@@ -63,6 +65,8 @@ export function useSolidForm<T extends object>(
       setErrors: form.setErrors,
       clearErrors: form.clearErrors,
       resetField: form.resetField,
+      isDirty: form.isDirty,
+      isFieldDirty: form.isFieldDirty,
     },
   ];
 }
