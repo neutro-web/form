@@ -31,6 +31,7 @@ export function useForm<T extends object>(
     resetField: form.resetField,
     isDirty: form.isDirty,
     isFieldDirty: form.isFieldDirty,
+    isFieldValid: form.isFieldValid,
   } as FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState' | '_subscribeToActions'>;
 }
 

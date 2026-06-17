@@ -264,6 +264,7 @@ export interface FormInstance<T extends object> {
   getFieldMode: (path: string) => ValidationMode;
   isDirty(): boolean;
   isFieldDirty(path: Path<T> | string): boolean;
+  isFieldValid(path: Path<T> | string): boolean | null;
   _subscribeToActions: (fn: (action: FormAction, state: FormState<T>) => void) => () => void;
 }
 
@@ -913,6 +914,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   let touched: Record<string, boolean> = {};
   let dirty: Record<string, boolean> = {};
   let wasSet: Record<string, boolean> = {};
+  const validatedPaths = new Set<string>();
   let isSubmitting = false;
   let isValidating = false;
   let hasValidated = false;
@@ -1058,7 +1060,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
   const runValidation = async (scopePaths?: string[]): Promise<boolean> => {
     if (!config.validator && !config.rules) {
-      if (!scopePaths) hasValidated = true;
+      if (!scopePaths) {
+        hasValidated = true;
+        extractAllPaths(values).forEach((p) => validatedPaths.add(p));
+      } else {
+        for (const path of scopePaths) validatedPaths.add(path);
+      }
       return true;
     }
     isValidating = true;
@@ -1183,6 +1190,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
       isValidating = false;
       if (!expandedScope && activeEpoch === asyncEpoch) hasValidated = true;
+      // Populate validatedPaths: for a scoped run reuse expandedScope; for a full run
+      // walk current values. (extractAllPaths is not called for scoped runs.)
+      if (expandedScope) {
+        for (const path of expandedScope) validatedPaths.add(path);
+      } else if (activeEpoch === asyncEpoch) {
+        extractAllPaths(values).forEach((p) => validatedPaths.add(p));
+      }
       if (globalSubscribers.size > 0) {
         notifyGlobalSubscribers(getState());
       }
@@ -1315,6 +1329,37 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       touched = shiftMap(touched);
       dirty = shiftMap(dirty);
       wasSet = shiftMap(wasSet) as Record<string, boolean>;
+      // Update validatedPaths for the structural change.
+      // For insert: shift existing indices ≥ targetIndex up by 1 so tracking follows items.
+      // For remove: drop all paths under the array prefix — structural removal invalidates
+      //             positional tracking for the entire array.
+      const updatedValidated = new Set<string>();
+      const arrPrefix = `${basePath}.`;
+      if (action === 'remove') {
+        validatedPaths.forEach((key) => {
+          if (!key.startsWith(arrPrefix)) updatedValidated.add(key);
+          // else: drop all paths under this array — remove invalidates positional tracking
+        });
+      } else if (action === 'insert' && targetIndex !== undefined) {
+        validatedPaths.forEach((key) => {
+          if (!key.startsWith(arrPrefix)) {
+            updatedValidated.add(key);
+            return;
+          }
+          const remaining = key.substring(arrPrefix.length);
+          const match = remaining.match(/^(\d+)(.*)$/);
+          if (!match) {
+            updatedValidated.add(key);
+            return;
+          }
+          const index = parseInt(match[1], 10);
+          const tail = match[2];
+          if (index >= targetIndex) updatedValidated.add(`${arrPrefix}${index + 1}${tail}`);
+          else updatedValidated.add(key);
+        });
+      }
+      validatedPaths.clear();
+      updatedValidated.forEach((k) => validatedPaths.add(k));
     });
     return shiftedKeys;
   };
@@ -1351,6 +1396,31 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       touched = shiftMap(touched);
       dirty = shiftMap(dirty);
       wasSet = shiftMap(wasSet) as Record<string, boolean>;
+      // Re-key validatedPaths (Set) with the same sliding-window logic.
+      const updatedValidated = new Set<string>();
+      const affectedKeys: { index: number; tail: string; key: string }[] = [];
+      validatedPaths.forEach((key) => {
+        if (!key.startsWith(prefix)) {
+          updatedValidated.add(key);
+          return;
+        }
+        const remaining = key.substring(prefix.length);
+        const match = remaining.match(/^(\d+)(.*)$/);
+        if (!match) {
+          updatedValidated.add(key);
+          return;
+        }
+        affectedKeys.push({ index: parseInt(match[1], 10), tail: match[2], key });
+      });
+      affectedKeys.forEach(({ index, tail }) => {
+        let newIndex = index;
+        if (index === fromIndex) newIndex = toIndex;
+        else if (fromIndex < toIndex && index > fromIndex && index <= toIndex) newIndex = index - 1;
+        else if (fromIndex > toIndex && index >= toIndex && index < fromIndex) newIndex = index + 1;
+        updatedValidated.add(`${prefix}${newIndex}${tail}`);
+      });
+      validatedPaths.clear();
+      updatedValidated.forEach((k) => validatedPaths.add(k));
     });
   };
 
@@ -1366,6 +1436,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   const isDirty = (): boolean => Object.keys(wasSet).length > 0
+
+  const isFieldValid = (path: string): boolean | null => {
+    if (!validatedPaths.has(path)) return null
+    return !errors[path]
+  }
 
   const isFieldDirty = (path: string): boolean => {
     if (wasSet[path]) return true
@@ -1675,6 +1750,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     getFieldMode: (path: string) => resolveFieldMode(path),
     isDirty,
     isFieldDirty,
+    isFieldValid,
 
     arrayAppend: ((path: any, item: any) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
@@ -1790,6 +1866,25 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         touched = swapKeys(touched);
         dirty = swapKeys(dirty);
         wasSet = swapKeys(wasSet) as Record<string, boolean>;
+        // Swap validatedPaths entries for indexA ↔ indexB.
+        const updatedValidated = new Set<string>();
+        const prefixA = `${targetPath}.${indexA}`;
+        const prefixB = `${targetPath}.${indexB}`;
+        validatedPaths.forEach((key) => {
+          const matchesA = key === prefixA || key.startsWith(`${prefixA}.`);
+          const matchesB = key === prefixB || key.startsWith(`${prefixB}.`);
+          if (matchesA) {
+            const tail = key.substring(prefixA.length);
+            updatedValidated.add(`${prefixB}${tail}`);
+          } else if (matchesB) {
+            const tail = key.substring(prefixB.length);
+            updatedValidated.add(`${prefixA}${tail}`);
+          } else {
+            updatedValidated.add(key);
+          }
+        });
+        validatedPaths.clear();
+        updatedValidated.forEach((k) => validatedPaths.add(k));
         notify(`${targetPath}.${indexA}`);
         notify(`${targetPath}.${indexB}`);
       });
@@ -1830,6 +1925,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         touched = {};
         dirty = {};
         wasSet = {};
+        validatedPaths.clear();
         isSubmitting = false;
         isValidating = false;
         hasValidated = false;
@@ -1904,6 +2000,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
             if (k === targetPath || k.startsWith(`${targetPath}.`)) delete wasSet[k];
           }
         }
+        // Always clear validatedPaths for the target path and its children.
+        const toDelete = [...validatedPaths].filter(
+          (k) => k === targetPath || k.startsWith(`${targetPath}.`)
+        );
+        toDelete.forEach((k) => validatedPaths.delete(k));
       });
 
       // DOM sync: update the connected element if one exists for this path

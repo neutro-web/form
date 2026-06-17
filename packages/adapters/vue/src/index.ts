@@ -37,6 +37,7 @@ export interface VueFormReturn<T extends object> {
   resetField: FormInstance<T>['resetField'];
   isDirty: FormInstance<T>['isDirty'];
   isFieldDirty: FormInstance<T>['isFieldDirty'];
+  isFieldValid: FormInstance<T>['isFieldValid'];
 }
 
 export function useVueForm<T extends object>(form: FormInstance<T>): VueFormReturn<T> {
@@ -71,6 +72,7 @@ export function useVueForm<T extends object>(form: FormInstance<T>): VueFormRetu
     resetField: form.resetField,
     isDirty: form.isDirty,
     isFieldDirty: form.isFieldDirty,
+    isFieldValid: form.isFieldValid,
   };
 }
 
