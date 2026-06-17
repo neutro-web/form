@@ -1337,8 +1337,21 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const arrPrefix = `${basePath}.`;
       if (action === 'remove') {
         validatedPaths.forEach((key) => {
-          if (!key.startsWith(arrPrefix)) updatedValidated.add(key);
-          // else: drop all paths under this array — remove invalidates positional tracking
+          if (!key.startsWith(arrPrefix)) {
+            updatedValidated.add(key);
+            return;
+          }
+          const remaining = key.substring(arrPrefix.length);
+          const match = remaining.match(/^(\d+)(.*)$/);
+          if (!match) {
+            updatedValidated.add(key);
+            return;
+          }
+          const index = parseInt(match[1], 10);
+          const tail = match[2];
+          if (index === fromIndex) return; // drop the removed index
+          if (index > fromIndex) updatedValidated.add(`${arrPrefix}${index - 1}${tail}`); // renumber survivors
+          else updatedValidated.add(key); // keep below-removed unchanged
         });
       } else if (action === 'insert' && targetIndex !== undefined) {
         validatedPaths.forEach((key) => {
