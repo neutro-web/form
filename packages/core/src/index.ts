@@ -271,6 +271,8 @@ export interface FormInstance<T extends object> {
   isDirty(): boolean;
   isFieldDirty(path: Path<T> | string): boolean;
   isFieldValid(path: Path<T> | string): boolean | null;
+  focus(path: Path<T> | string): boolean;
+  focusFirstError(): boolean;
   watch(
     paths: Path<T> | string | Array<Path<T> | string>,
     callback: (values: Record<string, unknown>) => void
@@ -1579,6 +1581,49 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
   }
 
+  const focus = (path: string): boolean => {
+    const ref = connectionRegistry.get(path)
+    if (!ref) return false
+    const el = ref.deref()
+    if (!el || !el.isConnected) return false
+    try {
+      el.focus()
+    } catch (err) {
+      console.error('[NeutroForm] focus() threw:', err)
+      return false
+    }
+    return true
+  }
+
+  const focusFirstError = (): boolean => {
+    const errorPaths = Object.keys(errors)
+    if (errorPaths.length === 0) return false
+
+    const connected = errorPaths
+      .map(p => {
+        const ref = connectionRegistry.get(p)
+        if (!ref) return null
+        const el = ref.deref()
+        if (!el || !el.isConnected) return null
+        return { path: p, el }
+      })
+      .filter((e): e is { path: string; el: HTMLElement } => e !== null)
+
+    if (connected.length === 0) return false
+
+    connected.sort((a, b) =>
+      a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
+    )
+
+    try {
+      connected[0].el.focus()
+    } catch (err) {
+      console.error('[NeutroForm] focusFirstError() threw on focus:', err)
+      return false
+    }
+    return true
+  }
+
   const connect = (
     path: Path<T> | string | string[],
     element: HTMLElement,
@@ -2277,6 +2322,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       };
     },
 
+    focus,
+    focusFirstError,
     getConnectedCount: () => connectionRegistry.size,
 
     destroy: () => {
