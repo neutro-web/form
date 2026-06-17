@@ -3570,6 +3570,96 @@ describe('built-in rules — file validation', () => {
     expect(form.getState().errors.avatar).toBeUndefined();
   });
 
+  describe('fileTypes — wildcard matching', () => {
+    const makeFakeMimeFile = (type: string) => ({
+      name: 'test.bin',
+      size: 100,
+      type,
+      lastModified: 0,
+    })
+
+    it('image/* matches image/jpeg', async () => {
+      const form = createForm({
+        initialValues: { avatar: null as any },
+        rules: { avatar: [{ fileTypes: ['image/*'] }] },
+      })
+      form.set('avatar', makeFakeMimeFile('image/jpeg'))
+      await form.validate()
+      expect(form.getState().errors['avatar']).toBeUndefined()
+    })
+
+    it('image/* matches image/png and image/webp', async () => {
+      const form = createForm({
+        initialValues: { avatar: null as any },
+        rules: { avatar: [{ fileTypes: ['image/*'] }] },
+      })
+      for (const type of ['image/png', 'image/webp']) {
+        form.set('avatar', makeFakeMimeFile(type))
+        await form.validate()
+        expect(form.getState().errors['avatar']).toBeUndefined()
+      }
+    })
+
+    it('image/* does NOT match video/mp4', async () => {
+      const form = createForm({
+        initialValues: { avatar: null as any },
+        rules: { avatar: [{ fileTypes: ['image/*'] }] },
+      })
+      form.set('avatar', makeFakeMimeFile('video/mp4'))
+      await form.validate()
+      expect(form.getState().errors['avatar']).toBeDefined()
+    })
+
+    it('mixed array [image/*, application/pdf] accepts both patterns', async () => {
+      const form = createForm({
+        initialValues: { file: null as any },
+        rules: { file: [{ fileTypes: ['image/*', 'application/pdf'] }] },
+      })
+      form.set('file', makeFakeMimeFile('image/png'))
+      await form.validate()
+      expect(form.getState().errors['file']).toBeUndefined()
+      form.set('file', makeFakeMimeFile('application/pdf'))
+      await form.validate()
+      expect(form.getState().errors['file']).toBeUndefined()
+      form.set('file', makeFakeMimeFile('video/mp4'))
+      await form.validate()
+      expect(form.getState().errors['file']).toBeDefined()
+    })
+
+    it('case-insensitive: Image/* in rule matches image/jpeg from browser', async () => {
+      const form = createForm({
+        initialValues: { file: null as any },
+        rules: { file: [{ fileTypes: ['Image/*'] }] },
+      })
+      form.set('file', makeFakeMimeFile('image/jpeg'))
+      await form.validate()
+      expect(form.getState().errors['file']).toBeUndefined()
+    })
+
+    it('exact type without wildcard still matches exactly', async () => {
+      const form = createForm({
+        initialValues: { file: null as any },
+        rules: { file: [{ fileTypes: ['application/pdf'] }] },
+      })
+      form.set('file', makeFakeMimeFile('application/pdf'))
+      await form.validate()
+      expect(form.getState().errors['file']).toBeUndefined()
+      form.set('file', makeFakeMimeFile('application/msword'))
+      await form.validate()
+      expect(form.getState().errors['file']).toBeDefined()
+    })
+
+    it('bare mime category without slash treated as exact match, not wildcard', async () => {
+      const form = createForm({
+        initialValues: { file: null as any },
+        rules: { file: [{ fileTypes: ['image'] }] },
+      })
+      form.set('file', makeFakeMimeFile('image/jpeg'))
+      await form.validate()
+      expect(form.getState().errors['file']).toBeDefined() // 'image' !== 'image/jpeg'
+    })
+  })
+
   it('maxFiles rejects a FileList with too many entries', async () => {
     const form = createForm({
       initialValues: { docs: null as unknown as FileList },
