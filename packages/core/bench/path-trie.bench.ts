@@ -1,5 +1,5 @@
 import { bench, describe } from 'vitest';
-import { createForm } from '../src/index';
+import { createForm } from '../src/index.js';
 
 const initialValues = Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`field${i}`, '']));
 

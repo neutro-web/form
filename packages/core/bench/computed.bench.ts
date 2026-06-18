@@ -1,11 +1,25 @@
 import { bench, describe } from 'vitest';
-import { createForm } from '../src/index';
+import { createForm } from '../src/index.js';
+
+type SimpleForm = { qty: number; unitPrice: number; total: number };
+type MultiForm = {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  e: number;
+  fa: number;
+  fb: number;
+  fc: number;
+  fd: number;
+  fe: number;
+};
 
 describe('computed fields overhead', () => {
   const formNoComputed = createForm({ initialValues: { qty: 1, unitPrice: 10, total: 0 } });
   const formWithComputed = createForm({
     initialValues: { qty: 1, unitPrice: 10, total: 0 },
-    computed: { total: (v) => (v as any).qty * (v as any).unitPrice },
+    computed: { total: (v: SimpleForm) => v.qty * v.unitPrice },
   });
 
   bench('set() without computed (baseline)', () => {
@@ -18,11 +32,11 @@ describe('computed fields overhead', () => {
   const form5 = createForm({
     initialValues: { a: 1, b: 1, c: 1, d: 1, e: 1, fa: 0, fb: 0, fc: 0, fd: 0, fe: 0 },
     computed: {
-      fa: (v) => (v as any).a * 2,
-      fb: (v) => (v as any).b * 2,
-      fc: (v) => (v as any).c * 2,
-      fd: (v) => (v as any).d * 2,
-      fe: (v) => (v as any).e * 2,
+      fa: (v: MultiForm) => v.a * 2,
+      fb: (v: MultiForm) => v.b * 2,
+      fc: (v: MultiForm) => v.c * 2,
+      fd: (v: MultiForm) => v.d * 2,
+      fe: (v: MultiForm) => v.e * 2,
     },
   });
   bench('set() with 5 independent computed fields', () => {
