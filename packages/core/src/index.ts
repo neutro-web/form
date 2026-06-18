@@ -1053,7 +1053,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     for (let pass = 0; pass < 2; pass++) {
       let passChanged = false;
       for (const key of computedKeys) {
-        const fn = computedFields[key]!;
+        const fn = computedFields[key];
+        if (!fn) continue;
         const newVal = fn(values);
         const currentVal = getNestedValue(values, key as string);
         if (!isDeepEqual(newVal, currentVal)) {
@@ -1200,7 +1201,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     if (!config.validator && !config.rules) {
       if (!scopePaths) {
         hasValidated = true;
-        extractAllPaths(values).forEach((p) => validatedPaths.add(p));
+        for (const p of extractAllPaths(values)) validatedPaths.add(p);
       } else {
         for (const path of scopePaths) validatedPaths.add(path);
       }
@@ -1230,7 +1231,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           const indices = matchesWildcardPattern(pattern, path);
           if (indices !== null) {
             const resolved = resolveWildcardDependents(dependents, indices);
-            resolved.forEach((p) => expandedSet.add(p));
+            for (const p of resolved) expandedSet.add(p);
           }
         });
       }
@@ -1283,10 +1284,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
               clearTimeout(localTimer);
               resolve(errors);
             };
-            abortController!.signal.addEventListener('abort', onAbort, { once: true });
+            abortController?.signal.addEventListener('abort', onAbort, { once: true });
             localTimer = setTimeout(async () => {
-              abortController!.signal.removeEventListener('abort', onAbort);
-              if (abortController!.signal.aborted) {
+              abortController?.signal.removeEventListener('abort', onAbort);
+              if (abortController?.signal.aborted) {
                 resolve(errors);
                 return;
               }
@@ -1306,7 +1307,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
             }, asyncDebounceMs);
           });
 
-          if (activeEpoch === asyncEpoch && !abortController!.signal.aborted) {
+          if (activeEpoch === asyncEpoch && !abortController?.signal.aborted) {
             const combined = { ...builtInErrors, ...resolvedErrors };
             errors = expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined;
           }
@@ -1338,7 +1339,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           for (const path of expandedScope) validatedPaths.add(path);
         }
       } else if (activeEpoch === asyncEpoch) {
-        extractAllPaths(values).forEach((p) => validatedPaths.add(p));
+        for (const p of extractAllPaths(values)) validatedPaths.add(p);
       }
       if (globalSubscribers.size > 0) {
         notifyGlobalSubscribers(getState());
@@ -1528,7 +1529,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         });
       }
       validatedPaths.clear();
-      updatedValidated.forEach((k) => validatedPaths.add(k));
+      for (const k of updatedValidated) validatedPaths.add(k);
     });
     return shiftedKeys;
   };
@@ -1589,7 +1590,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         updatedValidated.add(`${prefix}${newIndex}${tail}`);
       });
       validatedPaths.clear();
-      updatedValidated.forEach((k) => validatedPaths.add(k));
+      for (const k of updatedValidated) validatedPaths.add(k);
     });
   };
 
@@ -1613,7 +1614,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
   const isFieldDirty = (path: string): boolean => {
     if (wasSet[path]) return true;
-    const prefix = path + '.';
+    const prefix = `${path}.`;
     return Object.keys(wasSet).some((k) => k.startsWith(prefix));
   };
 
@@ -1683,7 +1684,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     return () => {
       if (tornDown) return;
       tornDown = true;
-      teardowns.forEach((u) => u());
+      for (const u of teardowns) u();
     };
   };
 
@@ -1691,7 +1692,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     const ref = connectionRegistry.get(path);
     if (!ref) return false;
     const el = ref.deref();
-    if (!el || !el.isConnected) return false;
+    if (!el?.isConnected) return false;
     try {
       el.focus();
     } catch (err) {
@@ -1710,7 +1711,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const ref = connectionRegistry.get(p);
         if (!ref) return null;
         const el = ref.deref();
-        if (!el || !el.isConnected) return null;
+        if (!el?.isConnected) return null;
         return { path: p, el };
       })
       .filter((e): e is { path: string; el: HTMLElement } => e !== null);
@@ -2173,7 +2174,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           }
         });
         validatedPaths.clear();
-        updatedValidated.forEach((k) => validatedPaths.add(k));
+        for (const k of updatedValidated) validatedPaths.add(k);
         notify(`${targetPath}.${indexA}`);
         notify(`${targetPath}.${indexB}`);
       });
@@ -2295,7 +2296,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const toDelete = [...validatedPaths].filter(
           (k) => k === targetPath || k.startsWith(`${targetPath}.`)
         );
-        toDelete.forEach((k) => validatedPaths.delete(k));
+        for (const k of toDelete) validatedPaths.delete(k);
       });
 
       // DOM sync: update the connected element if one exists for this path

@@ -52,7 +52,7 @@ export function useWatch<T extends object>(
   paths: Path<T> | string | Array<Path<T> | string>
 ): Record<string, unknown> {
   const pathArray = Array.isArray(paths) ? paths : [paths];
-  const pathsKey = pathArray.join(',');
+  const _pathsKey = pathArray.join(',');
 
   const [watched, setWatched] = React.useState<Record<string, unknown>>(() => {
     const snap: Record<string, unknown> = {};
@@ -66,7 +66,7 @@ export function useWatch<T extends object>(
     const stop = form.watch(paths, (vals) => setWatched({ ...vals }));
     return stop;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, pathsKey]);
+  }, [form, paths]);
 
   return watched;
 }
