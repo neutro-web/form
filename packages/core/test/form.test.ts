@@ -823,7 +823,7 @@ describe('compileDependencyScopes', () => {
     );
     const entry = wildcardDependencies.find((w) => w.pattern === 'items.*.name');
     expect(entry).toBeDefined();
-    expect(entry!.dependents).toContain('items.*.price');
+    expect(entry?.dependents).toContain('items.*.price');
   });
 });
 
@@ -3589,7 +3589,7 @@ describe('built-in rules — file validation', () => {
       });
       form.set('avatar', makeFakeMimeFile('image/jpeg'));
       await form.validate();
-      expect(form.getState().errors['avatar']).toBeUndefined();
+      expect(form.getState().errors.avatar).toBeUndefined();
     });
 
     it('image/* matches image/png and image/webp', async () => {
@@ -3600,7 +3600,7 @@ describe('built-in rules — file validation', () => {
       for (const type of ['image/png', 'image/webp']) {
         form.set('avatar', makeFakeMimeFile(type));
         await form.validate();
-        expect(form.getState().errors['avatar']).toBeUndefined();
+        expect(form.getState().errors.avatar).toBeUndefined();
       }
     });
 
@@ -3611,7 +3611,7 @@ describe('built-in rules — file validation', () => {
       });
       form.set('avatar', makeFakeMimeFile('video/mp4'));
       await form.validate();
-      expect(form.getState().errors['avatar']).toBeDefined();
+      expect(form.getState().errors.avatar).toBeDefined();
     });
 
     it('mixed array [image/*, application/pdf] accepts both patterns', async () => {
@@ -3621,13 +3621,13 @@ describe('built-in rules — file validation', () => {
       });
       form.set('file', makeFakeMimeFile('image/png'));
       await form.validate();
-      expect(form.getState().errors['file']).toBeUndefined();
+      expect(form.getState().errors.file).toBeUndefined();
       form.set('file', makeFakeMimeFile('application/pdf'));
       await form.validate();
-      expect(form.getState().errors['file']).toBeUndefined();
+      expect(form.getState().errors.file).toBeUndefined();
       form.set('file', makeFakeMimeFile('video/mp4'));
       await form.validate();
-      expect(form.getState().errors['file']).toBeDefined();
+      expect(form.getState().errors.file).toBeDefined();
     });
 
     it('case-insensitive: Image/* in rule matches image/jpeg from browser', async () => {
@@ -3637,7 +3637,7 @@ describe('built-in rules — file validation', () => {
       });
       form.set('file', makeFakeMimeFile('image/jpeg'));
       await form.validate();
-      expect(form.getState().errors['file']).toBeUndefined();
+      expect(form.getState().errors.file).toBeUndefined();
     });
 
     it('exact type without wildcard still matches exactly', async () => {
@@ -3647,10 +3647,10 @@ describe('built-in rules — file validation', () => {
       });
       form.set('file', makeFakeMimeFile('application/pdf'));
       await form.validate();
-      expect(form.getState().errors['file']).toBeUndefined();
+      expect(form.getState().errors.file).toBeUndefined();
       form.set('file', makeFakeMimeFile('application/msword'));
       await form.validate();
-      expect(form.getState().errors['file']).toBeDefined();
+      expect(form.getState().errors.file).toBeDefined();
     });
 
     it('bare mime category without slash treated as exact match, not wildcard', async () => {
@@ -3660,7 +3660,7 @@ describe('built-in rules — file validation', () => {
       });
       form.set('file', makeFakeMimeFile('image/jpeg'));
       await form.validate();
-      expect(form.getState().errors['file']).toBeDefined(); // 'image' !== 'image/jpeg'
+      expect(form.getState().errors.file).toBeDefined(); // 'image' !== 'image/jpeg'
     });
 
     it('wildcard rule works with FileList-style input (one matching, one not)', async () => {
@@ -3675,11 +3675,11 @@ describe('built-in rules — file validation', () => {
       // All images — should pass
       form.set('files', makeFileList(['image/jpeg', 'image/png']));
       await form.validate();
-      expect(form.getState().errors['files']).toBeUndefined();
+      expect(form.getState().errors.files).toBeUndefined();
       // Mixed — video/mp4 fails the wildcard
       form.set('files', makeFileList(['image/jpeg', 'video/mp4']));
       await form.validate();
-      expect(form.getState().errors['files']).toBeDefined();
+      expect(form.getState().errors.files).toBeDefined();
     });
 
     it('degenerate image/ does not match image/* wildcard', async () => {
@@ -3689,7 +3689,7 @@ describe('built-in rules — file validation', () => {
       });
       form.set('file', { name: 'f', size: 100, type: 'image/', lastModified: 0 });
       await form.validate();
-      expect(form.getState().errors['file']).toBeDefined();
+      expect(form.getState().errors.file).toBeDefined();
     });
   });
 
@@ -4222,7 +4222,7 @@ describe('nested array wildcard dependencies', () => {
     form.set('email', 'a@b.com');
     form.set('confirmEmail', 'x@y.com');
     await form.validate(['email']);
-    expect(form.getState().errors['confirmEmail']).toBe('Emails must match');
+    expect(form.getState().errors.confirmEmail).toBe('Emails must match');
   });
 
   it('cross-array-to-static: items.*.qty triggers summary.total validation', async () => {
@@ -4275,7 +4275,7 @@ describe('nested array wildcard dependencies', () => {
         'items.*.qty': ['summary'],
         note: ['summary'],
       },
-      validator: (values) => {
+      validator: (_values) => {
         order.push('validated');
         return {};
       },
@@ -4372,7 +4372,7 @@ describe('form.watch()', () => {
   it('callback fires when watched path changes', () => {
     const form = createForm({ initialValues: { email: '', username: '' } });
     const received: string[] = [];
-    form.watch('email', (v) => received.push(v['email'] as string));
+    form.watch('email', (v) => received.push(v.email as string));
     form.set('email', 'a@b.com');
     expect(received).toContain('a@b.com');
   });
@@ -4380,7 +4380,7 @@ describe('form.watch()', () => {
   it('callback does NOT fire when unwatched path changes', () => {
     const form = createForm({ initialValues: { email: '', username: '' } });
     const received: string[] = [];
-    form.watch('email', (v) => received.push(v['email'] as string));
+    form.watch('email', (v) => received.push(v.email as string));
     form.set('username', 'joe'); // not watched
     expect(received).toHaveLength(0);
   });
@@ -4391,14 +4391,14 @@ describe('form.watch()', () => {
     form.watch(['email', 'username'], (v) => calls.push(v));
     form.set('email', 'a@b.com');
     expect(calls.length).toBeGreaterThan(0);
-    expect(calls[calls.length - 1]['email']).toBe('a@b.com');
+    expect(calls[calls.length - 1].email).toBe('a@b.com');
     expect('username' in calls[calls.length - 1]).toBe(true);
   });
 
   it('teardown stops callbacks', () => {
     const form = createForm({ initialValues: { email: '' } });
     const received: string[] = [];
-    const stop = form.watch('email', (v) => received.push(v['email'] as string));
+    const stop = form.watch('email', (v) => received.push(v.email as string));
     stop();
     form.set('email', 'x');
     expect(received).toHaveLength(0);
@@ -4613,7 +4613,7 @@ describe('onSubmitSuccess / onSubmitError hooks', () => {
         throw new Error('conflict');
       })
       .catch(() => {});
-    expect(form.getState().errors['email']).toBe('Already taken');
+    expect(form.getState().errors.email).toBe('Already taken');
   });
 
   test('onSubmitSuccess throwing is logged and does not reverse the submission', async () => {
