@@ -3,7 +3,7 @@
  * High-Performance, Zero-Dependency, Framework-Agnostic Reactive Form Engine.
  */
 
-import { buildPathTrie, isKnownPath } from './path-trie.js'
+import { buildPathTrie, isKnownPath } from './path-trie.js';
 
 export type Primitive = string | number | boolean | null | undefined | Date | File;
 
@@ -188,7 +188,7 @@ export interface FormConfig<T extends object> {
    * See: packages/core/test/form.test.ts — describe.skip('computed fields prototype …')
    */
   computed?: {
-    [K in keyof T]?: (values: T) => T[K]
+    [K in keyof T]?: (values: T) => T[K];
   };
 }
 
@@ -654,14 +654,14 @@ export function compileDependencyScopes(
 // ---------------------------------------------------------------------------
 
 function matchesMimeType(ruleType: string, fileType: string): boolean {
-  const normalRule = ruleType.toLowerCase()
-  const normalFile = fileType.toLowerCase()
+  const normalRule = ruleType.toLowerCase();
+  const normalFile = fileType.toLowerCase();
   if (normalRule.endsWith('/*')) {
     // slice(0,-1) retains the slash, preventing 'imageX/...' false-positives; length check rejects bare 'image/'
-    const prefix = normalRule.slice(0, -1)
-    return normalFile.startsWith(prefix) && normalFile.length > prefix.length
+    const prefix = normalRule.slice(0, -1);
+    return normalFile.startsWith(prefix) && normalFile.length > prefix.length;
   }
-  return normalRule === normalFile
+  return normalRule === normalFile;
 }
 
 function isFileLike(
@@ -934,7 +934,8 @@ function applyBuiltInRules<T>(
               if (f) files.push(f);
             }
           }
-          if (present && files.some((f) => !types.some((r) => matchesMimeType(r, f.type)))) error = msg;
+          if (present && files.some((f) => !types.some((r) => matchesMimeType(r, f.type))))
+            error = msg;
         } else if ('maxFiles' in rule) {
           const max = (rule as { maxFiles: number; message?: string }).maxFiles;
           const count = isFileListLike(value) ? (value as any).length : isFileLike(value) ? 1 : 0;
@@ -1012,7 +1013,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
   const { preComputedScopes, wildcardDependencies } = config.dependencies
     ? compileDependencyScopes(config.dependencies, initialValues)
-    : { preComputedScopes: {} as Record<string, string[]>, wildcardDependencies: [] as WildcardDependency[] };
+    : {
+        preComputedScopes: {} as Record<string, string[]>,
+        wildcardDependencies: [] as WildcardDependency[],
+      };
 
   const rawDebounce = config.asyncDebounceMs ?? 300;
   const asyncDebounceMs =
@@ -1033,8 +1037,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   // Release gate: benchmarks must confirm ≤1 extra notification cycle per set() for
   // any chain depth. Tests live in form.test.ts under describe.skip().
   // ---------------------------------------------------------------------------
-  const computedFields = config.computed ?? ({} as NonNullable<typeof config.computed>)
-  const computedKeys = Object.keys(computedFields) as Array<keyof T>
+  const computedFields = config.computed ?? ({} as NonNullable<typeof config.computed>);
+  const computedKeys = Object.keys(computedFields) as Array<keyof T>;
 
   /**
    * Re-evaluates all computed fields against current `values`.
@@ -1043,42 +1047,46 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
    * Returns true if any value actually changed.
    */
   const runComputedPass = (): boolean => {
-    if (computedKeys.length === 0) return false
-    let changed = false
+    if (computedKeys.length === 0) return false;
+    let changed = false;
     // Two passes: first pass may update B from A; second pass updates C from the new B.
     for (let pass = 0; pass < 2; pass++) {
-      let passChanged = false
+      let passChanged = false;
       for (const key of computedKeys) {
-        const fn = computedFields[key]!
-        const newVal = fn(values)
-        const currentVal = getNestedValue(values, key as string)
+        const fn = computedFields[key]!;
+        const newVal = fn(values);
+        const currentVal = getNestedValue(values, key as string);
         if (!isDeepEqual(newVal, currentVal)) {
-          setNestedValue(values, key as string, newVal)
-          passChanged = true
-          changed = true
+          setNestedValue(values, key as string, newVal);
+          passChanged = true;
+          changed = true;
         }
       }
       // Short-circuit: if nothing changed in this pass, further passes are pointless.
-      if (!passChanged) break
+      if (!passChanged) break;
     }
-    return changed
-  }
+    return changed;
+  };
 
   // Prototype B: seed computed field values at init time so initial state is already derived.
-  runComputedPass()
+  runComputedPass();
 
   // Dev-only runtime path validation trie (Prototype A — v0.4.0 release decision pending)
   // Use a try/catch to safely read process.env in Node; in browser builds process is undefined.
   const __isProduction = (() => {
-    try { return (globalThis as any).process?.env?.NODE_ENV === 'production' } catch { return false }
-  })()
-  const __devPathTrie = !__isProduction ? buildPathTrie(config.initialValues) : null
+    try {
+      return (globalThis as any).process?.env?.NODE_ENV === 'production';
+    } catch {
+      return false;
+    }
+  })();
+  const __devPathTrie = !__isProduction ? buildPathTrie(config.initialValues) : null;
 
   const __warnUnknownPath = (path: string): void => {
     if (__devPathTrie && !isKnownPath(__devPathTrie, path)) {
-      console.warn(`[NeutroForm] Unknown path: "${path}". Check your initialValues schema.`)
+      console.warn(`[NeutroForm] Unknown path: "${path}". Check your initialValues schema.`);
     }
-  }
+  };
 
   const getState = (): FormState<T> => ({
     values: deepClone(values),
@@ -1205,10 +1213,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
 
     let expandedScope: string[] | undefined;
-    if (scopePaths && (Object.keys(preComputedScopes).length > 0 || wildcardDependencies.length > 0)) {
+    if (
+      scopePaths &&
+      (Object.keys(preComputedScopes).length > 0 || wildcardDependencies.length > 0)
+    ) {
       const expandedSet = new Set<string>();
       for (const path of scopePaths) {
-        let resolved = preComputedScopes[path];
+        const resolved = preComputedScopes[path];
         if (resolved) {
           for (const p of resolved) expandedSet.add(p);
         } else {
@@ -1366,9 +1377,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // Prototype B: computed fields are read-only — set() is a no-op for them.
     if (computedKeys.length > 0 && computedKeys.includes(path as keyof T)) {
       if (!__isProduction) {
-        console.warn(`[NeutroForm] "${path}" is a computed field — set() is a no-op.`)
+        console.warn(`[NeutroForm] "${path}" is a computed field — set() is a no-op.`);
       }
-      return
+      return;
     }
     wasSet[path] = true;
     const currentVal = getNestedValue(values, path);
@@ -1387,7 +1398,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // notification if any computed value changed. This runs outside the batch so
     // subscribers receive a distinct snapshot for the derived state.
     if (runComputedPass()) {
-      notify()
+      notify();
     }
     if (options.validate === true) runValidation([path]);
   };
@@ -1494,7 +1505,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           const index = parseInt(match[1], 10);
           const tail = match[2];
           if (index === fromIndex) return; // drop the removed index
-          if (index > fromIndex) updatedValidated.add(`${arrPrefix}${index - 1}${tail}`); // renumber survivors
+          if (index > fromIndex)
+            updatedValidated.add(`${arrPrefix}${index - 1}${tail}`); // renumber survivors
           else updatedValidated.add(key); // keep below-removed unchanged
         });
       } else if (action === 'insert' && targetIndex !== undefined) {
@@ -1592,18 +1604,18 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     return 'onTouched';
   };
 
-  const isDirty = (): boolean => Object.keys(wasSet).length > 0
+  const isDirty = (): boolean => Object.keys(wasSet).length > 0;
 
   const isFieldValid = (path: string): boolean | null => {
-    if (!validatedPaths.has(path)) return null
-    return !errors[path]
-  }
+    if (!validatedPaths.has(path)) return null;
+    return !errors[path];
+  };
 
   const isFieldDirty = (path: string): boolean => {
-    if (wasSet[path]) return true
-    const prefix = path + '.'
-    return Object.keys(wasSet).some(k => k.startsWith(prefix))
-  }
+    if (wasSet[path]) return true;
+    const prefix = path + '.';
+    return Object.keys(wasSet).some((k) => k.startsWith(prefix));
+  };
 
   const subscribeToPath = (path: Path<T> | '*' | string, fn: PathSubscriber) => {
     let pathSet = pathSubscribers.get(path);
@@ -1635,81 +1647,88 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     paths: Path<T> | string | Array<Path<T> | string>,
     callback: (values: Record<string, unknown>) => void
   ): (() => void) => {
-    const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[]
-    const uniquePaths = [...new Set(pathArray)]
+    const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[];
+    const uniquePaths = [...new Set(pathArray)];
 
-    if (uniquePaths.length === 0) return () => {}
+    if (uniquePaths.length === 0) return () => {};
 
     const fire = () => {
-      const snapshot: Record<string, unknown> = {}
-      uniquePaths.forEach(p => { snapshot[p] = getNestedValue(values, p) })
-      try { callback(snapshot) } catch (err) {
-        console.error('[NeutroForm] watch callback threw:', err)
+      const snapshot: Record<string, unknown> = {};
+      uniquePaths.forEach((p) => {
+        snapshot[p] = getNestedValue(values, p);
+      });
+      try {
+        callback(snapshot);
+      } catch (err) {
+        console.error('[NeutroForm] watch callback threw:', err);
       }
-    }
+    };
 
-    const teardowns: Array<() => void> = []
-    let tornDown = false
+    const teardowns: Array<() => void> = [];
+    let tornDown = false;
 
-    uniquePaths.forEach(p => {
-      let firstCall = true
+    uniquePaths.forEach((p) => {
+      let firstCall = true;
       const pathSubscriberFn: PathSubscriber = () => {
-        if (firstCall) { firstCall = false; return }
-        fire()
-      }
-      const unsub = subscribeToPath(p as Path<T>, pathSubscriberFn)
-      teardowns.push(unsub)
-    })
+        if (firstCall) {
+          firstCall = false;
+          return;
+        }
+        fire();
+      };
+      const unsub = subscribeToPath(p as Path<T>, pathSubscriberFn);
+      teardowns.push(unsub);
+    });
 
     return () => {
-      if (tornDown) return
-      tornDown = true
-      teardowns.forEach(u => u())
-    }
-  }
+      if (tornDown) return;
+      tornDown = true;
+      teardowns.forEach((u) => u());
+    };
+  };
 
   const focus = (path: string): boolean => {
-    const ref = connectionRegistry.get(path)
-    if (!ref) return false
-    const el = ref.deref()
-    if (!el || !el.isConnected) return false
+    const ref = connectionRegistry.get(path);
+    if (!ref) return false;
+    const el = ref.deref();
+    if (!el || !el.isConnected) return false;
     try {
-      el.focus()
+      el.focus();
     } catch (err) {
-      console.error('[NeutroForm] focus() threw:', err)
-      return false
+      console.error('[NeutroForm] focus() threw:', err);
+      return false;
     }
-    return true
-  }
+    return true;
+  };
 
   const focusFirstError = (): boolean => {
-    const errorPaths = Object.keys(errors)
-    if (errorPaths.length === 0) return false
+    const errorPaths = Object.keys(errors);
+    if (errorPaths.length === 0) return false;
 
     const connected = errorPaths
-      .map(p => {
-        const ref = connectionRegistry.get(p)
-        if (!ref) return null
-        const el = ref.deref()
-        if (!el || !el.isConnected) return null
-        return { path: p, el }
+      .map((p) => {
+        const ref = connectionRegistry.get(p);
+        if (!ref) return null;
+        const el = ref.deref();
+        if (!el || !el.isConnected) return null;
+        return { path: p, el };
       })
-      .filter((e): e is { path: string; el: HTMLElement } => e !== null)
+      .filter((e): e is { path: string; el: HTMLElement } => e !== null);
 
-    if (connected.length === 0) return false
+    if (connected.length === 0) return false;
 
     connected.sort((a, b) =>
       a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
-    )
+    );
 
     try {
-      connected[0].el.focus()
+      connected[0].el.focus();
     } catch (err) {
-      console.error('[NeutroForm] focusFirstError() threw on focus:', err)
-      return false
+      console.error('[NeutroForm] focusFirstError() threw on focus:', err);
+      return false;
     }
-    return true
-  }
+    return true;
+  };
 
   const connect = (
     path: Path<T> | string | string[],
@@ -1879,7 +1898,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         return false;
       }
 
-      const callbackPayload = _getPayload(values, connectionRegistry, connectedPaths, persistedPaths);
+      const callbackPayload = _getPayload(
+        values,
+        connectionRegistry,
+        connectedPaths,
+        persistedPaths
+      );
       const valuesSnapshot = deepClone(values) as Partial<T>;
 
       try {

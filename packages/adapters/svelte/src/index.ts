@@ -86,12 +86,14 @@ export function useSvelteWatch<T extends object>(
   form: FormInstance<T>,
   paths: Array<Path<T> | string> | Path<T> | string
 ): Readable<Record<string, unknown>> {
-  const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[]
-  const initial: Record<string, unknown> = {}
-  pathArray.forEach(p => { initial[p] = form.get(p as any) })
+  const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[];
+  const initial: Record<string, unknown> = {};
+  pathArray.forEach((p) => {
+    initial[p] = form.get(p as any);
+  });
 
   return readable<Record<string, unknown>>(initial, (set) => {
-    const stop = form.watch(pathArray, (vals) => set({ ...vals }))
-    return stop
-  })
+    const stop = form.watch(pathArray, (vals) => set({ ...vals }));
+    return stop;
+  });
 }

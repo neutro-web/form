@@ -113,22 +113,25 @@ export function useVueWatch<T extends object>(
   form: FormInstance<T>,
   paths: Array<Path<T> | string> | Path<T> | string
 ): DeepReadonly<import('vue').Ref<Record<string, unknown>>> {
-  const pathArray = computed(() =>
-    (Array.isArray(paths) ? paths : [paths]) as string[]
-  )
+  const pathArray = computed(() => (Array.isArray(paths) ? paths : [paths]) as string[]);
 
-  const watched = ref<Record<string, unknown>>({})
+  const watched = ref<Record<string, unknown>>({});
 
-  let stop: (() => void) | null = null
+  let stop: (() => void) | null = null;
 
   const resubscribe = () => {
-    if (stop) stop()
-    const current = pathArray.value
-    stop = form.watch(current, (vals) => { watched.value = { ...vals } })
-  }
+    if (stop) stop();
+    const current = pathArray.value;
+    stop = form.watch(current, (vals) => {
+      watched.value = { ...vals };
+    });
+  };
 
-  watchEffect(resubscribe)
-  if (getCurrentInstance()) onUnmounted(() => { if (stop) stop() })
+  watchEffect(resubscribe);
+  if (getCurrentInstance())
+    onUnmounted(() => {
+      if (stop) stop();
+    });
 
-  return readonly(watched) as DeepReadonly<import('vue').Ref<Record<string, unknown>>>
+  return readonly(watched) as DeepReadonly<import('vue').Ref<Record<string, unknown>>>;
 }
