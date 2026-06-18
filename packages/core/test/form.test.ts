@@ -817,7 +817,10 @@ describe('Validator adapters', () => {
 
 describe('compileDependencyScopes', () => {
   it('registers wildcard keys even when initialValues array is empty', () => {
-    const { wildcardDependencies } = compileDependencyScopes({ 'items.*.name': ['items.*.price'] }, { items: [] });
+    const { wildcardDependencies } = compileDependencyScopes(
+      { 'items.*.name': ['items.*.price'] },
+      { items: [] }
+    );
     const entry = wildcardDependencies.find((w) => w.pattern === 'items.*.name');
     expect(entry).toBeDefined();
     expect(entry!.dependents).toContain('items.*.price');
@@ -3577,118 +3580,118 @@ describe('built-in rules — file validation', () => {
       size: 100,
       type,
       lastModified: 0,
-    })
+    });
 
     it('image/* matches image/jpeg', async () => {
       const form = createForm({
         initialValues: { avatar: null as any },
         rules: { avatar: [{ fileTypes: ['image/*'] }] },
-      })
-      form.set('avatar', makeFakeMimeFile('image/jpeg'))
-      await form.validate()
-      expect(form.getState().errors['avatar']).toBeUndefined()
-    })
+      });
+      form.set('avatar', makeFakeMimeFile('image/jpeg'));
+      await form.validate();
+      expect(form.getState().errors['avatar']).toBeUndefined();
+    });
 
     it('image/* matches image/png and image/webp', async () => {
       const form = createForm({
         initialValues: { avatar: null as any },
         rules: { avatar: [{ fileTypes: ['image/*'] }] },
-      })
+      });
       for (const type of ['image/png', 'image/webp']) {
-        form.set('avatar', makeFakeMimeFile(type))
-        await form.validate()
-        expect(form.getState().errors['avatar']).toBeUndefined()
+        form.set('avatar', makeFakeMimeFile(type));
+        await form.validate();
+        expect(form.getState().errors['avatar']).toBeUndefined();
       }
-    })
+    });
 
     it('image/* does NOT match video/mp4', async () => {
       const form = createForm({
         initialValues: { avatar: null as any },
         rules: { avatar: [{ fileTypes: ['image/*'] }] },
-      })
-      form.set('avatar', makeFakeMimeFile('video/mp4'))
-      await form.validate()
-      expect(form.getState().errors['avatar']).toBeDefined()
-    })
+      });
+      form.set('avatar', makeFakeMimeFile('video/mp4'));
+      await form.validate();
+      expect(form.getState().errors['avatar']).toBeDefined();
+    });
 
     it('mixed array [image/*, application/pdf] accepts both patterns', async () => {
       const form = createForm({
         initialValues: { file: null as any },
         rules: { file: [{ fileTypes: ['image/*', 'application/pdf'] }] },
-      })
-      form.set('file', makeFakeMimeFile('image/png'))
-      await form.validate()
-      expect(form.getState().errors['file']).toBeUndefined()
-      form.set('file', makeFakeMimeFile('application/pdf'))
-      await form.validate()
-      expect(form.getState().errors['file']).toBeUndefined()
-      form.set('file', makeFakeMimeFile('video/mp4'))
-      await form.validate()
-      expect(form.getState().errors['file']).toBeDefined()
-    })
+      });
+      form.set('file', makeFakeMimeFile('image/png'));
+      await form.validate();
+      expect(form.getState().errors['file']).toBeUndefined();
+      form.set('file', makeFakeMimeFile('application/pdf'));
+      await form.validate();
+      expect(form.getState().errors['file']).toBeUndefined();
+      form.set('file', makeFakeMimeFile('video/mp4'));
+      await form.validate();
+      expect(form.getState().errors['file']).toBeDefined();
+    });
 
     it('case-insensitive: Image/* in rule matches image/jpeg from browser', async () => {
       const form = createForm({
         initialValues: { file: null as any },
         rules: { file: [{ fileTypes: ['Image/*'] }] },
-      })
-      form.set('file', makeFakeMimeFile('image/jpeg'))
-      await form.validate()
-      expect(form.getState().errors['file']).toBeUndefined()
-    })
+      });
+      form.set('file', makeFakeMimeFile('image/jpeg'));
+      await form.validate();
+      expect(form.getState().errors['file']).toBeUndefined();
+    });
 
     it('exact type without wildcard still matches exactly', async () => {
       const form = createForm({
         initialValues: { file: null as any },
         rules: { file: [{ fileTypes: ['application/pdf'] }] },
-      })
-      form.set('file', makeFakeMimeFile('application/pdf'))
-      await form.validate()
-      expect(form.getState().errors['file']).toBeUndefined()
-      form.set('file', makeFakeMimeFile('application/msword'))
-      await form.validate()
-      expect(form.getState().errors['file']).toBeDefined()
-    })
+      });
+      form.set('file', makeFakeMimeFile('application/pdf'));
+      await form.validate();
+      expect(form.getState().errors['file']).toBeUndefined();
+      form.set('file', makeFakeMimeFile('application/msword'));
+      await form.validate();
+      expect(form.getState().errors['file']).toBeDefined();
+    });
 
     it('bare mime category without slash treated as exact match, not wildcard', async () => {
       const form = createForm({
         initialValues: { file: null as any },
         rules: { file: [{ fileTypes: ['image'] }] },
-      })
-      form.set('file', makeFakeMimeFile('image/jpeg'))
-      await form.validate()
-      expect(form.getState().errors['file']).toBeDefined() // 'image' !== 'image/jpeg'
-    })
+      });
+      form.set('file', makeFakeMimeFile('image/jpeg'));
+      await form.validate();
+      expect(form.getState().errors['file']).toBeDefined(); // 'image' !== 'image/jpeg'
+    });
 
     it('wildcard rule works with FileList-style input (one matching, one not)', async () => {
       const makeFileList = (types: string[]) => ({
         length: types.length,
         item: (i: number) => ({ name: `file${i}`, size: 100, type: types[i], lastModified: 0 }),
-      })
+      });
       const form = createForm({
         initialValues: { files: null as any },
         rules: { files: [{ fileTypes: ['image/*'] }] },
-      })
+      });
       // All images — should pass
-      form.set('files', makeFileList(['image/jpeg', 'image/png']))
-      await form.validate()
-      expect(form.getState().errors['files']).toBeUndefined()
+      form.set('files', makeFileList(['image/jpeg', 'image/png']));
+      await form.validate();
+      expect(form.getState().errors['files']).toBeUndefined();
       // Mixed — video/mp4 fails the wildcard
-      form.set('files', makeFileList(['image/jpeg', 'video/mp4']))
-      await form.validate()
-      expect(form.getState().errors['files']).toBeDefined()
-    })
+      form.set('files', makeFileList(['image/jpeg', 'video/mp4']));
+      await form.validate();
+      expect(form.getState().errors['files']).toBeDefined();
+    });
 
     it('degenerate image/ does not match image/* wildcard', async () => {
       const form = createForm({
         initialValues: { file: null as any },
         rules: { file: [{ fileTypes: ['image/*'] }] },
-      })
-      form.set('file', { name: 'f', size: 100, type: 'image/', lastModified: 0 })
-      await form.validate()
-      expect(form.getState().errors['file']).toBeDefined()
-    })
-  })
+      });
+      form.set('file', { name: 'f', size: 100, type: 'image/', lastModified: 0 });
+      await form.validate();
+      expect(form.getState().errors['file']).toBeDefined();
+    });
+  });
 
   it('maxFiles rejects a FileList with too many entries', async () => {
     const form = createForm({
@@ -3957,82 +3960,82 @@ describe('Security & Fault-Tolerance', () => {
 
 describe('isDirty / isFieldDirty predicates', () => {
   it('isDirty() is false initially', () => {
-    const form = createForm({ initialValues: { email: '', username: '' } })
-    expect(form.isDirty()).toBe(false)
-  })
+    const form = createForm({ initialValues: { email: '', username: '' } });
+    expect(form.isDirty()).toBe(false);
+  });
 
   it('isFieldDirty() is false initially', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    expect(form.isFieldDirty('email')).toBe(false)
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    expect(form.isFieldDirty('email')).toBe(false);
+  });
 
   it('isDirty() is true after set()', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    form.set('email', 'a@b.com')
-    expect(form.isDirty()).toBe(true)
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    form.set('email', 'a@b.com');
+    expect(form.isDirty()).toBe(true);
+  });
 
   it('isFieldDirty() is true for the dirty field, false for others', () => {
-    const form = createForm({ initialValues: { email: '', username: '' } })
-    form.set('email', 'x')
-    expect(form.isFieldDirty('email')).toBe(true)
-    expect(form.isFieldDirty('username')).toBe(false)
-  })
+    const form = createForm({ initialValues: { email: '', username: '' } });
+    form.set('email', 'x');
+    expect(form.isFieldDirty('email')).toBe(true);
+    expect(form.isFieldDirty('username')).toBe(false);
+  });
 
   it('reset() clears dirty state', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    form.set('email', 'x')
-    form.reset()
-    expect(form.isDirty()).toBe(false)
-    expect(form.isFieldDirty('email')).toBe(false)
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    form.set('email', 'x');
+    form.reset();
+    expect(form.isDirty()).toBe(false);
+    expect(form.isFieldDirty('email')).toBe(false);
+  });
 
   it('resetField() clears dirty for that field only', () => {
-    const form = createForm({ initialValues: { email: '', username: '' } })
-    form.set('email', 'x')
-    form.set('username', 'y')
-    form.resetField('email')
-    expect(form.isFieldDirty('email')).toBe(false)
-    expect(form.isFieldDirty('username')).toBe(true)
-  })
+    const form = createForm({ initialValues: { email: '', username: '' } });
+    form.set('email', 'x');
+    form.set('username', 'y');
+    form.resetField('email');
+    expect(form.isFieldDirty('email')).toBe(false);
+    expect(form.isFieldDirty('username')).toBe(true);
+  });
 
   it('isFieldDirty() with prefix matches nested children', () => {
-    const form = createForm({ initialValues: { address: { city: '', zip: '' } } })
-    form.set('address.city', 'London')
-    expect(form.isFieldDirty('address')).toBe(true)
-    expect(form.isFieldDirty('address.city')).toBe(true)
-    expect(form.isFieldDirty('address.zip')).toBe(false)
-  })
+    const form = createForm({ initialValues: { address: { city: '', zip: '' } } });
+    form.set('address.city', 'London');
+    expect(form.isFieldDirty('address')).toBe(true);
+    expect(form.isFieldDirty('address.city')).toBe(true);
+    expect(form.isFieldDirty('address.zip')).toBe(false);
+  });
 
   it('isFieldDirty() prefix requires dot separator — addr does not match address.city', () => {
-    const form = createForm({ initialValues: { address: { city: '' } } })
-    form.set('address.city', 'London')
-    expect(form.isFieldDirty('addr')).toBe(false)
-  })
+    const form = createForm({ initialValues: { address: { city: '' } } });
+    form.set('address.city', 'London');
+    expect(form.isFieldDirty('addr')).toBe(false);
+  });
 
   it('isFieldDirty() on never-set key returns false', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    expect(form.isFieldDirty('phone')).toBe(false)
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    expect(form.isFieldDirty('phone')).toBe(false);
+  });
 
   it('isFieldDirty() returns true after set() even when value matches initialValues', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    form.set('email', '') // same value as initial
-    expect(form.isFieldDirty('email')).toBe(true)
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    form.set('email', ''); // same value as initial
+    expect(form.isFieldDirty('email')).toBe(true);
+  });
 
   it('isDirty() is true after arrayInsert()', () => {
-    const form = createForm({ initialValues: { items: [{ name: '' }] } })
-    form.arrayInsert('items', 0, { name: 'new' })
-    expect(form.isDirty()).toBe(true)
-  })
+    const form = createForm({ initialValues: { items: [{ name: '' }] } });
+    form.arrayInsert('items', 0, { name: 'new' });
+    expect(form.isDirty()).toBe(true);
+  });
 
   it('isDirty() is true after arrayRemove()', () => {
-    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } })
-    form.arrayRemove('items', 0)
-    expect(form.isDirty()).toBe(true)
-  })
-})
+    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } });
+    form.arrayRemove('items', 0);
+    expect(form.isDirty()).toBe(true);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // isFieldValid(path)
@@ -4040,255 +4043,272 @@ describe('isDirty / isFieldDirty predicates', () => {
 
 describe('isFieldValid(path)', () => {
   it('returns null initially (no validation run)', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    expect(form.isFieldValid('email')).toBeNull()
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    expect(form.isFieldValid('email')).toBeNull();
+  });
 
   it('returns true after validate() on a field with no error', async () => {
     const form = createForm({
       initialValues: { email: 'a@b.com' },
       rules: { email: ['email'] },
-    })
-    await form.validate(['email'])
-    expect(form.isFieldValid('email')).toBe(true)
-  })
+    });
+    await form.validate(['email']);
+    expect(form.isFieldValid('email')).toBe(true);
+  });
 
   it('returns false after validate() when field has an error', async () => {
     const form = createForm({
       initialValues: { email: 'bad' },
       rules: { email: ['email'] },
-    })
-    await form.validate(['email'])
-    expect(form.isFieldValid('email')).toBe(false)
-  })
+    });
+    await form.validate(['email']);
+    expect(form.isFieldValid('email')).toBe(false);
+  });
 
   it('after full validate(), validated paths return non-null', async () => {
     const form = createForm({
       initialValues: { email: 'bad', username: 'joe' },
       rules: { email: ['email'] },
-    })
-    await form.validate()
-    expect(form.isFieldValid('email')).toBe(false)
-    expect(form.isFieldValid('username')).not.toBeNull()
-  })
+    });
+    await form.validate();
+    expect(form.isFieldValid('email')).toBe(false);
+    expect(form.isFieldValid('username')).not.toBeNull();
+  });
 
   it('reset() returns all paths to null', async () => {
-    const form = createForm({ initialValues: { email: 'a@b.com' }, rules: { email: ['email'] } })
-    await form.validate()
-    form.reset()
-    expect(form.isFieldValid('email')).toBeNull()
-  })
+    const form = createForm({ initialValues: { email: 'a@b.com' }, rules: { email: ['email'] } });
+    await form.validate();
+    form.reset();
+    expect(form.isFieldValid('email')).toBeNull();
+  });
 
   it('resetField() returns only that path to null', async () => {
     const form = createForm({
       initialValues: { email: 'a@b.com', username: 'joe' },
       rules: { email: ['email'] },
-    })
-    await form.validate()
-    expect(form.isFieldValid('email')).not.toBeNull()
-    form.resetField('email')
-    expect(form.isFieldValid('email')).toBeNull()
-    expect(form.isFieldValid('username')).not.toBeNull()
-  })
+    });
+    await form.validate();
+    expect(form.isFieldValid('email')).not.toBeNull();
+    form.resetField('email');
+    expect(form.isFieldValid('email')).toBeNull();
+    expect(form.isFieldValid('username')).not.toBeNull();
+  });
 
   it('setErrors() before validation: isFieldValid stays null', async () => {
-    const form = createForm({ initialValues: { email: '' } })
-    form.setErrors({ email: 'taken' })
-    expect(form.isFieldValid('email')).toBeNull()
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    form.setErrors({ email: 'taken' });
+    expect(form.isFieldValid('email')).toBeNull();
+  });
 
   it('setErrors() after validation: isFieldValid returns false', async () => {
-    const form = createForm({ initialValues: { email: 'a@b.com' }, rules: { email: ['email'] } })
-    await form.validate()
-    form.setErrors({ email: 'taken' })
-    expect(form.isFieldValid('email')).toBe(false)
-  })
+    const form = createForm({ initialValues: { email: 'a@b.com' }, rules: { email: ['email'] } });
+    await form.validate();
+    form.setErrors({ email: 'taken' });
+    expect(form.isFieldValid('email')).toBe(false);
+  });
 
   it('clearErrors() after validation: isFieldValid returns true', async () => {
-    const form = createForm({ initialValues: { email: 'bad' }, rules: { email: ['email'] } })
-    await form.validate()
-    expect(form.isFieldValid('email')).toBe(false)
-    form.clearErrors()
-    expect(form.isFieldValid('email')).toBe(true)
-  })
+    const form = createForm({ initialValues: { email: 'bad' }, rules: { email: ['email'] } });
+    await form.validate();
+    expect(form.isFieldValid('email')).toBe(false);
+    form.clearErrors();
+    expect(form.isFieldValid('email')).toBe(true);
+  });
 
   it('isFieldValid on unknown path returns null', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    expect(form.isFieldValid('nonexistent')).toBeNull()
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    expect(form.isFieldValid('nonexistent')).toBeNull();
+  });
 
   it('arrayRemove clears isFieldValid for removed index and renumbers survivors', async () => {
-    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } })
+    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } });
     // Validate both items
-    await form.validate(['items.0.name', 'items.1.name'])
-    expect(form.isFieldValid('items.0.name')).not.toBeNull()
-    expect(form.isFieldValid('items.1.name')).not.toBeNull()
+    await form.validate(['items.0.name', 'items.1.name']);
+    expect(form.isFieldValid('items.0.name')).not.toBeNull();
+    expect(form.isFieldValid('items.1.name')).not.toBeNull();
     // Remove index 0 (item a)
-    form.arrayRemove('items', 0)
+    form.arrayRemove('items', 0);
     // items.0 (old items.1, item b) should still have its validation state
-    expect(form.isFieldValid('items.0.name')).not.toBeNull() // survived, renumbered
+    expect(form.isFieldValid('items.0.name')).not.toBeNull(); // survived, renumbered
     // No items.1 anymore — should be null
-    expect(form.isFieldValid('items.1.name')).toBeNull()
-  })
+    expect(form.isFieldValid('items.1.name')).toBeNull();
+  });
 
   it('arrayInsert shifts validatedPaths indices', async () => {
-    const form = createForm({ initialValues: { items: [{ name: 'a' }] } })
-    await form.validate(['items.0.name'])
-    expect(form.isFieldValid('items.0.name')).not.toBeNull()
-    form.arrayInsert('items', 0, { name: '' })
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    await form.validate(['items.0.name']);
+    expect(form.isFieldValid('items.0.name')).not.toBeNull();
+    form.arrayInsert('items', 0, { name: '' });
     // old items.0.name shifted to items.1.name
-    expect(form.isFieldValid('items.1.name')).not.toBeNull()
+    expect(form.isFieldValid('items.1.name')).not.toBeNull();
     // new items.0.name never validated
-    expect(form.isFieldValid('items.0.name')).toBeNull()
-  })
+    expect(form.isFieldValid('items.0.name')).toBeNull();
+  });
 
   it('arrayMove preserves isFieldValid state across moved indices', async () => {
-    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }, { name: 'c' }] } })
-    await form.validate(['items.0.name', 'items.1.name', 'items.2.name'])
+    const form = createForm({
+      initialValues: { items: [{ name: 'a' }, { name: 'b' }, { name: 'c' }] },
+    });
+    await form.validate(['items.0.name', 'items.1.name', 'items.2.name']);
     // Move index 0 to index 2: a→2, b→0, c→1
-    form.arrayMove('items', 0, 2)
+    form.arrayMove('items', 0, 2);
     // All three items still have validation state (moved, not lost)
-    expect(form.isFieldValid('items.0.name')).not.toBeNull()
-    expect(form.isFieldValid('items.1.name')).not.toBeNull()
-    expect(form.isFieldValid('items.2.name')).not.toBeNull()
-  })
+    expect(form.isFieldValid('items.0.name')).not.toBeNull();
+    expect(form.isFieldValid('items.1.name')).not.toBeNull();
+    expect(form.isFieldValid('items.2.name')).not.toBeNull();
+  });
 
   it('arraySwap preserves isFieldValid state for swapped indices', async () => {
-    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } })
-    await form.validate(['items.0.name'])
+    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } });
+    await form.validate(['items.0.name']);
     // Only items.0 is validated
-    expect(form.isFieldValid('items.0.name')).not.toBeNull()
-    expect(form.isFieldValid('items.1.name')).toBeNull()
+    expect(form.isFieldValid('items.0.name')).not.toBeNull();
+    expect(form.isFieldValid('items.1.name')).toBeNull();
     // Swap 0 and 1 — the validated state should follow the element
-    form.arraySwap('items', 0, 1)
-    expect(form.isFieldValid('items.1.name')).not.toBeNull() // was items.0, now items.1
-    expect(form.isFieldValid('items.0.name')).toBeNull()     // was items.1 (unvalidated)
-  })
-})
+    form.arraySwap('items', 0, 1);
+    expect(form.isFieldValid('items.1.name')).not.toBeNull(); // was items.0, now items.1
+    expect(form.isFieldValid('items.0.name')).toBeNull(); // was items.1 (unvalidated)
+  });
+});
 
 describe('nested array wildcard dependencies', () => {
   it('validate destinations.1.url also validates destinations.1.name via wildcard dep', async () => {
     const form = createForm({
-      initialValues: { destinations: [{ url: '', name: '' }, { url: '', name: '' }] },
+      initialValues: {
+        destinations: [
+          { url: '', name: '' },
+          { url: '', name: '' },
+        ],
+      },
       dependencies: { 'destinations.*.url': ['destinations.*.name'] },
       validator: () => ({}),
-    })
-    await form.validate(['destinations.1.url'])
+    });
+    await form.validate(['destinations.1.url']);
     // Both should now be in validatedPaths (isFieldValid returns non-null)
-    expect(form.isFieldValid('destinations.1.url')).not.toBeNull()
-    expect(form.isFieldValid('destinations.1.name')).not.toBeNull()
-  })
+    expect(form.isFieldValid('destinations.1.url')).not.toBeNull();
+    expect(form.isFieldValid('destinations.1.name')).not.toBeNull();
+  });
 
   it('wildcard resolves correctly after arrayRemove shifts indices', async () => {
     const form = createForm({
       initialValues: {
-        destinations: [{ url: 'a', name: '' }, { url: 'b', name: '' }, { url: 'c', name: '' }]
+        destinations: [
+          { url: 'a', name: '' },
+          { url: 'b', name: '' },
+          { url: 'c', name: '' },
+        ],
       },
       dependencies: { 'destinations.*.url': ['destinations.*.name'] },
       validator: () => ({}),
-    })
-    form.arrayRemove('destinations', 0)
+    });
+    form.arrayRemove('destinations', 0);
     // After remove: old index 1 is now 0, old index 2 is now 1
-    await form.validate(['destinations.0.url'])
-    expect(form.isFieldValid('destinations.0.name')).not.toBeNull()
-  })
+    await form.validate(['destinations.0.url']);
+    expect(form.isFieldValid('destinations.0.name')).not.toBeNull();
+  });
 
   it('static (non-wildcard) dependencies are unaffected — existing behavior preserved', async () => {
     const form = createForm({
       initialValues: { email: '', confirmEmail: '' },
       dependencies: { email: ['confirmEmail'] },
       validator: (values) => {
-        const errors: Record<string, string> = {}
+        const errors: Record<string, string> = {};
         if ((values as any).email !== (values as any).confirmEmail) {
-          errors.confirmEmail = 'Emails must match'
+          errors.confirmEmail = 'Emails must match';
         }
-        return errors
+        return errors;
       },
-    })
-    form.set('email', 'a@b.com')
-    form.set('confirmEmail', 'x@y.com')
-    await form.validate(['email'])
-    expect(form.getState().errors['confirmEmail']).toBe('Emails must match')
-  })
+    });
+    form.set('email', 'a@b.com');
+    form.set('confirmEmail', 'x@y.com');
+    await form.validate(['email']);
+    expect(form.getState().errors['confirmEmail']).toBe('Emails must match');
+  });
 
   it('cross-array-to-static: items.*.qty triggers summary.total validation', async () => {
     const form = createForm({
       initialValues: { items: [{ qty: 1 }], summary: { total: 0 } },
       dependencies: { 'items.*.qty': ['summary.total'] },
       validator: (values) => {
-        const errors: Record<string, string> = {}
-        const total = ((values as any).items as any[]).reduce((sum: number, item: any) => sum + item.qty, 0)
-        if (total > 10) errors['summary.total'] = 'Total exceeds 10'
-        return errors
+        const errors: Record<string, string> = {};
+        const total = ((values as any).items as any[]).reduce(
+          (sum: number, item: any) => sum + item.qty,
+          0
+        );
+        if (total > 10) errors['summary.total'] = 'Total exceeds 10';
+        return errors;
       },
-    })
-    form.set('items.0.qty', 99)
-    await form.validate(['items.0.qty'])
-    expect(form.getState().errors['summary.total']).toBe('Total exceeds 10')
-  })
+    });
+    form.set('items.0.qty', 99);
+    await form.validate(['items.0.qty']);
+    expect(form.getState().errors['summary.total']).toBe('Total exceeds 10');
+  });
 
   it('non-numeric segment does not trigger wildcard match', async () => {
     const form = createForm({
       initialValues: { items: [{ url: '', name: '' }] },
       dependencies: { 'items.*.url': ['items.*.name'] },
       validator: () => ({}),
-    })
+    });
     // 'items.0.url' should match, 'items.foo.url' (non-numeric) should not
-    await form.validate(['items.0.url'])
-    expect(form.isFieldValid('items.0.name')).not.toBeNull() // valid numeric index matched
-  })
+    await form.validate(['items.0.url']);
+    expect(form.isFieldValid('items.0.name')).not.toBeNull(); // valid numeric index matched
+  });
 
   it('wildcard dep with zero matching items in array — no error', async () => {
     const form = createForm({
       initialValues: { destinations: [] as Array<{ url: string; name: string }> },
       dependencies: { 'destinations.*.url': ['destinations.*.name'] },
       validator: () => ({}),
-    })
+    });
     // Should not throw when array is empty; validator runs and returns no errors
-    await form.validate(['destinations.0.url'])
+    await form.validate(['destinations.0.url']);
     // The path is added to validatedPaths and has no errors — isFieldValid returns true
-    expect(form.isFieldValid('destinations.0.url')).toBe(true)
-  })
+    expect(form.isFieldValid('destinations.0.url')).toBe(true);
+  });
 
   it('scope merges wildcard dependents with static dependents for the same path', async () => {
-    const order: string[] = []
+    const order: string[] = [];
     const form = createForm({
       initialValues: { items: [{ qty: 0 }], summary: '', note: '' },
       dependencies: {
         'items.*.qty': ['summary'],
-        'note': ['summary'],
+        note: ['summary'],
       },
       validator: (values) => {
-        order.push('validated')
-        return {}
+        order.push('validated');
+        return {};
       },
-    })
-    await form.validate(['items.0.qty'])
+    });
+    await form.validate(['items.0.qty']);
     // summary must be in the validated scope
-    expect(form.isFieldValid('summary')).not.toBeNull()
-  })
+    expect(form.isFieldValid('summary')).not.toBeNull();
+  });
 
   it('wildcard dep: abort signal fires when same path re-validated before first completes', async () => {
-    let aborted = false
+    let aborted = false;
     const form = createForm({
       initialValues: { items: [{ qty: 0 }, { qty: 0 }] },
       dependencies: { 'items.*.qty': ['items.*.qty'] },
       async validator(_values, _paths, signal) {
         await new Promise<void>((resolve) => {
-          signal?.addEventListener('abort', () => { aborted = true; resolve() })
-          setTimeout(resolve, 200)
-        })
-        return {}
+          signal?.addEventListener('abort', () => {
+            aborted = true;
+            resolve();
+          });
+          setTimeout(resolve, 200);
+        });
+        return {};
       },
-    })
-    const p1 = form.validate(['items.0.qty'])
+    });
+    const p1 = form.validate(['items.0.qty']);
     // Small delay then re-validate same path — should abort first
-    await new Promise(r => setTimeout(r, 10))
-    await form.validate(['items.0.qty'])
-    await p1
-    expect(aborted).toBe(true)
-  })
-})
+    await new Promise((r) => setTimeout(r, 10));
+    await form.validate(['items.0.qty']);
+    await p1;
+    expect(aborted).toBe(true);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Runtime path validation — dev-only warnings
@@ -4296,61 +4316,53 @@ describe('nested array wildcard dependencies', () => {
 
 describe('runtime path validation — dev-only warnings', () => {
   it('set() with a known path does not warn', () => {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const form = createForm({ initialValues: { name: '', email: '' } })
-    form.set('name', 'Alice')
-    expect(spy).not.toHaveBeenCalled()
-    spy.mockRestore()
-  })
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({ initialValues: { name: '', email: '' } });
+    form.set('name', 'Alice');
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
 
   it('set() with an unknown top-level path warns in dev', () => {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const form = createForm({ initialValues: { name: '' } })
-    form.set('phone' as any, '555')
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining('Unknown path')
-    )
-    spy.mockRestore()
-  })
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({ initialValues: { name: '' } });
+    form.set('phone' as any, '555');
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Unknown path'));
+    spy.mockRestore();
+  });
 
   it('set() with an unknown nested path warns', () => {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const form = createForm({ initialValues: { address: { city: '' } } })
-    form.set('address.country' as any, 'UK')
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining('Unknown path')
-    )
-    spy.mockRestore()
-  })
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({ initialValues: { address: { city: '' } } });
+    form.set('address.country' as any, 'UK');
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Unknown path'));
+    spy.mockRestore();
+  });
 
   it('set() with a valid array index path does not warn', () => {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const form = createForm({ initialValues: { items: [{ name: '' }] } })
-    form.set('items.0.name', 'Widget')
-    expect(spy).not.toHaveBeenCalled()
-    spy.mockRestore()
-  })
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({ initialValues: { items: [{ name: '' }] } });
+    form.set('items.0.name', 'Widget');
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
 
   it('set() with a non-existent array field warns', () => {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const form = createForm({ initialValues: { items: [{ name: '' }] } })
-    form.set('items.0.weight' as any, 10)
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining('Unknown path')
-    )
-    spy.mockRestore()
-  })
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({ initialValues: { items: [{ name: '' }] } });
+    form.set('items.0.weight' as any, 10);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Unknown path'));
+    spy.mockRestore();
+  });
 
   it('get() with an unknown path warns', () => {
-    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const form = createForm({ initialValues: { name: '' } })
-    form.get('ghost' as any)
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining('Unknown path')
-    )
-    spy.mockRestore()
-  })
-})
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({ initialValues: { name: '' } });
+    form.get('ghost' as any);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Unknown path'));
+    spy.mockRestore();
+  });
+});
 
 // ---------------------------------------------------------------------------
 // form.watch()
@@ -4358,229 +4370,265 @@ describe('runtime path validation — dev-only warnings', () => {
 
 describe('form.watch()', () => {
   it('callback fires when watched path changes', () => {
-    const form = createForm({ initialValues: { email: '', username: '' } })
-    const received: string[] = []
-    form.watch('email', (v) => received.push(v['email'] as string))
-    form.set('email', 'a@b.com')
-    expect(received).toContain('a@b.com')
-  })
+    const form = createForm({ initialValues: { email: '', username: '' } });
+    const received: string[] = [];
+    form.watch('email', (v) => received.push(v['email'] as string));
+    form.set('email', 'a@b.com');
+    expect(received).toContain('a@b.com');
+  });
 
   it('callback does NOT fire when unwatched path changes', () => {
-    const form = createForm({ initialValues: { email: '', username: '' } })
-    const received: string[] = []
-    form.watch('email', (v) => received.push(v['email'] as string))
-    form.set('username', 'joe') // not watched
-    expect(received).toHaveLength(0)
-  })
+    const form = createForm({ initialValues: { email: '', username: '' } });
+    const received: string[] = [];
+    form.watch('email', (v) => received.push(v['email'] as string));
+    form.set('username', 'joe'); // not watched
+    expect(received).toHaveLength(0);
+  });
 
   it('multi-path: callback fires when any watched path changes', () => {
-    const form = createForm({ initialValues: { email: '', username: '' } })
-    const calls: Array<Record<string, unknown>> = []
-    form.watch(['email', 'username'], (v) => calls.push(v))
-    form.set('email', 'a@b.com')
-    expect(calls.length).toBeGreaterThan(0)
-    expect(calls[calls.length - 1]['email']).toBe('a@b.com')
-    expect('username' in calls[calls.length - 1]).toBe(true)
-  })
+    const form = createForm({ initialValues: { email: '', username: '' } });
+    const calls: Array<Record<string, unknown>> = [];
+    form.watch(['email', 'username'], (v) => calls.push(v));
+    form.set('email', 'a@b.com');
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[calls.length - 1]['email']).toBe('a@b.com');
+    expect('username' in calls[calls.length - 1]).toBe(true);
+  });
 
   it('teardown stops callbacks', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    const received: string[] = []
-    const stop = form.watch('email', (v) => received.push(v['email'] as string))
-    stop()
-    form.set('email', 'x')
-    expect(received).toHaveLength(0)
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    const received: string[] = [];
+    const stop = form.watch('email', (v) => received.push(v['email'] as string));
+    stop();
+    form.set('email', 'x');
+    expect(received).toHaveLength(0);
+  });
 
   it('double teardown is idempotent — does not throw', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    const stop = form.watch('email', () => {})
-    stop()
-    expect(() => stop()).not.toThrow()
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    const stop = form.watch('email', () => {});
+    stop();
+    expect(() => stop()).not.toThrow();
+  });
 
   it('duplicate paths: watch([email, email]) fires once per change', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    let count = 0
-    form.watch(['email', 'email'], () => { count++ })
-    form.set('email', 'x')
-    expect(count).toBe(1)
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    let count = 0;
+    form.watch(['email', 'email'], () => {
+      count++;
+    });
+    form.set('email', 'x');
+    expect(count).toBe(1);
+  });
 
   it('empty paths array: callback never fires', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    let count = 0
-    const stop = form.watch([], () => { count++ })
-    form.set('email', 'x')
-    expect(count).toBe(0)
-    expect(() => stop()).not.toThrow()
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    let count = 0;
+    const stop = form.watch([], () => {
+      count++;
+    });
+    form.set('email', 'x');
+    expect(count).toBe(0);
+    expect(() => stop()).not.toThrow();
+  });
 
   it('nested path: callback key is the full dotted path string', () => {
-    const form = createForm({ initialValues: { address: { city: '' } } })
-    let lastVal: Record<string, unknown> = {}
-    form.watch('address.city', (v) => { lastVal = v })
-    form.set('address.city', 'London')
-    expect(lastVal['address.city']).toBe('London')
-  })
-})
+    const form = createForm({ initialValues: { address: { city: '' } } });
+    let lastVal: Record<string, unknown> = {};
+    form.watch('address.city', (v) => {
+      lastVal = v;
+    });
+    form.set('address.city', 'London');
+    expect(lastVal['address.city']).toBe('London');
+  });
+});
 
 describe('submissionAttempts and lastSubmittedValues', () => {
   test('initial state: submissionAttempts=0, lastSubmittedValues=null', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    expect(form.getState().submissionAttempts).toBe(0)
-    expect(form.getState().lastSubmittedValues).toBeNull()
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    expect(form.getState().submissionAttempts).toBe(0);
+    expect(form.getState().lastSubmittedValues).toBeNull();
+  });
 
   test('submissionAttempts increments on each submit() call', async () => {
     const form = createForm({
       initialValues: { email: '' },
       rules: { email: ['required'] },
-    })
-    await form.submit(async () => {})
-    expect(form.getState().submissionAttempts).toBe(1)
-    await form.submit(async () => {})
-    expect(form.getState().submissionAttempts).toBe(2)
-  })
+    });
+    await form.submit(async () => {});
+    expect(form.getState().submissionAttempts).toBe(1);
+    await form.submit(async () => {});
+    expect(form.getState().submissionAttempts).toBe(2);
+  });
 
   test('submissionAttempts increments even when validation fails', async () => {
     const form = createForm({
       initialValues: { email: '' },
       rules: { email: ['required'] },
-    })
-    await form.submit(async () => {})
-    expect(form.getState().submissionAttempts).toBe(1)
-    expect(form.getState().lastSubmittedValues).toBeNull()
-  })
+    });
+    await form.submit(async () => {});
+    expect(form.getState().submissionAttempts).toBe(1);
+    expect(form.getState().lastSubmittedValues).toBeNull();
+  });
 
   test('lastSubmittedValues set after successful submit', async () => {
-    const form = createForm({ initialValues: { email: 'a@b.com' } })
-    await form.submit(async () => {})
-    expect(form.getState().lastSubmittedValues).toMatchObject({ email: 'a@b.com' })
-  })
+    const form = createForm({ initialValues: { email: 'a@b.com' } });
+    await form.submit(async () => {});
+    expect(form.getState().lastSubmittedValues).toMatchObject({ email: 'a@b.com' });
+  });
 
   test('lastSubmittedValues NOT updated when handler throws', async () => {
-    const form = createForm({ initialValues: { email: 'a@b.com' } })
-    await form.submit(async () => {}) // first success
-    const snap = form.getState().lastSubmittedValues
-    form.set('email', 'new@email.com')
-    await form.submit(async () => { throw new Error('api down') }).catch(() => {})
-    expect(form.getState().lastSubmittedValues).toEqual(snap)
-  })
+    const form = createForm({ initialValues: { email: 'a@b.com' } });
+    await form.submit(async () => {}); // first success
+    const snap = form.getState().lastSubmittedValues;
+    form.set('email', 'new@email.com');
+    await form
+      .submit(async () => {
+        throw new Error('api down');
+      })
+      .catch(() => {});
+    expect(form.getState().lastSubmittedValues).toEqual(snap);
+  });
 
   test('lastSubmittedValues is a deep clone — mutation does not corrupt it', async () => {
-    const form = createForm({ initialValues: { address: { city: 'London' } } })
-    await form.submit(async () => {})
-    const snap = form.getState().lastSubmittedValues as any
-    form.set('address.city', 'Paris')
-    expect(snap.address?.city).toBe('London')
-  })
+    const form = createForm({ initialValues: { address: { city: 'London' } } });
+    await form.submit(async () => {});
+    const snap = form.getState().lastSubmittedValues as any;
+    form.set('address.city', 'Paris');
+    expect(snap.address?.city).toBe('London');
+  });
 
   test('reset() clears submissionAttempts and lastSubmittedValues', async () => {
-    const form = createForm({ initialValues: { email: 'a@b.com' } })
-    await form.submit(async () => {})
-    form.reset()
-    expect(form.getState().submissionAttempts).toBe(0)
-    expect(form.getState().lastSubmittedValues).toBeNull()
-  })
+    const form = createForm({ initialValues: { email: 'a@b.com' } });
+    await form.submit(async () => {});
+    form.reset();
+    expect(form.getState().submissionAttempts).toBe(0);
+    expect(form.getState().lastSubmittedValues).toBeNull();
+  });
 
   test('reset(newValues) also clears submission state', async () => {
-    const form = createForm({ initialValues: { email: 'a@b.com' } })
-    await form.submit(async () => {})
-    form.reset({ email: 'new@b.com' })
-    expect(form.getState().submissionAttempts).toBe(0)
-    expect(form.getState().lastSubmittedValues).toBeNull()
-  })
-})
+    const form = createForm({ initialValues: { email: 'a@b.com' } });
+    await form.submit(async () => {});
+    form.reset({ email: 'new@b.com' });
+    expect(form.getState().submissionAttempts).toBe(0);
+    expect(form.getState().lastSubmittedValues).toBeNull();
+  });
+});
 
 describe('onSubmitSuccess / onSubmitError hooks', () => {
   test('onSubmitSuccess called with payload after handler resolves', async () => {
-    const received: any[] = []
+    const received: any[] = [];
     const form = createForm({
       initialValues: { email: 'a@b.com' },
-      onSubmitSuccess: (payload) => { received.push(payload) },
-    })
-    await form.submit(async () => {})
-    expect(received).toHaveLength(1)
-    expect(received[0]).toMatchObject({ email: 'a@b.com' })
-  })
+      onSubmitSuccess: (payload) => {
+        received.push(payload);
+      },
+    });
+    await form.submit(async () => {});
+    expect(received).toHaveLength(1);
+    expect(received[0]).toMatchObject({ email: 'a@b.com' });
+  });
 
   test('onSubmitSuccess not called when validation fails', async () => {
-    const called: boolean[] = []
+    const called: boolean[] = [];
     const form = createForm({
       initialValues: { email: '' },
       rules: { email: ['required'] },
-      onSubmitSuccess: () => { called.push(true) },
-    })
-    await form.submit(async () => {})
-    expect(called).toHaveLength(0)
-  })
+      onSubmitSuccess: () => {
+        called.push(true);
+      },
+    });
+    await form.submit(async () => {});
+    expect(called).toHaveLength(0);
+  });
 
   test('onSubmitSuccess not called when handler throws', async () => {
-    const called: boolean[] = []
+    const called: boolean[] = [];
     const form = createForm({
       initialValues: { email: 'a@b.com' },
-      onSubmitSuccess: () => { called.push(true) },
-    })
-    await form.submit(async () => { throw new Error('fail') }).catch(() => {})
-    expect(called).toHaveLength(0)
-  })
+      onSubmitSuccess: () => {
+        called.push(true);
+      },
+    });
+    await form
+      .submit(async () => {
+        throw new Error('fail');
+      })
+      .catch(() => {});
+    expect(called).toHaveLength(0);
+  });
 
   test('onSubmitError called with error and payload when handler throws', async () => {
-    const received: any[] = []
+    const received: any[] = [];
     const form = createForm({
       initialValues: { email: 'a@b.com' },
-      onSubmitError: (err, payload) => { received.push({ err, payload }) },
-    })
-    await form.submit(async () => { throw new Error('api down') }).catch(() => {})
-    expect(received).toHaveLength(1)
-    expect((received[0].err as Error).message).toBe('api down')
-    expect(received[0].payload).toMatchObject({ email: 'a@b.com' })
-  })
+      onSubmitError: (err, payload) => {
+        received.push({ err, payload });
+      },
+    });
+    await form
+      .submit(async () => {
+        throw new Error('api down');
+      })
+      .catch(() => {});
+    expect(received).toHaveLength(1);
+    expect((received[0].err as Error).message).toBe('api down');
+    expect(received[0].payload).toMatchObject({ email: 'a@b.com' });
+  });
 
   test('onSubmitError not called when validation fails', async () => {
-    const called: boolean[] = []
+    const called: boolean[] = [];
     const form = createForm({
       initialValues: { email: '' },
       rules: { email: ['required'] },
-      onSubmitError: () => { called.push(true) },
-    })
-    await form.submit(async () => {})
-    expect(called).toHaveLength(0)
-  })
+      onSubmitError: () => {
+        called.push(true);
+      },
+    });
+    await form.submit(async () => {});
+    expect(called).toHaveLength(0);
+  });
 
   test('original error still propagates after onSubmitError fires', async () => {
     const form = createForm({
       initialValues: { email: 'a@b.com' },
       onSubmitError: () => {},
-    })
+    });
     await expect(
-      form.submit(async () => { throw new Error('original') })
-    ).rejects.toThrow('original')
-  })
+      form.submit(async () => {
+        throw new Error('original');
+      })
+    ).rejects.toThrow('original');
+  });
 
   test('onSubmitError calling setErrors populates form errors', async () => {
     const form = createForm({
       initialValues: { email: 'a@b.com' },
       onSubmitError: (_err, _payload) => {
-        form.setErrors({ email: 'Already taken' })
+        form.setErrors({ email: 'Already taken' });
       },
-    })
-    await form.submit(async () => { throw new Error('conflict') }).catch(() => {})
-    expect(form.getState().errors['email']).toBe('Already taken')
-  })
+    });
+    await form
+      .submit(async () => {
+        throw new Error('conflict');
+      })
+      .catch(() => {});
+    expect(form.getState().errors['email']).toBe('Already taken');
+  });
 
   test('onSubmitSuccess throwing is logged and does not reverse the submission', async () => {
     const form = createForm({
       initialValues: { email: 'a@b.com' },
-      onSubmitSuccess: () => { throw new Error('hook exploded') },
-    })
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    await form.submit(async () => {})
-    expect(form.getState().lastSubmittedValues).not.toBeNull()
-    spy.mockRestore()
-  })
-})
+      onSubmitSuccess: () => {
+        throw new Error('hook exploded');
+      },
+    });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await form.submit(async () => {});
+    expect(form.getState().lastSubmittedValues).not.toBeNull();
+    spy.mockRestore();
+  });
+});
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -4604,34 +4652,36 @@ describe.skip('computed fields prototype (0.4.0 candidate)', () => {
       computed: {
         total: (values) => (values as any).qty * (values as any).unitPrice,
       },
-    })
-    form.set('qty', 3)
-    expect(form.getState().values.total).toBe(30)
-  })
+    });
+    form.set('qty', 3);
+    expect(form.getState().values.total).toBe(30);
+  });
 
   test('set() on a computed field is a no-op', () => {
     const form = createForm({
       initialValues: { qty: 2, unitPrice: 5, total: 0 },
       computed: { total: (values) => (values as any).qty * (values as any).unitPrice },
-    })
-    form.set('total' as any, 999)
-    expect(form.getState().values.total).toBe(10) // 2 * 5
-  })
+    });
+    form.set('total' as any, 999);
+    expect(form.getState().values.total).toBe(10); // 2 * 5
+  });
 
   test('chain A→B→C: exactly one extra notification cycle per set()', () => {
-    let notifyCount = 0
+    let notifyCount = 0;
     const form = createForm({
       initialValues: { a: 1, b: 0, c: 0 },
       computed: {
         b: (values) => (values as any).a * 2,
         c: (values) => (values as any).b + 1,
       },
-    })
-    form.subscribe(() => { notifyCount++ })
-    notifyCount = 0
-    form.set('a', 2)
+    });
+    form.subscribe(() => {
+      notifyCount++;
+    });
+    notifyCount = 0;
+    form.set('a', 2);
     // Baseline (no computed) = 1 notification. With computed = at most 2 (one extra pass).
-    expect(notifyCount).toBeLessThanOrEqual(2)
-    expect(form.getState().values.c).toBe(5) // a=2 → b=4 → c=5
-  })
-})
+    expect(notifyCount).toBeLessThanOrEqual(2);
+    expect(form.getState().values.c).toBe(5); // a=2 → b=4 → c=5
+  });
+});

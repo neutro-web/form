@@ -95,13 +95,15 @@ export function useSolidWatch<T extends object>(
   form: FormInstance<T>,
   paths: Array<Path<T> | string> | Path<T> | string
 ): () => Record<string, unknown> {
-  const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[]
-  const initial: Record<string, unknown> = {}
-  pathArray.forEach(p => { initial[p] = form.get(p as any) })
+  const pathArray = (Array.isArray(paths) ? paths : [paths]) as string[];
+  const initial: Record<string, unknown> = {};
+  pathArray.forEach((p) => {
+    initial[p] = form.get(p as any);
+  });
 
-  const [watched, setWatched] = createSignal<Record<string, unknown>>(initial)
-  const stop = form.watch(pathArray, (vals) => setWatched({ ...vals }))
-  onCleanup(stop)
+  const [watched, setWatched] = createSignal<Record<string, unknown>>(initial);
+  const stop = form.watch(pathArray, (vals) => setWatched({ ...vals }));
+  onCleanup(stop);
 
-  return watched
+  return watched;
 }

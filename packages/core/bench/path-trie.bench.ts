@@ -1,14 +1,12 @@
-import { bench, describe } from 'vitest'
-import { createForm } from '../src/index'
+import { bench, describe } from 'vitest';
+import { createForm } from '../src/index';
 
-const initialValues = Object.fromEntries(
-  Array.from({ length: 50 }, (_, i) => [`field${i}`, ''])
-)
+const initialValues = Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`field${i}`, '']));
 
 describe('set() overhead with path trie (dev mode)', () => {
-  const form = createForm({ initialValues })
+  const form = createForm({ initialValues });
 
   bench('set() with 50-field form + trie check', () => {
-    form.set('field0', 'x')
-  })
-})
+    form.set('field0', 'x');
+  });
+});

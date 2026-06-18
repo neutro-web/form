@@ -51,22 +51,24 @@ export function useWatch<T extends object>(
   form: FormInstance<T>,
   paths: Path<T> | string | Array<Path<T> | string>
 ): Record<string, unknown> {
-  const pathArray = Array.isArray(paths) ? paths : [paths]
-  const pathsKey = pathArray.join(',')
+  const pathArray = Array.isArray(paths) ? paths : [paths];
+  const pathsKey = pathArray.join(',');
 
   const [watched, setWatched] = React.useState<Record<string, unknown>>(() => {
-    const snap: Record<string, unknown> = {}
-    pathArray.forEach(p => { snap[p as string] = form.get(p as any) })
-    return snap
-  })
+    const snap: Record<string, unknown> = {};
+    pathArray.forEach((p) => {
+      snap[p as string] = form.get(p as any);
+    });
+    return snap;
+  });
 
   React.useEffect(() => {
-    const stop = form.watch(paths, (vals) => setWatched({ ...vals }))
-    return stop
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, pathsKey])
+    const stop = form.watch(paths, (vals) => setWatched({ ...vals }));
+    return stop;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, pathsKey]);
 
-  return watched
+  return watched;
 }
 
 // Zero-rerender hook: wires a DOM input directly via form.connect() without
