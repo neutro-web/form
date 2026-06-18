@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.3.0](https://github.com/neutro-web/form/compare/v0.2.0...v0.3.0) (2026-06-18)
+
+
+### Features
+
+* add missing tests and playground demos for v0.3.0 ([5061067](https://github.com/neutro-web/form/commit/506106746caf31dad86cc144b93b5e9c0df22591))
+* **core,adapters:** add watch() multi-path subscription + framework hooks ([9cd5ada](https://github.com/neutro-web/form/commit/9cd5adab5c5ce6de1ef05c5554734c8a950ab0e5))
+* **core,adapters:** isDirty() and isFieldDirty(path) predicate methods ([1d1e454](https://github.com/neutro-web/form/commit/1d1e4540c37b7800a6de2f6b6fa24566fbee4799))
+* **core,adapters:** isFieldValid(path) per-field validity predicate with array-op index tracking ([7d5c534](https://github.com/neutro-web/form/commit/7d5c5349271a4228d9266678a733b93c09b7bdcb))
+* **core:** add type-level tests for schema type inference (Feature 5) ([2fa2877](https://github.com/neutro-web/form/commit/2fa2877d05bb804e57190fe481a9d62d20b1dc05))
+* **core:** focus(path) and focusFirstError() programmatic focus via connectionRegistry ([9e46c97](https://github.com/neutro-web/form/commit/9e46c97c2d260b459cd757e45d37584759b0c9cc))
+* **core:** runtime wildcard resolution for nested array dependencies (destinations.*.url pattern) ([2bacca7](https://github.com/neutro-web/form/commit/2bacca7fb333d0b519900acbdbabd17222d7f2a6))
+* **core:** submissionAttempts + lastSubmittedValues state; onSubmitSuccess/onSubmitError lifecycle hooks ([fd95ecc](https://github.com/neutro-web/form/commit/fd95eccac94e746b4799a9d0d38e9033b3c2d13c))
+* **core:** wildcard MIME type matching for fileTypes rule (image/*, video/*) ([fd54a02](https://github.com/neutro-web/form/commit/fd54a028ef1e4e770c6abed13f88c2a7b57d4a85))
+* **playground:** add v0.3.0 feature demos ([ab4b952](https://github.com/neutro-web/form/commit/ab4b9524c7f7a843b94a303950c78e772867d67c))
+
+
+### Bug Fixes
+
+* **adapters:** NgZone guard in useAngularWatch; seed initial values; stable dep in useWatch ([7758c95](https://github.com/neutro-web/form/commit/7758c95e1ea252b0fb78f8a3ea0b76a60b82e823))
+* **bench:** add .js extensions and explicit types for NodeNext moduleResolution ([683f1f2](https://github.com/neutro-web/form/commit/683f1f202cde740e98a117ffb8308314b8c08811))
+* **core:** correctly renumber validatedPaths on arrayRemove (drop removed, renumber survivors) ([ca013be](https://github.com/neutro-web/form/commit/ca013becfd392e523ad929a49e1fd8d47cc70c49))
+* **core:** epoch guard on validatedPaths population; add arrayMove/Swap isFieldValid tests ([89917c3](https://github.com/neutro-web/form/commit/89917c3641e69606ecec2ea895c61698030a527b))
+* **core:** harden matchesMimeType against degenerate image/ MIME; add FileList wildcard test ([0540c3c](https://github.com/neutro-web/form/commit/0540c3c853cff477b4090dd6d133ddcf14fd99a0))
+* **core:** isWildcardEntry uses key-only wildcard check ([b9d9cec](https://github.com/neutro-web/form/commit/b9d9cecd14b6a06ed6e94c9a326767720398771c))
+* **core:** security and fault-tolerance hardening (v0.3.0) ([62a6a40](https://github.com/neutro-web/form/commit/62a6a40b49c660fd41521c0c70b8059e623380fe))
+* **core:** track wasSet for all array mutation operations (arrayInsert/Remove/Move/Swap) ([7193374](https://github.com/neutro-web/form/commit/71933743a8bc77eccfa5b7785fa9614864d0a4be))
+* **lint:** commit biome formatting fixes for path-trie and test files ([fc40dfd](https://github.com/neutro-web/form/commit/fc40dfdb9ac5657d21ad9e1b1fb87b68eb1d4ebb))
+* **lint:** resolve all pre-existing Biome violations in core and adapters ([1ffe20d](https://github.com/neutro-web/form/commit/1ffe20d778fbf19d964c172d9167844bd6372aef))
+* **playground:** remove agwForm global, move Performance Lab to end ([b0fcfb3](https://github.com/neutro-web/form/commit/b0fcfb3080e98f145942d9a4fa293c1a3339c972))
+* **playground:** URL persistence, watch start/stop, and reset buttons ([0dbeaa4](https://github.com/neutro-web/form/commit/0dbeaa44b5206136c29b2aa093828591085a13fa))
+* **playground:** use local bundle in all iframes; add Angular watch demo ([46ff305](https://github.com/neutro-web/form/commit/46ff305070aa830664c340b35c6d87ca4e48d48b))
+
+
+### Documentation
+
+* add v0.3.0 feature design spec ([26fac7d](https://github.com/neutro-web/form/commit/26fac7d802a60fddef8f03d7b6d8717ef98977fa))
+* **core:** clarify computed fields prototype status in code and tests ([8cd96f5](https://github.com/neutro-web/form/commit/8cd96f50970581e5c1816a218773d700e3d7d27c))
+* fix API accuracy across all guides and API reference ([c40a50c](https://github.com/neutro-web/form/commit/c40a50c675e877e3dab35285634c8bc99d1f4a55))
+* **spec:** apply full review fixes to v0.3.0 design ([7609609](https://github.com/neutro-web/form/commit/76096091cdf0c05b7bd02d799a8b15922000bd4b))
+* **spec:** update v0.3.0 design — naming, wildcard, prototype briefs ([e9e0445](https://github.com/neutro-web/form/commit/e9e0445381c224649162eca1089a20065c8ebce0))
+* v0.3.0 API reference, framework watch hooks, TypeScript guide, community FAQ ([c828ecd](https://github.com/neutro-web/form/commit/c828ecd0e053b919d351ba9b6390a230eefd484e))
+
 ## [0.2.0](https://github.com/neutro-web/form/compare/v0.1.0...v0.2.0) (2026-06-17)
 
 
