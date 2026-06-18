@@ -225,70 +225,70 @@ describe('connect() — validateOn ConnectOptions override', () => {
 
 describe('focus() and focusFirstError()', () => {
   test('focus() focuses the connected element and returns true', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    const input = document.createElement('input')
-    document.body.appendChild(input)
-    form.connect('email', input)
-    const result = form.focus('email')
-    expect(result).toBe(true)
-    expect(document.activeElement).toBe(input)
-    document.body.removeChild(input)
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    form.connect('email', input);
+    const result = form.focus('email');
+    expect(result).toBe(true);
+    expect(document.activeElement).toBe(input);
+    document.body.removeChild(input);
+  });
 
   test('focus() returns false when no element is connected for path', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    const result = form.focus('email')
-    expect(result).toBe(false)
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    const result = form.focus('email');
+    expect(result).toBe(false);
+  });
 
   test('focus() returns false when element is removed from DOM', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    const input = document.createElement('input')
-    document.body.appendChild(input)
-    form.connect('email', input)
-    document.body.removeChild(input)
-    const result = form.focus('email')
-    expect(result).toBe(false)
-  })
+    const form = createForm({ initialValues: { email: '' } });
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    form.connect('email', input);
+    document.body.removeChild(input);
+    const result = form.focus('email');
+    expect(result).toBe(false);
+  });
 
   test('focusFirstError() focuses first error element in DOM order', async () => {
     const form = createForm({
       initialValues: { email: '', username: '' },
       rules: { email: ['email'], username: ['required'] },
-    })
-    const emailInput = document.createElement('input')
-    const usernameInput = document.createElement('input')
+    });
+    const emailInput = document.createElement('input');
+    const usernameInput = document.createElement('input');
     // usernameInput first in DOM, emailInput second
-    document.body.appendChild(usernameInput)
-    document.body.appendChild(emailInput)
-    form.connect('username', usernameInput)
-    form.connect('email', emailInput)
+    document.body.appendChild(usernameInput);
+    document.body.appendChild(emailInput);
+    form.connect('username', usernameInput);
+    form.connect('email', emailInput);
     // Both fields have errors
-    form.set('email', 'not-an-email')
-    await form.validate()
-    const result = form.focusFirstError()
-    expect(result).toBe(true)
+    form.set('email', 'not-an-email');
+    await form.validate();
+    const result = form.focusFirstError();
+    expect(result).toBe(true);
     // usernameInput is first in DOM — it should receive focus
-    expect(document.activeElement).toBe(usernameInput)
-    document.body.removeChild(emailInput)
-    document.body.removeChild(usernameInput)
-  })
+    expect(document.activeElement).toBe(usernameInput);
+    document.body.removeChild(emailInput);
+    document.body.removeChild(usernameInput);
+  });
 
   test('focusFirstError() returns false when there are no errors', async () => {
-    const form = createForm({ initialValues: { email: 'a@b.com' }, rules: { email: ['email'] } })
-    const input = document.createElement('input')
-    document.body.appendChild(input)
-    form.connect('email', input)
-    await form.validate()
-    const result = form.focusFirstError()
-    expect(result).toBe(false)
-    document.body.removeChild(input)
-  })
+    const form = createForm({ initialValues: { email: 'a@b.com' }, rules: { email: ['email'] } });
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    form.connect('email', input);
+    await form.validate();
+    const result = form.focusFirstError();
+    expect(result).toBe(false);
+    document.body.removeChild(input);
+  });
 
   test('focusFirstError() returns false when errors exist but no connected element', () => {
-    const form = createForm({ initialValues: { email: '' } })
-    form.setErrors({ email: 'Required' })
-    const result = form.focusFirstError()
-    expect(result).toBe(false)
-  })
-})
+    const form = createForm({ initialValues: { email: '' } });
+    form.setErrors({ email: 'Required' });
+    const result = form.focusFirstError();
+    expect(result).toBe(false);
+  });
+});

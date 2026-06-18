@@ -5,9 +5,9 @@ import {
   type GetPathValue,
   type Path,
   type SetOptions,
-  zodAdapter,
-  yupAdapter,
   valibotAdapter,
+  yupAdapter,
+  zodAdapter,
 } from '../src/index';
 
 interface SignupValues {
@@ -190,9 +190,7 @@ describe('Feature 5: Schema type inference', () => {
   it('zodAdapter<T> returns a function typed (values: T) => Record<string,string>', () => {
     type SchemaValues = { email: string; username: string };
     const adapted = zodAdapter<SchemaValues>(mockZodSchema);
-    expectTypeOf(adapted).toEqualTypeOf<
-      (values: SchemaValues) => Record<string, string>
-    >();
+    expectTypeOf(adapted).toEqualTypeOf<(values: SchemaValues) => Record<string, string>>();
   });
 
   it('yupAdapter<T> returns a function typed (values: T) => Promise<Record<string,string>>', () => {
@@ -206,9 +204,7 @@ describe('Feature 5: Schema type inference', () => {
   it('valibotAdapter<T> returns a function typed (values: T) => Record<string,string>', () => {
     type SchemaValues = { name: string; age: number };
     const adapted = valibotAdapter<SchemaValues>(mockValibotSchema);
-    expectTypeOf(adapted).toEqualTypeOf<
-      (values: SchemaValues) => Record<string, string>
-    >();
+    expectTypeOf(adapted).toEqualTypeOf<(values: SchemaValues) => Record<string, string>>();
   });
 
   it('getState().values reflects the inferred T', () => {
