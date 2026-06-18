@@ -34,6 +34,21 @@ pnpm docs:build    # build static site to docs/.vitepress/dist
 pnpm docs:preview  # preview the built site locally
 ```
 
+## Pre-push checklist (must match CI exactly)
+
+The CI pipeline runs these steps in order. Lefthook enforces the same sequence on pre-push, so a local pass means CI will pass.
+
+| Step | Command | Common failure |
+|---|---|---|
+| Lint | `pnpm lint` (`biome check packages vitest.config.ts`) | Biome formatted a file but it was never staged — run `git add` after any biome write |
+| Type check | `pnpm exec tsc --noEmit` | Missing `.js` extensions on relative imports (NodeNext requirement), or implicit `any` |
+| Build | `pnpm build` | Missing export, bad import path |
+| Test | `pnpm test` | Failing assertions |
+
+**Key rule:** If you run `pnpm exec biome check --write` or `biome check --write --unsafe`, always `git add` the changed files before committing. Biome edits the working tree but does not stage — pushing without staging will fail CI even though local lint passes.
+
+**NodeNext imports:** All relative imports in `packages/` must use `.js` extensions (e.g. `from '../src/index.js'`), even though the actual file is `.ts`. This applies to bench files, adapter source, and any new files added under `packages/`.
+
 ## Architecture
 
 This is a pnpm monorepo. The published packages live under `packages/`. Two root-level `.ts` files (`production_grade_ts_engine.ts`, `framework_reactivity_adapters.ts`) are **orphan drafts** — earlier monolithic versions that predate the package structure. Do not edit them as source of truth; reconcile changes into the packages instead.

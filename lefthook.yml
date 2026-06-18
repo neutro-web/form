@@ -2,6 +2,8 @@ pre-push:
   commands:
     lint:
       run: pnpm lint
+    typecheck:
+      run: pnpm exec tsc --noEmit
     build:
       run: pnpm build
     test:
