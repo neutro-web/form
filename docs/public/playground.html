@@ -269,7 +269,7 @@ function makeReactIframe(jsx, extraSetup = '') {
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"><\/script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"><\/script>
 <script type="module">
-import { createForm } from 'https://esm.sh/@neutro/form@0.1.0/core';
+import { createForm } from '${BASE_URL}form-core.esm.js';
 window.createForm = createForm;
 <\/script>
 <script>
@@ -298,7 +298,7 @@ function makeVueIframe(setup, template) {
 <div id="app"><\/div>
 <script src="https://unpkg.com/vue@3.4.31/dist/vue.global.prod.js"><\/script>
 <script type="module">
-import { createForm } from 'https://esm.sh/@neutro/form@0.1.0/core';
+import { createForm } from '${BASE_URL}form-core.esm.js';
 const { createApp, ref, shallowRef, computed, onUnmounted, readonly } = Vue;
 function useVueForm(form) {
   const state = shallowRef(form.getState());
@@ -377,7 +377,7 @@ function makeSvelteIframe(svelteSource) {
 <div id="root"><\/div>
 <script type="module">
 import { compile } from 'https://esm.sh/svelte@4.1.2/compiler';
-import { createForm } from 'https://esm.sh/@neutro/form@0.1.0/core';
+import { createForm } from '${BASE_URL}form-core.esm.js';
 window.createForm = createForm;
 const src = ${jsonSrc};
 try {
@@ -426,7 +426,7 @@ function makeSolidIframe(code) {
 import{createSignal,createEffect,onCleanup,For,Show,createMemo}from'https://esm.sh/solid-js@1.8.17';
 import{render}from'https://esm.sh/solid-js@1.8.17/web';
 import html from'https://esm.sh/solid-js@1.8.17/html';
-import { createForm } from 'https://esm.sh/@neutro/form@0.1.0/core';
+import { createForm } from '${BASE_URL}form-core.esm.js';
 
 function useSolidForm(form) {
   const [s, set] = createSignal(form.getState(), { equals: false });
@@ -471,7 +471,7 @@ import '${esm}/@angular/compiler@${NGV}';
 import { Injectable, Component, inject, signal, NgZone } from '${esm}/@angular/core@${NGV}';
 import { NgIf } from '${esm}/@angular/common@${NGV}';
 import { bootstrapApplication } from '${esm}/@angular/platform-browser@${NGV}';
-import { createForm, classValidatorAdapter } from '${esm}/@neutro/form@0.1.0/core';
+import { createForm, classValidatorAdapter } from '${BASE_URL}form-core.esm.js';
 
 // Plain JS class — in a real Angular project this would carry
 // class-validator decorators (@IsEmail, @MinLength) and you'd
@@ -582,7 +582,7 @@ import '${esm}/@angular/compiler@${NGV}';
 import { Injectable, Component, inject, signal, NgZone } from '${esm}/@angular/core@${NGV}';
 import { NgIf } from '${esm}/@angular/common@${NGV}';
 import { bootstrapApplication } from '${esm}/@angular/platform-browser@${NGV}';
-import { createForm } from '${esm}/@neutro/form@0.1.0/core';
+import { createForm } from '${BASE_URL}form-core.esm.js';
 
 class _FormService {
   _form = createForm({
@@ -5215,9 +5215,8 @@ const watched = useSvelteWatch(form, ['email', 'username']);
 // In template: $watched.email, $watched.username`,
 iframeHtml: makeSvelteIframe(`
 <script>
-  import { createForm } from '@neutro/form/core';
   import { readable, writable } from 'svelte/store';
-  import { onDestroy } from 'svelte';
+  const createForm = window.createForm;
 
   const form = createForm({
     initialValues: { email: '', username: '', password: '' },
@@ -5412,6 +5411,90 @@ export class FormService {
   reset() { this.form.reset(); this.wasSubmitted.set(false); }
 }`,
 iframeHtml: makeClassValidatorIframe(),
+},
+{
+title: 'watch() — Targeted Signal Updates',
+desc: 'form.watch(paths, cb) fires only when the specified paths change. Here it feeds an Angular signal so the preview component re-renders only on email/username changes — not on password input.',
+code: `// In your service or component:
+import { signal } from '@angular/core';
+import { createForm } from '@neutro/form/core';
+
+const form = createForm({ initialValues: { email: '', username: '', password: '' } });
+
+const watched = signal({ email: '', username: '' });
+const stop = form.watch(['email', 'username'], vals => {
+  this.zone.run(() => watched.set({ ...vals }));
+});`,
+iframeHtml: (() => {
+  const NGV = '19';
+  const esm = 'https://esm.sh';
+  return `<!DOCTYPE html><html><head><style>${IFRAME_CSS}
+main{max-width:420px;margin:1rem auto;}
+h3{font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8b949e;margin:12px 0 6px;}
+<\/style><\/head><body>
+<app-root>Loading…<\/app-root>
+<script type="module">
+import '${esm}/zone.js@0.16.2';
+import '${esm}/@angular/compiler@${NGV}';
+import { Injectable, Component, inject, signal, NgZone } from '${esm}/@angular/core@${NGV}';
+import { JsonPipe } from '${esm}/@angular/common@${NGV}';
+import { bootstrapApplication } from '${esm}/@angular/platform-browser@${NGV}';
+import { createForm } from '${BASE_URL}form-core.esm.js';
+
+class _WatchService {
+  _zone = inject(NgZone);
+  _form = createForm({ initialValues: { email: '', username: '', password: '' } });
+  watched = signal({ email: '', username: '' });
+  _stop = null;
+  constructor() {
+    this._stop = this._form.watch(['email', 'username'], vals => {
+      this._zone.run(() => this.watched.set({ email: vals.email || '', username: vals.username || '' }));
+    });
+  }
+  set(path, value) { this._form.set(path, value); }
+  get form() { return this._form; }
+}
+const WatchService = Injectable({ providedIn: 'root' })(_WatchService);
+
+class _AppComponent {
+  svc = inject(WatchService);
+}
+const AppComponent = Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [JsonPipe],
+  template: \`
+    <main>
+      <div class="field">
+        <label>Username <span style="color:#58a6ff;font-size:10px;">(watched)</span></label>
+        <input [value]="svc.form.get('username') || ''"
+               (input)="svc.set('username', $any($event).target.value)" />
+      </div>
+      <div class="field">
+        <label>Email <span style="color:#58a6ff;font-size:10px;">(watched)</span></label>
+        <input [value]="svc.form.get('email') || ''"
+               (input)="svc.set('email', $any($event).target.value)" />
+      </div>
+      <div class="field">
+        <label>Password <span style="color:#8b949e;font-size:10px;">(not watched)</span></label>
+        <input type="password" [value]="svc.form.get('password') || ''"
+               (input)="svc.set('password', $any($event).target.value)" />
+      </div>
+      <h3>watch() signal snapshot</h3>
+      <div class="box">{{ svc.watched() | json }}</div>
+    </main>
+  \`,
+})(_AppComponent);
+
+bootstrapApplication(AppComponent).catch(err => {
+  document.querySelector('app-root').textContent = '';
+  const pre = document.createElement('pre');
+  pre.style.cssText = 'color:red;padding:1rem;font-size:11px;white-space:pre-wrap';
+  pre.textContent = String(err);
+  document.body.appendChild(pre);
+});
+<\/script><\/body><\/html>`;
+})(),
 },
 ];
 // ─── APP STATE ────────────────────────────────────────────────────────────────
