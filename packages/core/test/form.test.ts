@@ -4237,6 +4237,119 @@ describe('nested array wildcard dependencies', () => {
     await form.validate(['items.0.url'])
     expect(form.isFieldValid('items.0.name')).not.toBeNull() // valid numeric index matched
   })
+
+  it('wildcard dep with zero matching items in array — no error', async () => {
+    const form = createForm({
+      initialValues: { destinations: [] as Array<{ url: string; name: string }> },
+      dependencies: { 'destinations.*.url': ['destinations.*.name'] },
+      validator: () => ({}),
+    })
+    // Should not throw when array is empty; validator runs and returns no errors
+    await form.validate(['destinations.0.url'])
+    // The path is added to validatedPaths and has no errors — isFieldValid returns true
+    expect(form.isFieldValid('destinations.0.url')).toBe(true)
+  })
+
+  it('scope merges wildcard dependents with static dependents for the same path', async () => {
+    const order: string[] = []
+    const form = createForm({
+      initialValues: { items: [{ qty: 0 }], summary: '', note: '' },
+      dependencies: {
+        'items.*.qty': ['summary'],
+        'note': ['summary'],
+      },
+      validator: (values) => {
+        order.push('validated')
+        return {}
+      },
+    })
+    await form.validate(['items.0.qty'])
+    // summary must be in the validated scope
+    expect(form.isFieldValid('summary')).not.toBeNull()
+  })
+
+  it('wildcard dep: abort signal fires when same path re-validated before first completes', async () => {
+    let aborted = false
+    const form = createForm({
+      initialValues: { items: [{ qty: 0 }, { qty: 0 }] },
+      dependencies: { 'items.*.qty': ['items.*.qty'] },
+      async validator(_values, _paths, signal) {
+        await new Promise<void>((resolve) => {
+          signal?.addEventListener('abort', () => { aborted = true; resolve() })
+          setTimeout(resolve, 200)
+        })
+        return {}
+      },
+    })
+    const p1 = form.validate(['items.0.qty'])
+    // Small delay then re-validate same path — should abort first
+    await new Promise(r => setTimeout(r, 10))
+    await form.validate(['items.0.qty'])
+    await p1
+    expect(aborted).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Runtime path validation — dev-only warnings
+// ---------------------------------------------------------------------------
+
+describe('runtime path validation — dev-only warnings', () => {
+  it('set() with a known path does not warn', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const form = createForm({ initialValues: { name: '', email: '' } })
+    form.set('name', 'Alice')
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it('set() with an unknown top-level path warns in dev', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const form = createForm({ initialValues: { name: '' } })
+    form.set('phone' as any, '555')
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('Unknown path')
+    )
+    spy.mockRestore()
+  })
+
+  it('set() with an unknown nested path warns', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const form = createForm({ initialValues: { address: { city: '' } } })
+    form.set('address.country' as any, 'UK')
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('Unknown path')
+    )
+    spy.mockRestore()
+  })
+
+  it('set() with a valid array index path does not warn', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const form = createForm({ initialValues: { items: [{ name: '' }] } })
+    form.set('items.0.name', 'Widget')
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it('set() with a non-existent array field warns', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const form = createForm({ initialValues: { items: [{ name: '' }] } })
+    form.set('items.0.weight' as any, 10)
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('Unknown path')
+    )
+    spy.mockRestore()
+  })
+
+  it('get() with an unknown path warns', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const form = createForm({ initialValues: { name: '' } })
+    form.get('ghost' as any)
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('Unknown path')
+    )
+    spy.mockRestore()
+  })
 })
 
 // ---------------------------------------------------------------------------

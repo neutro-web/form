@@ -3626,6 +3626,211 @@ run(el) {
 },
 },
 
+// ── Demo: Wildcard Dependency Graph ─────────────────────────────────────────
+{
+title: 'Wildcard Dependency Graph',
+desc: 'Use wildcard patterns like items.*.price in the dependency graph so that editing any array item\'s price automatically triggers validation of summary.total — without listing each index explicitly.',
+code: `const form = createForm({
+  initialValues: {
+    items: [
+      { name: 'Widget A', price: 10 },
+      { name: 'Widget B', price: 20 },
+    ],
+    summary: { total: 0 },
+  },
+  dependencies: {
+    'items.*.price': ['summary.total'],
+  },
+  validator(values) {
+    const total = values.items.reduce((sum, item) => sum + Number(item.price), 0);
+    const errors = {};
+    if (total > 100) errors['summary.total'] = \`Total $\${total} exceeds $100 budget\`;
+    return errors;
+  },
+});`,
+
+run(el) {
+  const form = createForm({
+    initialValues: {
+      items: [
+        { name: 'Widget A', price: 10 },
+        { name: 'Widget B', price: 20 },
+      ],
+      summary: { total: 0 },
+    },
+    dependencies: { 'items.*.price': ['summary.total'] },
+    validator(values) {
+      const total = (values.items || []).reduce((sum, item) => sum + Number(item.price || 0), 0);
+      const errors = {};
+      if (total > 100) errors['summary.total'] = `Total $${total} exceeds $100 budget`;
+      return errors;
+    },
+  });
+
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">Wildcard Dependency: items.*.price → summary.total</div>
+      <div style="margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:6px;margin-bottom:4px;">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);">Item</span>
+          <span style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);">Price</span>
+          <span></span>
+        </div>
+        <div id="wd-items"></div>
+      </div>
+      <div class="btn-row" style="margin-bottom:12px;">
+        <button class="btn primary" id="wd-add">+ Add item</button>
+        <button class="btn" id="wd-reset">Reset</button>
+      </div>
+      <div style="background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:4px;">summary.total validation</div>
+        <span class="badge b" id="wd-total-status">—</span>
+        <div class="ferr" id="wd-total-err" style="margin-top:6px;"></div>
+      </div>
+      <div class="sec">Validation log</div>
+      <div class="box" id="wd-log" style="max-height:120px;font-size:11px;">(edit a price to see wildcard deps fire…)</div>
+    </div>`;
+
+  const log = el.querySelector('#wd-log');
+  let logCount = 0;
+  const addLog = (msg) => {
+    logCount++;
+    const line = `[${logCount}] ${msg}`;
+    log.textContent = log.textContent.startsWith('(') ? line : log.textContent + '\n' + line;
+    log.scrollTop = log.scrollHeight;
+  };
+
+  const renderItems = () => {
+    const items = form.get('items') || [];
+    const container = el.querySelector('#wd-items');
+    container.innerHTML = '';
+    items.forEach((item, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 80px;gap:6px;margin-bottom:6px;align-items:center;';
+      row.innerHTML = `
+        <input id="wd-name-${i}" type="text" value="${item.name}" placeholder="Item name" />
+        <input id="wd-price-${i}" type="number" value="${item.price}" placeholder="0" min="0" />
+        <button class="btn danger sm" id="wd-rm-${i}" style="padding:4px 8px;font-size:11px;">Remove</button>`;
+      container.appendChild(row);
+
+      el.querySelector(`#wd-name-${i}`).addEventListener('input', e => {
+        form.set(`items.${i}.name`, e.target.value);
+      });
+      el.querySelector(`#wd-price-${i}`).addEventListener('input', async e => {
+        form.set(`items.${i}.price`, Number(e.target.value));
+        addLog(`items.${i}.price changed → validating with wildcard dep on summary.total`);
+        await form.validate([`items.${i}.price`]);
+      });
+      el.querySelector(`#wd-rm-${i}`).addEventListener('click', () => {
+        form.arrayRemove('items', i);
+        renderItems();
+        addLog(`item ${i} removed`);
+      });
+    });
+  };
+
+  const totalStatus = el.querySelector('#wd-total-status');
+  const totalErr = el.querySelector('#wd-total-err');
+  form.subscribe(state => {
+    const err = state.errors['summary.total'];
+    if (err) {
+      totalStatus.textContent = '✗ over budget'; totalStatus.className = 'badge r';
+      totalErr.textContent = err;
+    } else {
+      const valid = form.isFieldValid('summary.total');
+      totalStatus.textContent = valid === true ? '✓ within budget' : '—';
+      totalStatus.className = valid === true ? 'badge g' : 'badge b';
+      totalErr.textContent = '';
+    }
+  });
+
+  el.querySelector('#wd-add').addEventListener('click', () => {
+    form.arrayAppend('items', { name: 'New item', price: 0 });
+    renderItems();
+  });
+  el.querySelector('#wd-reset').addEventListener('click', () => {
+    form.reset();
+    renderItems();
+    log.textContent = '(edit a price to see wildcard deps fire…)';
+    logCount = 0;
+  });
+
+  renderItems();
+  return form;
+},
+},
+
+// ── Demo: Runtime Path Validation (Dev-Only) ─────────────────────────────────
+{
+title: 'Runtime Path Validation (Dev)',
+desc: 'In development, set() and get() warn in the console when you pass a path that doesn\'t exist in initialValues. The warning names the exact path so you can catch typos early. Disabled in production (process.env.NODE_ENV === "production").',
+code: `const form = createForm({
+  initialValues: { email: '', address: { city: '' } },
+});
+
+form.set('email', 'hi@example.com');      // ✓ known — no warning
+form.set('emial', 'typo');                // ✗ unknown — console.warn fires
+form.set('address.postcode', 'SW1A 1AA'); // ✗ unknown nested — console.warn fires
+form.get('address.city');                 // ✓ known — no warning`,
+
+run(el) {
+  el.innerHTML = `
+    <div class="df">
+      <div class="sec">Runtime Path Validation — Dev-Only</div>
+      <div class="fld">
+        <label>Email <span style="color:var(--t2);font-weight:400;text-transform:none;letter-spacing:0;">(initialValues: { email, address.city })</span></label>
+        <input id="rpv-email" type="text" placeholder="user@example.com" />
+      </div>
+      <div class="fld">
+        <label>City</label>
+        <input id="rpv-city" type="text" placeholder="London" />
+      </div>
+      <div class="sec" style="margin-top:8px;">Send unknown paths</div>
+      <div class="btn-row" style="margin-bottom:12px;">
+        <button class="btn danger" id="rpv-typo">set("emial", …) — typo</button>
+        <button class="btn danger" id="rpv-nested">set("address.postcode", …) — unknown nested</button>
+        <button class="btn" id="rpv-good">get("address.city") — valid</button>
+      </div>
+      <div class="sec">Console intercept</div>
+      <div class="box" id="rpv-log" style="max-height:160px;font-size:11px;">(warnings will appear here — also check DevTools console)</div>
+    </div>`;
+
+  const logEl = el.querySelector('#rpv-log');
+  let warnCount = 0;
+  const origWarn = console.warn.bind(console);
+  const interceptWarn = (...args) => {
+    origWarn(...args);
+    const msg = args.join(' ');
+    if (msg.includes('NeutroForm')) {
+      warnCount++;
+      logEl.textContent = (logEl.textContent.startsWith('(') ? '' : logEl.textContent + '\n') + `⚠ [${warnCount}] ${msg}`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+  };
+  console.warn = interceptWarn;
+
+  const form = createForm({ initialValues: { email: '', address: { city: '' } } });
+
+  el.querySelector('#rpv-email').addEventListener('input', e => form.set('email', e.target.value));
+  el.querySelector('#rpv-city').addEventListener('input', e => form.set('address.city', e.target.value));
+
+  el.querySelector('#rpv-typo').addEventListener('click', () => {
+    form.set('emial', 'oops@typo.com');
+  });
+  el.querySelector('#rpv-nested').addEventListener('click', () => {
+    form.set('address.postcode', 'SW1A 1AA');
+  });
+  el.querySelector('#rpv-good').addEventListener('click', () => {
+    const val = form.get('address.city');
+    logEl.textContent = (logEl.textContent.startsWith('(') ? '' : logEl.textContent + '\n') + `✓ get("address.city") = "${val}" — no warning`;
+    logEl.scrollTop = logEl.scrollHeight;
+  });
+
+  el._cleanup = () => { console.warn = origWarn; };
+  return form;
+},
+},
+
 // ── Step 20 ─────────────────────────────────────────────────────────────────
 {
 title: 'Performance Lab',
@@ -4150,6 +4355,79 @@ function App() {
   );
 }`)
 },
+{
+title: 'useWatch — Targeted Re-renders',
+desc: 'useWatch(form, paths) returns a snapshot of only the watched paths. The component only re-renders when those specific fields change — not on every form mutation. Ships as useWatch in @neutro/form/adapters/react.',
+code: `import { useWatch } from '@neutro/form/adapters/react';
+
+// Only re-renders when email or username changes
+function LivePreview({ form }) {
+  const watched = useWatch(form, ['email', 'username']);
+  return <div>Hello {watched.username} &lt;{watched.email}&gt;</div>;
+}`,
+iframeHtml: makeReactIframe(`
+const form = createForm({
+  initialValues: { email: '', username: '', password: '' },
+});
+
+// useWatch: subscribes to specific paths only
+function useWatch(form, paths) {
+  const pathArray = Array.isArray(paths) ? paths : [paths];
+  const [watched, setWatched] = React.useState(() => {
+    const snap = {};
+    pathArray.forEach(p => { snap[p] = form.get(p); });
+    return snap;
+  });
+  React.useEffect(() => {
+    return form.watch(pathArray, vals => setWatched({ ...vals }));
+  }, [pathArray.join(',')]);
+  return watched;
+}
+
+let renderCount = 0;
+
+function LivePreview({ form }) {
+  renderCount++;
+  const watched = useWatch(form, ['email', 'username']);
+  return (
+    <div>
+      <div className="box" style={{marginBottom:8}}>
+        Hello <b>{watched.username || '(username)'}</b> &lt;{watched.email || 'email@example.com'}&gt;
+      </div>
+      <div style={{fontSize:11,color:'#8b949e'}}>LivePreview render count: {renderCount}</div>
+      <div style={{fontSize:11,color:'#8b949e',marginTop:2}}>
+        (password changes do NOT increment this counter)
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const state = useForm(form);
+  return (
+    <div style={{maxWidth:340}}>
+      <div className="field">
+        <label>Username <span style={{color:'#58a6ff',fontSize:10}}>(watched)</span></label>
+        <input value={state.values.username || ''}
+          onChange={e => form.set('username', e.target.value)} />
+      </div>
+      <div className="field">
+        <label>Email <span style={{color:'#58a6ff',fontSize:10}}>(watched)</span></label>
+        <input value={state.values.email || ''}
+          onChange={e => form.set('email', e.target.value)} />
+      </div>
+      <div className="field">
+        <label>Password <span style={{color:'#8b949e',fontSize:10}}>(not watched)</span></label>
+        <input type="password" value={state.values.password || ''}
+          onChange={e => form.set('password', e.target.value)} />
+      </div>
+      <hr style={{borderColor:'#30363d',margin:'12px 0'}} />
+      <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em',color:'#8b949e',marginBottom:6}}>Live Preview (useWatch)</div>
+      <LivePreview form={form} />
+    </div>
+  );
+}`)
+},
 ];
 
 // ─── VUE TUTORIALS ───────────────────────────────────────────────────────────
@@ -4431,6 +4709,56 @@ iframeHtml: makeVueIframe(`
   </div>
 `)
 },
+{
+title: 'useVueWatch — Targeted Reactivity',
+desc: 'useVueWatch(form, paths) returns a readonly ref that updates only when the specified paths change. Other fields mutating will not trigger a re-render. Ships as useVueWatch in @neutro/form/adapters/vue.',
+code: `import { useVueWatch } from '@neutro/form/adapters/vue';
+
+const watched = useVueWatch(form, ['email', 'username']);
+// watched.value.email, watched.value.username are reactive`,
+iframeHtml: makeVueIframe(`
+  const form = createForm({
+    initialValues: { email: '', username: '', password: '' },
+  });
+
+  // useVueWatch: readonly ref updated only when watched paths change
+  function useVueWatch(form, paths) {
+    const pathArray = Array.isArray(paths) ? paths : [paths];
+    const watched = Vue.ref({});
+    pathArray.forEach(p => { watched.value[p] = form.get(p); });
+    let stop = form.watch(pathArray, vals => { watched.value = { ...vals }; });
+    Vue.onUnmounted(() => stop());
+    return Vue.readonly(watched);
+  }
+
+  const watched = useVueWatch(form, ['email', 'username']);
+  const password = Vue.ref('');
+
+  const setEmail    = e => form.set('email',    e.target.value);
+  const setUsername = e => form.set('username', e.target.value);
+  const setPassword = e => { form.set('password', e.target.value); password.value = e.target.value; };
+
+  return { watched, password, setEmail, setUsername, setPassword };
+`, `
+  <div style="max-width:340px">
+    <div class="field">
+      <label>Username <span style="color:#58a6ff;font-size:10px;">(watched)</span></label>
+      <input :value="watched.username || ''" @input="setUsername" />
+    </div>
+    <div class="field">
+      <label>Email <span style="color:#58a6ff;font-size:10px;">(watched)</span></label>
+      <input :value="watched.email || ''" @input="setEmail" />
+    </div>
+    <div class="field">
+      <label>Password <span style="color:#8b949e;font-size:10px;">(not watched)</span></label>
+      <input type="password" :value="password" @input="setPassword" />
+    </div>
+    <hr style="border-color:#30363d;margin:12px 0" />
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8b949e;margin-bottom:6px;">useVueWatch snapshot</div>
+    <div class="box">{{ JSON.stringify(watched, null, 2) }}</div>
+  </div>
+`)
+},
 ];
 
 // ─── SOLIDJS TUTORIALS ────────────────────────────────────────────────────────
@@ -4618,6 +4946,59 @@ function App() {
 }
 
 render(() => html\`<\${App}/>\`, document.getElementById('root'));
+`)
+},
+{
+title: 'useSolidWatch — Fine-Grained Watch',
+desc: 'useSolidWatch(form, paths) returns a signal that updates only when the specified paths change. Pairs with Solid\'s fine-grained reactivity. Ships as useSolidWatch in @neutro/form/adapters/solid.',
+code: `import { useSolidWatch } from '@neutro/form/adapters/solid';
+
+const watched = useSolidWatch(form, ['email', 'username']);
+// watched() returns { email, username }`,
+iframeHtml: makeSolidIframe(`
+const form = createForm({
+  initialValues: { email: '', username: '', password: '' },
+});
+
+function useSolidWatch(form, paths) {
+  const pathArray = Array.isArray(paths) ? paths : [paths];
+  const initial = {};
+  pathArray.forEach(p => { initial[p] = form.get(p); });
+  const [watched, setWatched] = createSignal(initial);
+  const stop = form.watch(pathArray, vals => setWatched({ ...vals }));
+  onCleanup(stop);
+  return watched;
+}
+
+function App() {
+  const state = useSolidForm(form);
+  const watched = useSolidWatch(form, ['email', 'username']);
+
+  return html\`
+    <div style="max-width:340px">
+      <div class="field">
+        <label>Username <span style="color:#58a6ff;font-size:10px;">(watched)</span></label>
+        <input value=\${() => state().values.username || ''}
+          onInput=\${e => form.set('username', e.target.value)} />
+      </div>
+      <div class="field">
+        <label>Email <span style="color:#58a6ff;font-size:10px;">(watched)</span></label>
+        <input value=\${() => state().values.email || ''}
+          onInput=\${e => form.set('email', e.target.value)} />
+      </div>
+      <div class="field">
+        <label>Password <span style="color:#8b949e;font-size:10px;">(not watched)</span></label>
+        <input type="password" value=\${() => state().values.password || ''}
+          onInput=\${e => form.set('password', e.target.value)} />
+      </div>
+      <hr style="border-color:#30363d;margin:12px 0" />
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8b949e;margin-bottom:6px;">useSolidWatch snapshot</div>
+      <div class="box">\${() => JSON.stringify(watched(), null, 2)}</div>
+    </div>
+  \`;
+}
+
+render(App, document.getElementById('root'));
 `)
 },
 ];
@@ -4824,6 +5205,56 @@ iframeHtml: makeSvelteIframe(`<script>
     <button on:click={() => { submitted = false; form.reset(); }}>Reset</button>
   </div>
 </div>`),
+},
+{
+title: 'useSvelteWatch — Reactive Store',
+desc: 'useSvelteWatch(form, paths) returns a Svelte readable store that updates only when the specified paths change. Subscribe with the $ prefix in templates. Ships as useSvelteWatch in @neutro/form/adapters/svelte.',
+code: `import { useSvelteWatch } from '@neutro/form/adapters/svelte';
+
+const watched = useSvelteWatch(form, ['email', 'username']);
+// In template: $watched.email, $watched.username`,
+iframeHtml: makeSvelteIframe(`
+<script>
+  import { createForm } from '@neutro/form/core';
+  import { readable, writable } from 'svelte/store';
+  import { onDestroy } from 'svelte';
+
+  const form = createForm({
+    initialValues: { email: '', username: '', password: '' },
+  });
+
+  function useSvelteWatch(form, paths) {
+    const pathArray = Array.isArray(paths) ? paths : [paths];
+    const initial = {};
+    pathArray.forEach(p => { initial[p] = form.get(p); });
+    return readable(initial, set => form.watch(pathArray, vals => set({ ...vals })));
+  }
+
+  const watched = useSvelteWatch(form, ['email', 'username']);
+  const password = writable('');
+
+  function setEmail(e)    { form.set('email',    e.target.value); }
+  function setUsername(e) { form.set('username', e.target.value); }
+  function setPassword(e) { form.set('password', e.target.value); password.set(e.target.value); }
+<\/script>
+
+<div style="max-width:340px">
+  <div class="field">
+    <label>Username <span style="color:#58a6ff;font-size:10px;">(watched)</span></label>
+    <input value={$watched.username || ''} on:input={setUsername} />
+  </div>
+  <div class="field">
+    <label>Email <span style="color:#58a6ff;font-size:10px;">(watched)</span></label>
+    <input value={$watched.email || ''} on:input={setEmail} />
+  </div>
+  <div class="field">
+    <label>Password <span style="color:#8b949e;font-size:10px;">(not watched)</span></label>
+    <input type="password" value={$password} on:input={setPassword} />
+  </div>
+  <hr style="border-color:#30363d;margin:12px 0" />
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8b949e;margin-bottom:6px;">useSvelteWatch store</div>
+  <div class="box">{JSON.stringify($watched, null, 2)}</div>
+</div>`)
 },
 ];
 const ANGULAR = [
