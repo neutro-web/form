@@ -1440,11 +1440,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // Always notify path subscribers immediately so controlled inputs see the new value
     // before async validation completes.
     notify(path);
-    // Prototype B: after the primary notify, recompute derived fields and fire a second
-    // notification if any computed value changed. This runs outside the batch so
-    // subscribers receive a distinct snapshot for the derived state.
+    // Notify path and global subscribers for any computed fields that changed.
     const changedComputedPaths = runComputedPass();
-    if (changedComputedPaths.length > 0) notify();
+    if (changedComputedPaths.length > 0) {
+      notifyPathSubscribers(changedComputedPaths);
+      notifyGlobalSubscribers(getState());
+    }
     if (options.validate === true) runValidation([path]);
   };
 

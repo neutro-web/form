@@ -4737,3 +4737,41 @@ describe('runComputedPass — pass limit and circular warning', () => {
     spy.mockRestore();
   });
 });
+
+describe('computed field — path subscriber notifications', () => {
+  test('subscribeToPath fires for a computed field when its source changes', () => {
+    type Form = { qty: number; total: number };
+    const form = createForm<Form>({
+      initialValues: { qty: 1, total: 0 },
+      computed: { total: { fn: (v) => v.qty * 10 } },
+    });
+    const received: number[] = [];
+    form.subscribeToPath('total', (v) => received.push(v as number));
+    form.set('qty', 3);
+    expect(received).toContain(30);
+  });
+
+  test('global subscribe receives updated computed values', () => {
+    type Form = { qty: number; total: number };
+    const form = createForm<Form>({
+      initialValues: { qty: 1, total: 0 },
+      computed: { total: { fn: (v) => v.qty * 10 } },
+    });
+    const snapshots: number[] = [];
+    form.subscribe((state) => snapshots.push(state.values.total));
+    form.set('qty', 5);
+    expect(snapshots).toContain(50);
+  });
+
+  test('nested computed path subscriber fires', () => {
+    type Form = { qty: number; pricing: { vat: number } };
+    const form = createForm<Form>({
+      initialValues: { qty: 1, pricing: { vat: 0 } },
+      computed: { pricing: { vat: { fn: (v) => v.qty * 2 } } },
+    });
+    const received: number[] = [];
+    form.subscribeToPath('pricing.vat', (v) => received.push(v as number));
+    form.set('qty', 4);
+    expect(received).toContain(8);
+  });
+});
