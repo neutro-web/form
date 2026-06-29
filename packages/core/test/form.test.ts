@@ -4902,3 +4902,37 @@ describe('pathValidation config', () => {
     spy.mockRestore();
   });
 });
+
+describe('setDynamic / getDynamic', () => {
+  test('setDynamic writes to a runtime-constructed path', () => {
+    const form = createForm({ initialValues: { items: [{ name: '' }] } });
+    form.setDynamic('items.0.name', 'Widget');
+    expect(form.getDynamic('items.0.name')).toBe('Widget');
+  });
+
+  test('getDynamic returns the current value at a path', () => {
+    const form = createForm({ initialValues: { qty: 5 } });
+    expect(form.getDynamic('qty')).toBe(5);
+    form.set('qty', 9);
+    expect(form.getDynamic('qty')).toBe(9);
+  });
+
+  test('setDynamic is a no-op on a computed path with dev warning', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    type Form = { qty: number; total: number };
+    const form = createForm<Form>({
+      initialValues: { qty: 1, total: 0 },
+      computed: { total: { fn: (v) => v.qty * 10 } },
+    });
+    form.setDynamic('total', 999);
+    expect(form.getDynamic('total')).toBe(10); // still derived
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('computed field'));
+    spy.mockRestore();
+  });
+
+  test('setDynamic marks the path dirty', () => {
+    const form = createForm({ initialValues: { qty: 1 } });
+    form.setDynamic('qty', 5);
+    expect(form.isFieldDirty('qty')).toBe(true);
+  });
+});

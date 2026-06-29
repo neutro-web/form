@@ -248,6 +248,8 @@ export interface FormInstance<T extends object> {
   ) => (e?: Event) => void;
   getState: () => FormState<T>;
   getPayload: () => Partial<T>;
+  setDynamic(path: string, value: unknown, options?: SetOptions): void;
+  getDynamic(path: string): unknown;
   getAriaProps: (path: Path<T> | string, options?: AriaPropsOptions) => AriaProps;
   batch: (fn: () => void) => void;
   arrayAppend<P extends Path<T> | (string & {})>(
@@ -2066,6 +2068,21 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     handleSubmit,
     getState,
     getPayload: () => _getPayload(values, connectionRegistry, connectedPaths, persistedPaths),
+
+    setDynamic: (path: string, value: unknown, options?: SetOptions): void => {
+      if (computedMap.has(path)) {
+        if (!__isProduction) {
+          console.warn(`[NeutroForm] "${path}" is a computed field — setDynamic() is a no-op.`);
+        }
+        return;
+      }
+      __warnUnknownPath(path);
+      setFieldValue(path, value, options ?? {});
+    },
+    getDynamic: (path: string): unknown => {
+      __warnUnknownPath(path);
+      return getNestedValue(values, path);
+    },
 
     getAriaProps: (path: Path<T> | string, options?: AriaPropsOptions): AriaProps => {
       const stringPath = path as string;
