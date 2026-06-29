@@ -81,6 +81,22 @@ The alias package is a zero-code shell: its `package.json` `exports` map re-rout
 
 **DOM bridge (`connect`):** Registers a `WeakRef<HTMLElement>` in `connectionRegistry`. A lazy `MutationObserver` on `document.body` fires whenever nodes are removed; it prunes GC'd or removed elements from the registry and clears their state (unless the path is in `persistedPaths`). `getPayload()` returns only values for paths that are currently connected or persisted — not the full form values object.
 
+### Release Flow
+
+Releases are gated on a `release` branch — pushing to `main` never triggers a release PR.
+
+**To cut a release:**
+1. `git push origin main:release` — pushes current main to the release branch
+2. release-please detects the push and opens a "chore: release vX.Y.Z" PR against `release`
+3. Merge the PR — release-please creates the `vX.Y.Z` tag and bumps all `package.json` files via `extra-files`
+4. The tag push triggers `publish.yml`, which runs tests, builds, and publishes `@neutro/form` to npm
+
+**Version sync:** `release-please-config.json` lists all 9 `package.json` files under `extra-files`. Every release PR bumps all of them in lockstep — no manual version edits needed.
+
+**`release-as` field:** `release-please-config.json` currently has `"release-as": "0.4.0"` to force the first release to that version (all commits since `0.3.0` were `fix:/docs:`, which would otherwise produce `0.3.1`). **Remove `release-as` from the config after `0.4.0` ships** so that subsequent releases follow normal semver bump rules from conventional commits.
+
+Only `@neutro/form` (the alias package) is published — all other packages are `"private": true` and are bundled into the alias.
+
 ### Documentation
 
 The VitePress documentation site lives in `docs/`. Source files are Markdown; the config is at `docs/.vitepress/config.ts`.

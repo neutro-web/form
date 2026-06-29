@@ -5,13 +5,24 @@
     ".": {
       "component": "form",
       "include-component-in-tag": false,
+      "release-as": "0.4.0",
       "version-file": "packages/alias/package.json",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        { "type": "json", "path": "package.json",                          "jsonpath": "$.version" },
+        { "type": "json", "path": "packages/core/package.json",            "jsonpath": "$.version" },
+        { "type": "json", "path": "packages/adapters/react/package.json",  "jsonpath": "$.version" },
+        { "type": "json", "path": "packages/adapters/vue/package.json",    "jsonpath": "$.version" },
+        { "type": "json", "path": "packages/adapters/svelte/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "packages/adapters/solid/package.json",  "jsonpath": "$.version" },
+        { "type": "json", "path": "packages/adapters/angular/package.json","jsonpath": "$.version" },
+        { "type": "json", "path": "packages/testing/package.json",         "jsonpath": "$.version" }
+      ]
     }
   },
   "changelog-sections": [
     { "type": "feat", "section": "Features" },
-    { "type": "fix", "section": "Bug Fixes" },
+    { "type": "fix",  "section": "Bug Fixes" },
     { "type": "perf", "section": "Performance" },
     { "type": "docs", "section": "Documentation", "hidden": false }
   ]
