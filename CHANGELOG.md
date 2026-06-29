@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/neutro-web/form/compare/v0.4.1...v0.4.2) (2026-06-29)
+
+
+### Bug Fixes
+
+* **ci:** restore NPM_TOKEN env var to match project .npmrc auth config ([f513bde](https://github.com/neutro-web/form/commit/f513bde9e509cb1721df47994974c84945cf336d))
+
 ## [0.4.1](https://github.com/neutro-web/form/compare/v0.4.0...v0.4.1) (2026-06-29)
 
 
