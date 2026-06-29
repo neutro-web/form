@@ -55,6 +55,7 @@ export default defineConfig({
             { text: 'Multi-Step Forms', link: '/guides/multi-step-forms' },
             { text: 'TypeScript', link: '/guides/typescript' },
             { text: 'Persistence', link: '/guides/persistence' },
+            { text: 'Computed Fields', link: '/guides/computed-fields' },
           ],
         },
       ],
