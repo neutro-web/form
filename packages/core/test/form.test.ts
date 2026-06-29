@@ -4714,6 +4714,9 @@ describe('runComputedPass — pass limit and circular warning', () => {
         y: { fn: (v) => v.x + 1 },
       },
     });
+    // Clear spy after init (init itself also triggers runComputedPass).
+    // This isolates the assertion to the set() codepath specifically.
+    spy.mockClear();
     form.set('source', 1);
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('did not stabilize'));
     spy.mockRestore();

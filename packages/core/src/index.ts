@@ -1075,8 +1075,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   /**
    * Re-evaluates all computed fields against current `values`.
    * Runs up to `computedPassLimit` passes (default 5) to resolve chained
-   * dependencies. Emits a console.warn if the fields never stabilize (circular
-   * dependency). Returns an array of unique paths whose values changed.
+   * dependencies. Fields are updated in-place per pass, so forward-declared chains
+   * (b before c when c depends on b) resolve in a single pass. Reverse-declared
+   * chains need one extra pass — with the default limit of 5 any acyclic chain up
+   * to 5 levels deep resolves regardless of declaration order.
+   * Emits a console.warn if the fields never stabilize (circular dependency).
+   * Returns an array of unique paths whose values changed.
    */
   const runComputedPass = (): string[] => {
     if (computedMap.size === 0) return [];
