@@ -1068,6 +1068,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           return 300;
         })();
 
+  // Re-evaluate production flag per form instance so tests can toggle NODE_ENV between instances.
+  const __isProdLocal = ((): boolean => {
+    try {
+      return (globalThis as any).process?.env?.NODE_ENV === 'production';
+    } catch {
+      return false;
+    }
+  })();
+
   // ---------------------------------------------------------------------------
   // Computed / Derived Fields (v0.4.0 stable API)
   // ---------------------------------------------------------------------------
@@ -1112,7 +1121,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         try {
           newVal = fn(values);
         } catch (err) {
-          if (!__isProduction) {
+          if (!__isProdLocal) {
             console.error(`[NeutroForm] computed fn for "${path}" threw an error:`, err);
           }
           continue;
@@ -1132,8 +1141,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // pass (no updates) to distinguish genuine instability from "last pass happened to
     // do real work". A flat field with computedPassLimit: 1 is stable after 1 pass even
     // though the loop never saw a no-change pass.
+    const stillChangingPaths: string[] = [];
     if (!stabilized) {
-      const stillChangingPaths: string[] = [];
       for (const [path, { fn }] of computedMap) {
         try {
           if (!isDeepEqual(fn(values), getNestedValue(values, path))) {
@@ -1145,11 +1154,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
       if (stillChangingPaths.length === 0) stabilized = true;
     }
-    // Remove the `!__isProduction` guard — circular deps are always bugs, warn unconditionally:
     if (!stabilized) {
       console.warn(
         `[NeutroForm] Computed fields did not stabilize after ${limit} passes. ` +
-          `Check for circular dependencies. Still changing: ${[...changedPathsSet].join(', ')}`
+          `Check for circular dependencies. Still changing: ${stillChangingPaths.join(', ')}`
       );
     }
     return [...changedPathsSet];
@@ -1157,17 +1165,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
   runComputedPass(); // seed computed values at init
   const __pathValidation = config.pathValidation ?? 'dev';
-  // Re-evaluate production flag at form-creation time (not module load) so test environments
-  // can toggle NODE_ENV between form instances.
-  const __isProductionAtInit = (() => {
-    try {
-      return (globalThis as any).process?.env?.NODE_ENV === 'production';
-    } catch {
-      return false;
-    }
-  })();
   const __shouldBuildTrie =
-    __pathValidation !== 'off' && !(__pathValidation === 'dev' && __isProductionAtInit);
+    __pathValidation !== 'off' && !(__pathValidation === 'dev' && __isProdLocal);
   // Runtime path validation: builds a trie from initialValues for unknown-path detection.
   const __devPathTrie = __shouldBuildTrie ? buildPathTrie(values) : null;
 
@@ -1465,7 +1464,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     options: { touch?: boolean; validate?: boolean } = {}
   ) => {
     if (computedMap.has(path)) {
-      if (!__isProduction) {
+      if (!__isProdLocal) {
         console.warn(`[NeutroForm] "${path}" is a computed field — set() is a no-op.`);
       }
       return;
@@ -1481,15 +1480,23 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       if (options.touch) touched[path] = true;
     });
     if (computedMap.size > 0) {
-      // Path subscribers fire immediately (unblocks controlled inputs before computed pass).
-      // Global subscribers fire only once, after the computed pass resolves fully consistent state.
-      notifyPathSubscribers([path]);
-      const changedComputedPaths = runComputedPass();
-      if (changedComputedPaths.length > 0) {
-        notifyPathSubscribers(changedComputedPaths);
-      }
-      if (globalSubscribers.size > 0) {
-        notifyGlobalSubscribers(getState());
+      if (batchDepth > 0) {
+        // Inside an outer batch: run computed pass to keep values consistent,
+        // but defer all notifications until the batch flushes.
+        const changedComputedPaths = runComputedPass();
+        pendingPaths.add(path);
+        for (const cp of changedComputedPaths) pendingPaths.add(cp);
+      } else {
+        // Outside any batch: fire path subscribers immediately for controlled-input UX,
+        // then run computed pass and notify once for computed changes + global state.
+        notifyPathSubscribers([path]);
+        const changedComputedPaths = runComputedPass();
+        if (changedComputedPaths.length > 0) {
+          notifyPathSubscribers(changedComputedPaths);
+        }
+        if (globalSubscribers.size > 0) {
+          notifyGlobalSubscribers(getState());
+        }
       }
     } else {
       notify(path);
@@ -2108,15 +2115,32 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     subscribeToPath,
 
     subscribeToPathDynamic: (path: string, fn: (value: unknown) => void): (() => void) => {
+      if (path == null || typeof path !== 'string') {
+        if (!__isProdLocal)
+          console.error('[NeutroForm] subscribeToPathDynamic requires a non-null string path.');
+        return () => {};
+      }
+      if (path === '') {
+        if (!__isProdLocal)
+          console.warn('[NeutroForm] subscribeToPathDynamic called with empty path — ignoring.');
+        return () => {};
+      }
       __warnUnknownPath(path);
-      // Reuse the same internal pathSubscribers mechanism
       if (!pathSubscribers.has(path)) pathSubscribers.set(path, new Set());
       const sub = fn as PathSubscriber;
       pathSubscribers.get(path)?.add(sub);
-      // Fire immediately with current value
-      fn(getNestedValue(values, path));
+      // Fire immediately with deep-cloned value (consistent with subscribeToPath)
+      try {
+        fn(deepClone(getNestedValue(values, path)));
+      } catch (err) {
+        console.error('[NeutroForm] subscribeToPathDynamic subscriber threw on initial call:', err);
+      }
       return () => {
-        pathSubscribers.get(path)?.delete(sub);
+        const listeners = pathSubscribers.get(path);
+        if (listeners) {
+          listeners.delete(sub);
+          if (listeners.size === 0) pathSubscribers.delete(path); // prune empty Set
+        }
       };
     },
 
@@ -2165,29 +2189,34 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
     setDynamic: (path: string, value: unknown, options?: SetOptions): void => {
       if (path == null || typeof path !== 'string') {
-        if (!__isProduction)
+        if (!__isProdLocal)
           console.error('[NeutroForm] setDynamic requires a non-null string path.');
         return;
       }
       if (path === '') {
-        if (!__isProduction)
+        if (!__isProdLocal)
           console.warn('[NeutroForm] setDynamic called with empty path — ignoring.');
         return;
       }
       if (computedMap.has(path)) {
-        if (!__isProduction) {
+        if (!__isProdLocal) {
           console.warn(`[NeutroForm] "${path}" is a computed field — setDynamic() is a no-op.`);
         }
         return;
       }
       __warnUnknownPath(path);
       setFieldValue(path, value, options);
-      dispatchAction({ type: 'SET', path, value });
+      dispatchAction({ type: 'SET', path, value, options });
     },
     getDynamic: <V = unknown>(path: string): V => {
       if (path == null || typeof path !== 'string') {
-        if (!__isProduction)
+        if (!__isProdLocal)
           console.error('[NeutroForm] getDynamic requires a non-null string path.');
+        return undefined as V;
+      }
+      if (path === '') {
+        if (!__isProdLocal)
+          console.warn('[NeutroForm] getDynamic called with empty path — returning undefined.');
         return undefined as V;
       }
       __warnUnknownPath(path);
