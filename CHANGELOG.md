@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/neutro-web/form/compare/v0.4.2...v0.4.3) (2026-06-29)
+
+
+### Documentation
+
+* update version references from 0.4.0 to 0.4.2 ([623866d](https://github.com/neutro-web/form/commit/623866d8a3c89dd8686e19233290d7dfe6f7671f))
+
 ## [0.4.2](https://github.com/neutro-web/form/compare/v0.4.1...v0.4.2) (2026-06-29)
 
 
