@@ -6,7 +6,7 @@ Neutro is a collection of focused, zero-dependency primitives for the web. Each 
 
 | Package | Description | Status |
 |---|---|---|
-| [`@neutro/form`](https://github.com/neutro-web/form) | Reactive form engine for every framework | `v0.3.0` — stable |
+| [`@neutro/form`](https://github.com/neutro-web/form) | Reactive form engine for every framework | `v0.4.0` — stable |
 | `@neutro/fluid` | Physics-grounded glass material system for the web | In development |
 
 ---
@@ -366,9 +366,54 @@ const form = createForm({
 })
 ```
 
+#### How do I access the values from the last successful submission?
+
+Read `state.lastSubmittedValues`. It contains a deep snapshot of the form values at the moment the most recent successful submit completed, or `null` if no successful submission has occurred yet.
+
+```ts
+const state = form.getState()
+if (state.lastSubmittedValues) {
+  console.log('last submitted email:', state.lastSubmittedValues.email)
+}
+```
+
+This is useful for showing a "you changed X since your last save" diff or for conditional submit-button labelling.
+
+#### How do I know how many times the form has been submitted?
+
+Read `state.submissionAttempts`. It increments on every `submit()` call, including failed ones. Use it to show "Submit (attempt 3)" or to gate retry logic.
+
+```ts
+form.subscribe(({ submissionAttempts }) => {
+  if (submissionAttempts > 3) showExtraHelp()
+})
+```
+
 ---
 
 ### Dynamic Forms & Arrays
+
+#### How do I build a path at runtime when TypeScript can't infer it?
+
+Use `setDynamic` and `getDynamic`. These bypass the compile-time `Path<T>` constraint — useful when the path is computed from a variable, loop index, or user input.
+
+```ts
+const index = selectedRow
+const namePath = `items.${index}.name`
+
+form.setDynamic(namePath, 'Updated name')
+const current = form.getDynamic(namePath) // returns unknown
+```
+
+For subscriptions to runtime paths, use `subscribeToPathDynamic`:
+
+```ts
+const unsub = form.subscribeToPathDynamic(namePath, (value) => {
+  console.log('field changed:', value)
+})
+// later:
+unsub()
+```
 
 #### How do I add and remove fields at runtime?
 
@@ -401,6 +446,41 @@ Validation paths follow the same notation: `'items.0.taxes.1.rate'`.
 If you're using the DOM bridge (`connect()`), the `MutationObserver` automatically removes a field's state when its element is disconnected from the DOM. Use `persistedPaths` to keep a field's value alive even when unmounted — useful for multi-step wizards.
 
 For framework-adapter patterns without the DOM bridge, call `form.set(path, undefined)` when hiding a field to clear its value.
+
+#### How do I derive a field value from other fields automatically?
+
+Use the `computed` config. Computed fields are read-only — calling `set()` on them is a no-op. The engine re-evaluates them whenever any of their dependencies change.
+
+```ts
+const form = createForm({
+  initialValues: { price: 10, qty: 3, total: 0 },
+  computed: {
+    total: { fn: (values) => (values as any).price * (values as any).qty },
+  },
+})
+
+form.set('qty', 5)
+form.getState().values.total // 50
+```
+
+Computed fields participate in batch updates — all computed re-evaluations happen before subscribers are notified.
+
+#### How do I watch one or more field values without subscribing to the whole form?
+
+Use `form.watch()` for the core engine, or the framework-specific hook (`useWatch`, `useVueWatch`, etc.) for component-level reactivity.
+
+```ts
+// core
+const stop = form.watch(['email', 'username'], (snapshot) => {
+  console.log(snapshot.email, snapshot.username)
+})
+stop() // unsubscribe
+
+// React
+const { email, username } = useWatch(form, ['email', 'username'])
+```
+
+Each path fires its callback only when that path's value actually changes. The snapshot is deep-cloned — mutating it does not affect internal form state.
 
 ---
 
@@ -593,7 +673,7 @@ The DOM bridge (`connect()`) requires an `HTMLElement` and does not apply in Rea
 
 These are things `@neutro/form` does not do cleanly yet. They are not workarounds — if your project needs them, know this going in.
 
-**Strongly typed field paths — path typos not caught (intentional)** — `form.set('emal', value)` compiles without error. Catching path typos would require removing the dynamic-path escape hatch, which would break `const p: string = ...; form.set(p, value)`. The current design preserves dynamic paths at the cost of not catching typos. Compile-time type inference is available (v0.3.0); runtime path validation is in active development for v0.4.0.
+**Strongly typed field paths — path typos not caught (intentional)** — `form.set('emal', value)` compiles without error. Catching path typos would require removing the dynamic-path escape hatch, which would break `const p: string = ...; form.set(p, value)`. The current design preserves dynamic paths at the cost of not catching typos. Compile-time type inference and dev-mode runtime path warnings are both available in v0.4.0 — unknown paths emit a console warning in development.
 
 **React Native adapter** — the core works but there is no official adapter with RN-idiomatic patterns.
 
