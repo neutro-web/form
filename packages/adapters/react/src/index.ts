@@ -63,7 +63,7 @@ export function useWatch<T extends object>(
   });
 
   React.useEffect(() => {
-    const stop = form.watch(paths, (vals) => setWatched({ ...vals }));
+    const stop = form.watch(paths as any, (vals) => setWatched({ ...vals }));
     return stop;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, paths]);

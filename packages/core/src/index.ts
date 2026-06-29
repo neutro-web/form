@@ -230,17 +230,14 @@ export type ArrayItem<V> = V extends Array<infer U> ? U : never;
 export interface FormInstance<T extends object> {
   subscribe: (fn: FormSubscriber<T>) => () => void;
   subscribeToPath<P extends Path<T>>(path: P, fn: PathSubscriber<GetPathValue<T, P>>): () => void;
-  subscribeToPath(path: string, fn: PathSubscriber): () => void;
   get<P extends Path<T>>(path: P): GetPathValue<T, P>;
-  get(path: string | string[]): any;
-  set<P extends Path<T> | (string & {})>(
+  set<P extends Path<T>>(
     path: P,
-    val: P extends Path<T> ? GetPathValue<T, P> : unknown,
+    val: GetPathValue<T, P>,
     options?: SetOptions
   ): void;
-  set(path: string[], val: unknown, options?: SetOptions): void;
-  validate(scopePaths?: Array<Path<T> | (string & {}) | string[]>): Promise<boolean>;
-  connect: (path: Path<T> | string, el: HTMLElement, options?: ConnectOptions) => () => void;
+  validate(scopePaths?: Array<Path<T> | string[]>): Promise<boolean>;
+  connect: (path: Path<T>, el: HTMLElement, options?: ConnectOptions) => () => void;
   submit: (onValid: (payload: Partial<T>) => void | Promise<void>) => Promise<boolean>;
   handleSubmit: (
     onValid: (payload: Partial<T>) => void | Promise<void>,
@@ -250,31 +247,19 @@ export interface FormInstance<T extends object> {
   getPayload: () => Partial<T>;
   setDynamic(path: string, value: unknown, options?: SetOptions): void;
   getDynamic(path: string): unknown;
-  getAriaProps: (path: Path<T> | string, options?: AriaPropsOptions) => AriaProps;
+  getAriaProps: (path: Path<T>, options?: AriaPropsOptions) => AriaProps;
   batch: (fn: () => void) => void;
-  arrayAppend<P extends Path<T> | (string & {})>(
-    path: P,
-    item: P extends Path<T> ? ArrayItem<GetPathValue<T, P>> : unknown
-  ): void;
-  arrayAppend(path: string[], item: unknown): void;
+  arrayAppend<P extends Path<T>>(path: P, item: ArrayItem<GetPathValue<T, P>>): void;
 
-  arrayInsert<P extends Path<T> | (string & {})>(
-    path: P,
-    index: number,
-    item: P extends Path<T> ? ArrayItem<GetPathValue<T, P>> : unknown
-  ): void;
-  arrayInsert(path: string[], index: number, item: unknown): void;
+  arrayInsert<P extends Path<T>>(path: P, index: number, item: ArrayItem<GetPathValue<T, P>>): void;
 
   arrayRemove<P extends Path<T>>(path: P, index: number): void;
-  arrayRemove(path: Path<T> | (string & {}) | string[], index: number): void;
 
   arrayMove<P extends Path<T>>(path: P, fromIndex: number, toIndex: number): void;
-  arrayMove(path: Path<T> | (string & {}) | string[], fromIndex: number, toIndex: number): void;
 
   arraySwap<P extends Path<T>>(path: P, indexA: number, indexB: number): void;
-  arraySwap(path: Path<T> | (string & {}) | string[], indexA: number, indexB: number): void;
   reset: (newValues?: T) => void;
-  resetField(path: Path<T> | (string & {}) | string[], options?: ResetFieldOptions): void;
+  resetField(path: Path<T>, options?: ResetFieldOptions): void;
   /**
    * Reads stored values from the persistence adapter and merges them into the
    * form as the new initial values. No-op if no adapter is configured.
@@ -283,7 +268,7 @@ export interface FormInstance<T extends object> {
   hydrate(): Promise<void>;
   getConnectedCount: () => number;
   destroy: () => void;
-  setErrors: (errors: Record<Path<T> | (string & {}), string>) => void;
+  setErrors: (errors: Record<Path<T>, string>) => void;
   clearErrors: () => void;
   /**
    * Returns the effective ValidationMode for a field. Useful for debugging
@@ -292,12 +277,12 @@ export interface FormInstance<T extends object> {
    */
   getFieldMode: (path: string) => ValidationMode;
   isDirty(): boolean;
-  isFieldDirty(path: Path<T> | string): boolean;
-  isFieldValid(path: Path<T> | string): boolean | null;
-  focus(path: Path<T> | string): boolean;
+  isFieldDirty(path: Path<T>): boolean;
+  isFieldValid(path: Path<T>): boolean | null;
+  focus(path: Path<T>): boolean;
   focusFirstError(): boolean;
   watch(
-    paths: Path<T> | string | Array<Path<T> | string>,
+    paths: Path<T> | Array<Path<T>>,
     callback: (values: Record<string, unknown>) => void
   ): () => void;
   _subscribeToActions: (fn: (action: FormAction, state: FormState<T>) => void) => () => void;
@@ -2057,7 +2042,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       dispatchAction({ type: 'SET', path: targetPath, value: val, options });
     }) as FormInstance<T>['set'],
 
-    validate: (scopePaths?: Path<T>[] | string[] | string[][]) => {
+    validate: (scopePaths?: Array<Path<T> | string[]>) => {
       const targets = scopePaths?.map((p) => (Array.isArray(p) ? p.join('.') : p));
       dispatchAction({ type: 'VALIDATE', paths: targets });
       return runValidation(targets);
@@ -2344,8 +2329,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       dispatchAction({ type: 'RESET', newValues });
     },
 
-    resetField: (path: Path<T> | (string & {}) | string[], options?: ResetFieldOptions): void => {
-      const targetPath = Array.isArray(path) ? path.join('.') : (path as string);
+    resetField: (path: Path<T>, options?: ResetFieldOptions): void => {
+      const targetPath = Array.isArray(path) ? (path as unknown as string[]).join('.') : (path as string);
       const initialVal = getNestedValue(initialValues, targetPath);
       const freshVal = deepClone(initialVal);
 

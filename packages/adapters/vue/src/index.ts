@@ -81,12 +81,12 @@ export function useVueForm<T extends object>(form: FormInstance<T>): VueFormRetu
 
 // Accepts MaybeRef<string> so the path itself can be reactive (e.g. inside v-for).
 export function useVueFormPath<T extends object>(form: FormInstance<T>, path: MaybeRef<string>) {
-  const value = shallowRef<unknown>(form.get(unref(path)));
+  const value = shallowRef<unknown>(form.get(unref(path) as any));
   const fieldState = shallowRef<{ error?: string; touched?: boolean; dirty?: boolean } | null>(
     null
   );
 
-  let unsubscribe = form.subscribeToPath(unref(path), (v: unknown, fs) => {
+  let unsubscribe = form.subscribeToPath(unref(path) as any, (v: unknown, fs) => {
     value.value = v;
     fieldState.value = fs;
   });
@@ -95,9 +95,9 @@ export function useVueFormPath<T extends object>(form: FormInstance<T>, path: Ma
     () => unref(path),
     (newPath) => {
       unsubscribe();
-      value.value = form.get(newPath);
+      value.value = form.get(newPath as any);
       fieldState.value = null;
-      unsubscribe = form.subscribeToPath(newPath, (v: unknown, fs) => {
+      unsubscribe = form.subscribeToPath(newPath as any, (v: unknown, fs) => {
         value.value = v;
         fieldState.value = fs;
       });
@@ -122,7 +122,7 @@ export function useVueWatch<T extends object>(
   const resubscribe = () => {
     if (stop) stop();
     const current = pathArray.value;
-    stop = form.watch(current, (vals) => {
+    stop = form.watch(current as any, (vals) => {
       watched.value = { ...vals };
     });
   };

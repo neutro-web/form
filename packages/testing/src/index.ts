@@ -12,7 +12,7 @@ export function fillForm<T extends object>(
 ): void {
   form.batch(() => {
     for (const [path, value] of Object.entries(values)) {
-      form.set(path as any, value);
+      form.set(path as any, value as any);
     }
   });
 }
@@ -49,7 +49,7 @@ export function triggerValidation<T extends object>(
   form: FormInstance<T>,
   paths?: string[]
 ): Promise<boolean> {
-  return form.validate(paths);
+  return form.validate(paths as any);
 }
 
 export interface FormFixture<T extends object> {
@@ -78,7 +78,7 @@ export function createFormFixture<T extends object>(config: FormConfig<T>): Form
     fill: (values) => fillForm(form, values),
     blur: (path) => blurField(form, path),
     validate: (paths) => triggerValidation(form, paths),
-    resetField: (path, options) => form.resetField(path, options),
+    resetField: (path, options) => form.resetField(path as any, options),
     cleanup: () => form.destroy(),
   };
 }

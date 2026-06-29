@@ -77,13 +77,13 @@ export function useSolidForm<T extends object>(
 // the path as a prop and call useSolidFormPath at the component level so each
 // instance gets its own subscription — one per array item.
 export function useSolidFormPath<T extends object>(form: FormInstance<T>, path: string) {
-  const [value, setValue] = createSignal<unknown>(form.get(path));
+  const [value, setValue] = createSignal<unknown>(form.get(path as any));
   const [fieldState, setFieldState] = createSignal<{
     error?: string;
     touched?: boolean;
     dirty?: boolean;
   } | null>(null);
-  const unsubscribe = form.subscribeToPath(path, (v, fs) => {
+  const unsubscribe = form.subscribeToPath(path as any, (v, fs) => {
     setValue(() => v);
     setFieldState(() => fs);
   });
@@ -102,7 +102,7 @@ export function useSolidWatch<T extends object>(
   });
 
   const [watched, setWatched] = createSignal<Record<string, unknown>>(initial);
-  const stop = form.watch(pathArray, (vals) => setWatched({ ...vals }));
+  const stop = form.watch(pathArray as any, (vals) => setWatched({ ...vals }));
   onCleanup(stop);
 
   return watched;

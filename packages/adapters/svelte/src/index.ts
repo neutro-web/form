@@ -75,9 +75,9 @@ export function useSvelteFormPath<T extends object>(form: FormInstance<T>, path:
   const field = readable<{
     value: unknown;
     fieldState: { error?: string; touched?: boolean; dirty?: boolean } | null;
-  }>({ value: form.get(path), fieldState: null }, (set) => {
-    set({ value: form.get(path), fieldState: null });
-    return form.subscribeToPath(path, (v, fs) => set({ value: v, fieldState: fs }));
+  }>({ value: form.get(path as any), fieldState: null }, (set) => {
+    set({ value: form.get(path as any), fieldState: null });
+    return form.subscribeToPath(path as any, (v, fs) => set({ value: v, fieldState: fs }));
   });
   return field;
 }
@@ -93,7 +93,7 @@ export function useSvelteWatch<T extends object>(
   });
 
   return readable<Record<string, unknown>>(initial, (set) => {
-    const stop = form.watch(pathArray, (vals) => set({ ...vals }));
+    const stop = form.watch(pathArray as any, (vals) => set({ ...vals }));
     return stop;
   });
 }

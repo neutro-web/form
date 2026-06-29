@@ -73,10 +73,10 @@ export function useAngularForm<T extends object>(form: FormInstance<T>): Angular
 // Returns two readonly Signals for direct template binding.
 // Must be called inside an injection context.
 export function useAngularFormPath<T extends object>(form: FormInstance<T>, path: string) {
-  const value = signal<unknown>(form.get(path));
+  const value = signal<unknown>(form.get(path as any));
   const fieldState = signal<{ error?: string; touched?: boolean; dirty?: boolean } | null>(null);
   const zone = inject(NgZone, { optional: true });
-  const unsubscribe = form.subscribeToPath(path, (v, fs) => {
+  const unsubscribe = form.subscribeToPath(path as any, (v, fs) => {
     if (zone) {
       zone.run(() => {
         value.set(v);
@@ -105,7 +105,7 @@ export function useAngularWatch<T extends object>(
   });
 
   const watched = signal<Record<string, unknown>>(initial);
-  const stop = form.watch(pathArray, (vals) => {
+  const stop = form.watch(pathArray as any, (vals) => {
     zone ? zone.run(() => watched.set({ ...vals })) : watched.set({ ...vals });
   });
   destroyRef.onDestroy(stop);
