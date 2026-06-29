@@ -1186,7 +1186,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     isValidating,
     isValid: hasValidated ? Object.keys(errors).length === 0 : null,
     submissionAttempts,
-    lastSubmittedValues,
+    lastSubmittedValues: lastSubmittedValues ? deepClone(lastSubmittedValues) : null,
   });
 
   const actionListeners = new Set<(action: FormAction, state: FormState<T>) => void>();
@@ -1452,6 +1452,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       });
     });
     Object.keys(nextErrors).forEach((key) => {
+      if (DANGEROUS_PATH_KEYS.has(key)) return;
       if (scopePaths.some((scope) => key === scope || key.startsWith(`${scope}.`)))
         updated[key] = nextErrors[key];
     });
@@ -1756,7 +1757,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     const fire = () => {
       const snapshot: Record<string, unknown> = {};
       uniquePaths.forEach((p) => {
-        snapshot[p] = getNestedValue(values, p);
+        snapshot[p] = deepClone(getNestedValue(values, p));
       });
       try {
         callback(snapshot);
@@ -2081,6 +2082,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     const paths = Object.keys(incoming);
     if (paths.length === 0) return;
     for (const p of paths) {
+      if (DANGEROUS_PATH_KEYS.has(p)) continue;
       const val = incoming[p];
       if (val !== undefined) errors[p] = val;
     }
@@ -2127,6 +2129,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
       __warnUnknownPath(path);
       if (!pathSubscribers.has(path)) pathSubscribers.set(path, new Set());
+      // PathSubscriber receives (value, fieldState) but fn only declares (value) — JS ignores extra args.
       const sub = fn as PathSubscriber;
       pathSubscribers.get(path)?.add(sub);
       // Fire immediately with deep-cloned value (consistent with subscribeToPath)
