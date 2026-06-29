@@ -6,6 +6,11 @@ Computed fields are derived values that `createForm` maintains automatically. Th
 
 ```ts
 import { createForm } from '@neutro/form/core'
+import type { ComputedConfig, ComputedLeaf } from '@neutro/form/core'
+```
+
+```ts
+import { createForm } from '@neutro/form/core'
 
 type OrderForm = {
   qty: number
@@ -89,6 +94,8 @@ const form = createForm({
 
 Transient fields are still accessible via `get()`, `getState().values`, and all subscribers.
 
+Transient fields are also excluded from `form.getState().lastSubmittedValues` (the snapshot stored after each successful submit). They remain accessible via `form.get('fieldPath')` and `form.getState().values` at all times.
+
 ## Circular dependency guard
 
 If computed fields never stabilize (field A reads B, B reads A), a dev warning fires after the pass limit is reached.
@@ -107,7 +114,7 @@ const form = createForm({
 
 ## Constraints
 
-- **Read-only**: calling `set('total', 999)` on a computed path is a no-op with a dev warning. Use `setDynamic` or `getDynamic` — they also respect this guard.
+- **Read-only**: calling `set('total', 999)` on a computed path is a no-op with a dev warning. Use `setDynamic` when you need to set a non-computed field via a runtime path — it also respects the computed guard. `getDynamic` can read any path, including computed fields, which is correct behavior.
 - **Never dirty**: computed paths never appear in `isDirty()` or `isFieldDirty()`.
 - **Pure functions only**: `fn` runs on every `set()` call, for every computed field, unconditionally. Do not use side effects (network calls, logging) inside `fn`.
 - **No array wildcards**: `items.*.price` as a computed target is out of scope. Compute at the item level instead.

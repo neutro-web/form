@@ -270,13 +270,13 @@ export function RegisterForm() {
 import { useSolidForm } from '@neutro/form/adapters/solid'
 
 function EmailField() {
-  const { state } = useSolidForm(form)
+  const [state, actions] = useSolidForm(form)
 
   return (
     <>
-      <input value={state().values.email}
+      <input value={state.values.email}
              onInput={e => form.set('email', e.currentTarget.value, { touch: true })} />
-      <Show when={state().errors.email}>
+      <Show when={state.errors.email}>
         <button onClick={() => form.resetField('email')}>Reset</button>
       </Show>
     </>

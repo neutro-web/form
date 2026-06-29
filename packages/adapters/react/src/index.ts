@@ -15,6 +15,8 @@ export function useForm<T extends object>(
     reset: form.reset,
     batch: form.batch,
     subscribeToPath: form.subscribeToPath,
+    subscribeToPathDynamic: (...args: Parameters<typeof form.subscribeToPathDynamic>) =>
+      form.subscribeToPathDynamic(...args),
     validate: form.validate,
     getPayload: form.getPayload,
     getAriaProps: form.getAriaProps,
@@ -32,6 +34,13 @@ export function useForm<T extends object>(
     isDirty: form.isDirty,
     isFieldDirty: form.isFieldDirty,
     isFieldValid: form.isFieldValid,
+    focus: (...args: Parameters<typeof form.focus>) => form.focus(...args),
+    focusFirstError: (...args: Parameters<typeof form.focusFirstError>) =>
+      form.focusFirstError(...args),
+    hydrate: (...args: Parameters<typeof form.hydrate>) => form.hydrate(...args),
+    watch: (...args: Parameters<typeof form.watch>) => form.watch(...args),
+    setDynamic: (...args: Parameters<typeof form.setDynamic>) => form.setDynamic(...args),
+    getDynamic: (...args: Parameters<typeof form.getDynamic>) => form.getDynamic(...args),
   } as FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState' | '_subscribeToActions'>;
 }
 
@@ -65,7 +74,6 @@ export function useWatch<T extends object>(
   React.useEffect(() => {
     const stop = form.watch(paths as any, (vals) => setWatched({ ...vals }));
     return stop;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, paths]);
 
   return watched;
@@ -74,13 +82,13 @@ export function useWatch<T extends object>(
 // Zero-rerender hook: wires a DOM input directly via form.connect() without
 // touching React state. Equivalent to RHF's register() pattern.
 // Cleanups are tracked in a ref so StrictMode double-mount doesn't leak listeners.
-export function useFormConnect(form: any) {
+export function useFormConnect<T extends object>(form: FormInstance<T>) {
   const cleanups = useRef(new Map<string, () => void>());
   return useCallback(
     (path: string, options?: any) => (el: HTMLElement | null) => {
       if (el) {
         cleanups.current.get(path)?.();
-        cleanups.current.set(path, form.connect(path, el, options));
+        cleanups.current.set(path, form.connect(path as any, el, options));
       } else {
         cleanups.current.get(path)?.();
         cleanups.current.delete(path);

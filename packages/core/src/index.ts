@@ -230,6 +230,7 @@ export type ArrayItem<V> = V extends Array<infer U> ? U : never;
 export interface FormInstance<T extends object> {
   subscribe: (fn: FormSubscriber<T>) => () => void;
   subscribeToPath<P extends Path<T>>(path: P, fn: PathSubscriber<GetPathValue<T, P>>): () => void;
+  subscribeToPathDynamic(path: string, fn: (value: unknown) => void): () => void;
   get<P extends Path<T>>(path: P): GetPathValue<T, P>;
   set<P extends Path<T>>(path: P, val: GetPathValue<T, P>, options?: SetOptions): void;
   validate(scopePaths?: Array<Path<T> | string[]>): Promise<boolean>;
@@ -242,7 +243,7 @@ export interface FormInstance<T extends object> {
   getState: () => FormState<T>;
   getPayload: () => Partial<T>;
   setDynamic(path: string, value: unknown, options?: SetOptions): void;
-  getDynamic(path: string): unknown;
+  getDynamic<V = unknown>(path: string): V;
   getAriaProps: (path: Path<T>, options?: AriaPropsOptions) => AriaProps;
   batch: (fn: () => void) => void;
   arrayAppend<P extends Path<T>>(path: P, item: ArrayItem<GetPathValue<T, P>>): void;
@@ -264,7 +265,7 @@ export interface FormInstance<T extends object> {
   hydrate(): Promise<void>;
   getConnectedCount: () => number;
   destroy: () => void;
-  setErrors: (errors: Record<Path<T>, string>) => void;
+  setErrors: (errors: Partial<Record<Path<T>, string>>) => void;
   clearErrors: () => void;
   /**
    * Returns the effective ValidationMode for a field. Useful for debugging
@@ -948,29 +949,55 @@ function applyBuiltInRules<T>(
 }
 
 // ---------------------------------------------------------------------------
+// Module-scope production flag
+// ---------------------------------------------------------------------------
+
+const __isProduction = ((): boolean => {
+  try {
+    return (globalThis as any).process?.env?.NODE_ENV === 'production';
+  } catch {
+    return false;
+  }
+})();
+
+// ---------------------------------------------------------------------------
 // flattenComputedConfig
 // ---------------------------------------------------------------------------
 
+// Flattens a nested ComputedConfig into a flat Map<dot-path, {fn, transient}>.
+// Leaf detection: a node is a leaf if it has a `fn` property that is a function.
+// Any other object is treated as a nested config namespace.
 function flattenComputedConfig<T>(
   node: Record<string, unknown>,
-  prefix = ''
-): Map<string, { fn: (values: T) => unknown; transient: boolean }> {
-  const map = new Map<string, { fn: (values: T) => unknown; transient: boolean }>();
+  map: Map<string, { fn: (values: T) => unknown; transient: boolean }>,
+  prefix = '',
+  visited = new WeakSet<object>()
+): void {
+  if (visited.has(node)) return; // guard against circular JS object references
+  visited.add(node);
   for (const key of Object.keys(node)) {
+    if (DANGEROUS_PATH_KEYS.has(key)) continue; // guard prototype pollution keys
     const val = node[key];
-    if (!val || typeof val !== 'object') continue;
     const path = prefix ? `${prefix}.${key}` : key;
+    if (typeof val === 'function') {
+      // Bare function — user forgot { fn: ... } wrapper
+      if (!__isProduction) {
+        console.warn(
+          `[NeutroForm] computed["${path}"] is a bare function — wrap it in { fn: ... }.`
+        );
+      }
+      continue;
+    }
+    if (!val || typeof val !== 'object') continue;
     const v = val as Record<string, unknown>;
     if (typeof v.fn === 'function') {
+      // Leaf: ComputedLeaf<TRoot, V> — { fn, transient? }
       map.set(path, { fn: v.fn as (values: T) => unknown, transient: Boolean(v.transient) });
     } else {
-      const nested = flattenComputedConfig<T>(v, path);
-      nested.forEach((entry, k) => {
-        map.set(k, entry);
-      });
+      // Nested namespace — recurse
+      flattenComputedConfig<T>(v as Record<string, unknown>, map, path, visited);
     }
   }
-  return map;
 }
 
 // ---------------------------------------------------------------------------
@@ -986,6 +1013,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     seen.add(override);
     const result: any = { ...base };
     for (const key of Object.keys(override)) {
+      if (DANGEROUS_PATH_KEYS.has(key)) continue; // prevent prototype pollution from adapter data
       result[key] = deepMerge(base[key], override[key], seen);
     }
     return result;
@@ -1040,20 +1068,27 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           return 300;
         })();
 
-  // Dev-only runtime path validation trie (Prototype A — v0.4.0 release decision pending)
-  // Use a try/catch to safely read process.env in Node; in browser builds process is undefined.
-  const __isProduction = (() => {
-    try {
-      return (globalThis as any).process?.env?.NODE_ENV === 'production';
-    } catch {
-      return false;
-    }
-  })();
-
   // ---------------------------------------------------------------------------
   // Computed / Derived Fields (v0.4.0 stable API)
   // ---------------------------------------------------------------------------
-  const computedMap = flattenComputedConfig<T>((config.computed ?? {}) as Record<string, unknown>);
+  const computedMap = new Map<string, { fn: (values: T) => unknown; transient: boolean }>();
+  flattenComputedConfig<T>((config.computed ?? {}) as Record<string, unknown>, computedMap);
+
+  // Clamp computedPassLimit: must be a finite integer >= 1, max 50.
+  // Guards against Infinity (infinite hang), 0/negative (computed fields never update), NaN.
+  const computedPassLimit =
+    typeof config.computedPassLimit === 'number' &&
+    Number.isFinite(config.computedPassLimit) &&
+    config.computedPassLimit >= 1
+      ? Math.min(Math.floor(config.computedPassLimit), 50)
+      : 5;
+
+  // Precomputed list of computed paths marked as transient: true.
+  // Used in submit() to strip transient fields from valuesSnapshot without scanning computedMap.
+  const transientPaths: string[] = [];
+  for (const [path, { transient }] of computedMap) {
+    if (transient) transientPaths.push(path);
+  }
 
   /**
    * Re-evaluates all computed fields against current `values`.
@@ -1067,16 +1102,24 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
    */
   const runComputedPass = (): string[] => {
     if (computedMap.size === 0) return [];
-    const limit = config.computedPassLimit ?? 5;
-    const changedPaths: string[] = [];
+    const limit = computedPassLimit;
+    const changedPathsSet = new Set<string>();
     let stabilized = false;
     for (let pass = 0; pass < limit; pass++) {
       let passChanged = false;
       for (const [path, { fn }] of computedMap) {
-        const newVal = fn(values);
+        let newVal: unknown;
+        try {
+          newVal = fn(values);
+        } catch (err) {
+          if (!__isProduction) {
+            console.error(`[NeutroForm] computed fn for "${path}" threw an error:`, err);
+          }
+          continue;
+        }
         if (!isDeepEqual(newVal, getNestedValue(values, path))) {
           setNestedValue(values, path, newVal);
-          if (!changedPaths.includes(path)) changedPaths.push(path);
+          changedPathsSet.add(path);
           passChanged = true;
         }
       }
@@ -1090,28 +1133,43 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // do real work". A flat field with computedPassLimit: 1 is stable after 1 pass even
     // though the loop never saw a no-change pass.
     if (!stabilized) {
-      let stillChanging = false;
+      const stillChangingPaths: string[] = [];
       for (const [path, { fn }] of computedMap) {
-        if (!isDeepEqual(fn(values), getNestedValue(values, path))) {
-          stillChanging = true;
-          break;
+        try {
+          if (!isDeepEqual(fn(values), getNestedValue(values, path))) {
+            stillChangingPaths.push(path);
+          }
+        } catch {
+          // ignore errors in check-only pass
         }
       }
-      if (!stillChanging) stabilized = true;
+      if (stillChangingPaths.length === 0) stabilized = true;
     }
-    if (!stabilized && !__isProduction) {
+    // Remove the `!__isProduction` guard — circular deps are always bugs, warn unconditionally:
+    if (!stabilized) {
       console.warn(
-        `[NeutroForm] Computed fields did not stabilize after ${limit} passes. Check for circular dependencies.`
+        `[NeutroForm] Computed fields did not stabilize after ${limit} passes. ` +
+          `Check for circular dependencies. Still changing: ${[...changedPathsSet].join(', ')}`
       );
     }
-    return changedPaths;
+    return [...changedPathsSet];
   };
 
   runComputedPass(); // seed computed values at init
   const __pathValidation = config.pathValidation ?? 'dev';
+  // Re-evaluate production flag at form-creation time (not module load) so test environments
+  // can toggle NODE_ENV between form instances.
+  const __isProductionAtInit = (() => {
+    try {
+      return (globalThis as any).process?.env?.NODE_ENV === 'production';
+    } catch {
+      return false;
+    }
+  })();
   const __shouldBuildTrie =
-    __pathValidation !== 'off' && !(__pathValidation === 'dev' && __isProduction);
-  const __devPathTrie = __shouldBuildTrie ? buildPathTrie(config.initialValues) : null;
+    __pathValidation !== 'off' && !(__pathValidation === 'dev' && __isProductionAtInit);
+  // Runtime path validation: builds a trie from initialValues for unknown-path detection.
+  const __devPathTrie = __shouldBuildTrie ? buildPathTrie(values) : null;
 
   const __warnUnknownPath = (path: string): void => {
     if (!__devPathTrie) return;
@@ -1422,14 +1480,19 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       if (!dirty[path]) delete dirty[path];
       if (options.touch) touched[path] = true;
     });
-    // Always notify path subscribers immediately so controlled inputs see the new value
-    // before async validation completes.
-    notify(path);
-    // Notify path and global subscribers for any computed fields that changed.
-    const changedComputedPaths = runComputedPass();
-    if (changedComputedPaths.length > 0) {
-      notifyPathSubscribers(changedComputedPaths);
-      notifyGlobalSubscribers(getState());
+    if (computedMap.size > 0) {
+      // Path subscribers fire immediately (unblocks controlled inputs before computed pass).
+      // Global subscribers fire only once, after the computed pass resolves fully consistent state.
+      notifyPathSubscribers([path]);
+      const changedComputedPaths = runComputedPass();
+      if (changedComputedPaths.length > 0) {
+        notifyPathSubscribers(changedComputedPaths);
+      }
+      if (globalSubscribers.size > 0) {
+        notifyGlobalSubscribers(getState());
+      }
+    } else {
+      notify(path);
     }
     if (options.validate === true) runValidation([path]);
   };
@@ -1935,9 +1998,23 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         connectedPaths,
         persistedPaths
       );
+      // Strip transient computed fields from the payload (consistent with submit() behavior).
+      for (const path of transientPaths) {
+        const parts = path.split('.');
+        let obj: any = callbackPayload;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!obj || typeof obj !== 'object') {
+            obj = null;
+            break;
+          }
+          obj = obj[parts[i]];
+        }
+        if (obj && typeof obj === 'object') {
+          delete obj[parts[parts.length - 1]];
+        }
+      }
       const valuesSnapshot = deepClone(values) as Partial<T>;
-      for (const [path, { transient }] of computedMap) {
-        if (!transient) continue;
+      for (const path of transientPaths) {
         const parts = path.split('.');
         let obj: any = valuesSnapshot;
         for (let i = 0; i < parts.length - 1; i++) {
@@ -1992,16 +2069,19 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     };
   };
 
-  const setErrors = (incoming: Record<string, string>): void => {
+  const setErrors = (incoming: Partial<Record<string, string>>): void => {
     if (!incoming) return;
     const paths = Object.keys(incoming);
     if (paths.length === 0) return;
-    Object.assign(errors, incoming);
+    for (const p of paths) {
+      const val = incoming[p];
+      if (val !== undefined) errors[p] = val;
+    }
     for (const p of paths) touched[p] = true;
     batch(() => {
       for (const p of paths) notify(p);
     });
-    dispatchAction({ type: 'SET_ERRORS', errors: { ...incoming } });
+    dispatchAction({ type: 'SET_ERRORS', errors: incoming as Record<string, string> });
   };
 
   const clearErrors = (): void => {
@@ -2027,6 +2107,19 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     subscribe,
     subscribeToPath,
 
+    subscribeToPathDynamic: (path: string, fn: (value: unknown) => void): (() => void) => {
+      __warnUnknownPath(path);
+      // Reuse the same internal pathSubscribers mechanism
+      if (!pathSubscribers.has(path)) pathSubscribers.set(path, new Set());
+      const sub = fn as PathSubscriber;
+      pathSubscribers.get(path)?.add(sub);
+      // Fire immediately with current value
+      fn(getNestedValue(values, path));
+      return () => {
+        pathSubscribers.get(path)?.delete(sub);
+      };
+    },
+
     get: (path: Path<T> | string | string[]) => {
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       __warnUnknownPath(targetPath);
@@ -2050,9 +2143,37 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     submit,
     handleSubmit,
     getState,
-    getPayload: () => _getPayload(values, connectionRegistry, connectedPaths, persistedPaths),
+    getPayload: () => {
+      const payload = _getPayload(values, connectionRegistry, connectedPaths, persistedPaths);
+      // Strip transient computed fields from the payload (consistent with submit() behavior).
+      for (const path of transientPaths) {
+        const parts = path.split('.');
+        let obj: any = payload;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!obj || typeof obj !== 'object') {
+            obj = null;
+            break;
+          }
+          obj = obj[parts[i]];
+        }
+        if (obj && typeof obj === 'object') {
+          delete obj[parts[parts.length - 1]];
+        }
+      }
+      return payload;
+    },
 
     setDynamic: (path: string, value: unknown, options?: SetOptions): void => {
+      if (path == null || typeof path !== 'string') {
+        if (!__isProduction)
+          console.error('[NeutroForm] setDynamic requires a non-null string path.');
+        return;
+      }
+      if (path === '') {
+        if (!__isProduction)
+          console.warn('[NeutroForm] setDynamic called with empty path — ignoring.');
+        return;
+      }
       if (computedMap.has(path)) {
         if (!__isProduction) {
           console.warn(`[NeutroForm] "${path}" is a computed field — setDynamic() is a no-op.`);
@@ -2060,11 +2181,17 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         return;
       }
       __warnUnknownPath(path);
-      setFieldValue(path, value, options ?? {});
+      setFieldValue(path, value, options);
+      dispatchAction({ type: 'SET', path, value });
     },
-    getDynamic: (path: string): unknown => {
+    getDynamic: <V = unknown>(path: string): V => {
+      if (path == null || typeof path !== 'string') {
+        if (!__isProduction)
+          console.error('[NeutroForm] getDynamic requires a non-null string path.');
+        return undefined as V;
+      }
       __warnUnknownPath(path);
-      return getNestedValue(values, path);
+      return getNestedValue(values, path) as V;
     },
 
     getAriaProps: (path: Path<T> | string, options?: AriaPropsOptions): AriaProps => {

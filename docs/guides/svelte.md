@@ -164,7 +164,8 @@ npm install @neutro/form
 
 ## Lifecycle Notes
 
-- Both hooks register an `onDestroy` callback to call the form's unsubscribe function. This requires that they are called synchronously during component initialisation.
+- Cleanup is handled automatically via Svelte's `readable()` stop mechanism — no manual teardown or `onDestroy` registration is required.
+- Both hooks must be called synchronously during component initialisation (not inside event handlers or `setTimeout`).
 - If you need to create the form and its stores lazily (e.g. based on a prop that arrives asynchronously), create the form instance outside the component and pass it in as a prop.
 - The returned stores are standard Svelte readable stores — you can derive from them with `derived()` exactly as you would any other store.
 

@@ -62,7 +62,7 @@ form.getDynamic(field)                   // read at runtime path — returns unk
 For methods other than `set`/`get`, cast with `as Path<T>` when you are confident the path is valid:
 
 ```ts
-form.isFieldDirty(field as Path<typeof form>)
+form.isFieldDirty(field as Path<SignupValues>)  // use your form values type, not typeof form
 ```
 
 ## Utility types
@@ -91,7 +91,7 @@ const form = createForm<SignupForm>({
 
 form.resetField('email')                      // restores '' — the initial value
 form.resetField('email', { keepError: true }) // restores value, keeps error
-form.resetField(['items', '0', 'name'])       // segment-array path
+form.resetField('items.0.name')               // nested array path
 ```
 
 `ResetFieldOptions` controls which state is cleared:

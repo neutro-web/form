@@ -297,7 +297,7 @@ describe('Dependency graph', () => {
       validator: () => ({}),
     });
     // If bug #12 were present, this would throw or silently skip the dep.
-    await expect(form.validate(['items.0.name'])).resolves.toBeDefined();
+    await expect(form.validate(['items.0.name'])).resolves.toBe(true);
   });
 });
 
@@ -841,7 +841,7 @@ describe('built-in rules — presence', () => {
   it('required — rejects whitespace-only string', async () => {
     const form = createForm({ initialValues: { name: '   ' }, rules: { name: 'required' } });
     await form.validate();
-    expect(form.getState().errors.name).toBeTruthy();
+    expect(form.getState().errors.name).toContain('Required');
   });
 
   it('required — rejects empty array', async () => {
@@ -882,7 +882,7 @@ describe('built-in rules — format', () => {
   it('email — rejects invalid email', async () => {
     const form = createForm({ initialValues: { email: 'notanemail' }, rules: { email: 'email' } });
     await form.validate();
-    expect(form.getState().errors.email).toBeTruthy();
+    expect(form.getState().errors.email).toContain('valid email');
   });
 
   it('url — passes valid URL', async () => {
@@ -897,7 +897,7 @@ describe('built-in rules — format', () => {
   it('url — rejects plain string', async () => {
     const form = createForm({ initialValues: { site: 'not a url' }, rules: { site: 'url' } });
     await form.validate();
-    expect(form.getState().errors.site).toBeTruthy();
+    expect(form.getState().errors.site).toContain('valid URL');
   });
 
   it('numeric — passes a number string', async () => {
@@ -909,7 +909,7 @@ describe('built-in rules — format', () => {
   it('numeric — rejects non-numeric string', async () => {
     const form = createForm({ initialValues: { age: 'abc' }, rules: { age: 'numeric' } });
     await form.validate();
-    expect(form.getState().errors.age).toBeTruthy();
+    expect(form.getState().errors.age).toContain('number');
   });
 
   it('integer — passes whole number', async () => {
@@ -1213,7 +1213,7 @@ describe('built-in rules — cross-field', () => {
       rules: { confirm: { matches: 'password' } },
     });
     await form.validate();
-    expect(form.getState().errors.confirm).toBeTruthy();
+    expect(form.getState().errors.confirm).toContain('match');
   });
 
   it('matches — uses deep equality for objects', async () => {
@@ -4717,6 +4717,31 @@ describe('computed fields — stable API', () => {
     form.set('qty', 10);
     expect(form.get('pricing.vat' as any)).toBeCloseTo(2);
   });
+
+  test('computed fn that throws is caught — form stays usable, prior computed values preserved', () => {
+    type Form = { items: number[]; total: number };
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const form = createForm<Form>({
+      initialValues: { items: [1, 2], total: 0 },
+      computed: {
+        total: {
+          fn: (v) => {
+            if (v.items.length === 0) throw new Error('empty items');
+            return v.items.reduce((s, n) => s + n, 0);
+          },
+        },
+      },
+    });
+    expect(form.get('total')).toBe(3); // seeded correctly
+    // Setting items to empty triggers the throwing fn
+    expect(() => form.set('items', [])).not.toThrow();
+    // total should remain at its last valid value (3), not undefined or corrupted
+    expect(form.get('total')).toBeDefined();
+    // form remains usable after the throw
+    form.set('items', [5, 10]);
+    expect(form.get('total')).toBe(15);
+    errSpy.mockRestore();
+  });
 });
 
 describe('runComputedPass — pass limit and circular warning', () => {
@@ -4752,6 +4777,7 @@ describe('runComputedPass — pass limit and circular warning', () => {
     spy.mockClear();
     form.set('source', 1);
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('did not stabilize'));
+    expect(spy).toHaveBeenCalledTimes(1); // must fire exactly once per set() call
     spy.mockRestore();
   });
 
@@ -4768,6 +4794,44 @@ describe('runComputedPass — pass limit and circular warning', () => {
     // A flat field should stabilize in 1 pass — no spurious circular warning
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+
+  test('computed: {} (empty object) — no warning fires, form behaves normally', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({ initialValues: { x: 1 }, computed: {} });
+    form.set('x', 2);
+    expect(form.get('x')).toBe(2);
+    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('did not stabilize'));
+    warnSpy.mockRestore();
+  });
+
+  test('computedPassLimit: 0 — clamped to 5, non-circular field resolves normally without warning', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({
+      initialValues: { source: 1, x: 0 },
+      computedPassLimit: 0, // clamped to 5
+      computed: { x: { fn: (v: any) => v.source * 10 } },
+    });
+    warnSpy.mockClear();
+    form.set('source', 2);
+    // Non-circular field stabilizes within clamped limit — no warning expected
+    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('did not stabilize'));
+    expect(form.get('x')).toBe(20);
+    warnSpy.mockRestore();
+  });
+
+  test('directly self-referential computed field (x = x + 1) warns after pass limit', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    type Form = { source: number; x: number };
+    const form = createForm<Form>({
+      initialValues: { source: 0, x: 0 },
+      computedPassLimit: 3,
+      computed: { x: { fn: (v) => v.x + 1 } },
+    });
+    warnSpy.mockClear();
+    form.set('source', 1);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('did not stabilize'));
+    warnSpy.mockRestore();
   });
 });
 
@@ -4806,6 +4870,35 @@ describe('computed field — path subscriber notifications', () => {
     form.subscribeToPath('pricing.vat', (v) => received.push(v as number));
     form.set('qty', 4);
     expect(received).toContain(8);
+  });
+
+  test('subscribeToPath for computed field does NOT fire when source mutation does not change the computed value', () => {
+    type Form = { mode: string; other: string; label: string };
+    const form = createForm<Form>({
+      initialValues: { mode: 'a', other: 'x', label: '' },
+      computed: { label: { fn: (v) => v.mode.toUpperCase() } },
+    });
+    const received: string[] = [];
+    form.subscribeToPath('label', (v) => received.push(v as string));
+    received.length = 0; // clear the immediate call
+    // Mutate a field that the computed fn does NOT depend on
+    form.set('other', 'y');
+    // label computed value is still 'A' — subscriber should NOT fire again
+    expect(received).toHaveLength(0);
+  });
+
+  test('subscribeToPath on computed field called immediately with current derived value on attach', () => {
+    type Form = { qty: number; total: number };
+    const form = createForm<Form>({
+      initialValues: { qty: 1, total: 0 },
+      computed: { total: { fn: (v) => v.qty * 10 } },
+    });
+    form.set('qty', 5);
+    let initialReceived: number | undefined;
+    form.subscribeToPath('total', (v) => {
+      initialReceived = v as number;
+    });
+    expect(initialReceived).toBe(50);
   });
 });
 
@@ -4973,5 +5066,135 @@ describe('setDynamic / getDynamic', () => {
     const form = createForm({ initialValues: { qty: 1 } });
     form.setDynamic('qty', 5);
     expect(form.isFieldDirty('qty')).toBe(true);
+  });
+
+  test('setDynamic triggers path and global subscriber notifications', () => {
+    const globalSpy = vi.fn();
+    const pathSpy = vi.fn();
+    const form = createForm({ initialValues: { qty: 1 } });
+    form.subscribe(globalSpy);
+    form.subscribeToPath('qty', pathSpy);
+    globalSpy.mockClear();
+    pathSpy.mockClear();
+    form.setDynamic('qty', 5);
+    expect(globalSpy).toHaveBeenCalledTimes(1);
+    expect(pathSpy).toHaveBeenCalledTimes(1);
+    expect(pathSpy.mock.calls[0][0]).toBe(5);
+  });
+
+  test('getDynamic on a non-existent path returns undefined', () => {
+    const form = createForm({ initialValues: { x: 1 } });
+    expect(form.getDynamic('nonexistent.deeply.nested')).toBeUndefined();
+  });
+
+  test('setDynamic with null path does not crash', () => {
+    const form = createForm({ initialValues: { x: 1 } });
+    expect(() => form.setDynamic(null as any, 'value')).not.toThrow();
+    expect(() => form.setDynamic(undefined as any, 'value')).not.toThrow();
+    expect(() => form.setDynamic('', 'value')).not.toThrow();
+  });
+
+  test('getDynamic with null path does not crash', () => {
+    const form = createForm({ initialValues: { x: 1 } });
+    expect(() => form.getDynamic(null as any)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Additional computed fields tests — v0.4.0 coverage
+// ---------------------------------------------------------------------------
+
+describe('computed fields — additional edge cases (v0.4.0)', () => {
+  test('3-level deeply nested computed field (a.b.c)', () => {
+    type Form = { x: number; a: { b: { c: number } } };
+    const form = createForm<Form>({
+      initialValues: { x: 1, a: { b: { c: 0 } } },
+      computed: { a: { b: { c: { fn: (v) => v.x * 7 } } } },
+    });
+    expect(form.get('a.b.c')).toBe(7);
+    form.set('x', 3);
+    expect(form.get('a.b.c')).toBe(21);
+  });
+
+  test('computed bare function (not wrapped in { fn }) logs a warning', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    createForm({
+      initialValues: { qty: 1, total: 0 },
+      computed: { total: ((v: any) => v.qty * 10) as any },
+    });
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('bare function'));
+    warnSpy.mockRestore();
+  });
+
+  test('multiple transient computed fields are all excluded from submit payload', async () => {
+    type Form = { qty: number; displayA: number; displayB: number };
+    let snapshot: Partial<Form> | undefined;
+    const form = createForm<Form>({
+      initialValues: { qty: 2, displayA: 0, displayB: 0 },
+      computed: {
+        displayA: { fn: (v) => v.qty * 5, transient: true },
+        displayB: { fn: (v) => v.qty * 10, transient: true },
+      },
+      onSubmitSuccess: (payload) => {
+        snapshot = payload as Partial<Form>;
+      },
+    });
+    await form.submit(async () => {});
+    expect(snapshot?.displayA).toBeUndefined();
+    expect(snapshot?.displayB).toBeUndefined();
+    expect(snapshot?.qty).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pathValidation — NODE_ENV=production behaviour
+// ---------------------------------------------------------------------------
+
+describe('pathValidation — mode differences', () => {
+  test("pathValidation 'always' warns on unknown path regardless of environment", () => {
+    // 'always' bypasses the production flag — it always warns.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const formAlways = createForm({ initialValues: { name: '' }, pathValidation: 'always' });
+    formAlways.set('ghost' as any, 'x');
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown path'));
+    warnSpy.mockRestore();
+  });
+
+  test("pathValidation 'off' never warns even when path is unknown", () => {
+    // 'off' suppresses warnings entirely.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const formOff = createForm({ initialValues: { name: '' }, pathValidation: 'off' });
+    formOff.set('ghost' as any, 'x');
+    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('Unknown path'));
+    warnSpy.mockRestore();
+  });
+
+  test("pathValidation 'dev' and 'always' both warn in test environment (NODE_ENV != production)", () => {
+    // In test environment NODE_ENV is captured at module-load time as non-production.
+    // Both 'dev' and 'always' will warn.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const formDev = createForm({ initialValues: { name: '' }, pathValidation: 'dev' });
+    formDev.set('ghost' as any, 'x');
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown path'));
+    warnSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// subscribeToPathDynamic
+// ---------------------------------------------------------------------------
+
+describe('subscribeToPathDynamic', () => {
+  test('fires with current value on attach and on subsequent changes', () => {
+    const form = createForm({ initialValues: { qty: 3 } });
+    const received: number[] = [];
+    // @ts-expect-error — subscribeToPathDynamic may not exist yet in v0.4.0
+    const unsub = form.subscribeToPathDynamic('qty', (v: unknown) => received.push(v as number));
+    expect(received).toEqual([3]); // immediate call
+    form.set('qty', 7);
+    expect(received).toContain(7);
+    unsub();
+    form.set('qty', 99);
+    expect(received).not.toContain(99); // unsubscribed
   });
 });

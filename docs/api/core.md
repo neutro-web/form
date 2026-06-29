@@ -171,18 +171,20 @@ interface FormState<T> {
   isSubmitting: boolean
   isValidating: boolean
   isValid: boolean | null
+  submissionAttempts: number
+  lastSubmittedValues: Partial<T> | null
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `values` | `T` | Current form values |
-| `errors` | `Record<string, string>` | Field error messages by path |
-| `touched` | `Record<string, boolean>` | Fields the user has interacted with |
-| `dirty` | `Record<string, boolean>` | Fields that have changed since initialization |
-| `isSubmitting` | `boolean` | `true` while submit handler is running |
-| `isValidating` | `boolean` | `true` while async validation is in flight |
-| `isValid` | `boolean \| null` | `null` = not yet validated; `true` = last full validation passed; `false` = errors exist |
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `values` | `T` | — | Current form values |
+| `errors` | `Record<string, string>` | `{}` | Field error messages by path |
+| `touched` | `Record<string, boolean>` | `{}` | Fields the user has interacted with |
+| `dirty` | `Record<string, boolean>` | `{}` | Fields that have changed since initialization |
+| `isSubmitting` | `boolean` | `false` | `true` while submit handler is running |
+| `isValidating` | `boolean` | `false` | `true` while async validation is in flight |
+| `isValid` | `boolean \| null` | `null` | `null` = not yet validated; `true` = last full validation passed; `false` = errors exist |
 | `submissionAttempts` | `number` | `0` | Increments on every `submit()` call, including failed validation attempts. |
 | `lastSubmittedValues` | `Partial<T> \| null` | `null` | Deep snapshot of form values at last successful submission. `null` until first success. Cleared by `reset()`. |
 
@@ -201,7 +203,7 @@ const form = createForm<MyValues>({ initialValues: { ... } })
 ### `form.get(path)`
 
 ```ts
-form.get(path: string): unknown
+form.get<P extends Path<T>>(path: P): GetPathValue<T, P>
 ```
 
 Returns the current value at the given dot-notation path. Supports array index notation (`items.0.name`).
@@ -216,11 +218,7 @@ const firstItem = form.get('items.0.label')
 ### `form.set(path, value, options?)`
 
 ```ts
-form.set(
-  path: string,
-  value: unknown,
-  options?: { touch?: boolean; validate?: boolean }
-): void
+form.set<P extends Path<T>>(path: P, value: GetPathValue<T, P>, options?: SetOptions): void
 ```
 
 Sets the value at `path`. By default, does not mark the field as touched and does not trigger validation.
@@ -295,7 +293,7 @@ type Never = ArrayItem<string>
 ### `form.validate(paths?)`
 
 ```ts
-form.validate(paths?: string[]): Promise<boolean>
+form.validate(scopePaths?: Array<Path<T> | string[]>): Promise<boolean>
 ```
 
 Runs the validator. When `paths` is provided, only those paths (plus their computed dependents) are validated. When omitted, all fields are validated.
@@ -331,9 +329,9 @@ unsub()
 ### `form.subscribeToPath(path, fn)`
 
 ```ts
-form.subscribeToPath(
-  path: string,
-  fn: (value: unknown, fieldState: FieldState) => void
+form.subscribeToPath<P extends Path<T>>(
+  path: P,
+  fn: (value: GetPathValue<T, P>) => void
 ): () => void
 ```
 
@@ -352,11 +350,7 @@ const unsub = form.subscribeToPath('email', (value, { error, touched }) => {
 ### `form.connect(path, element, options?)`
 
 ```ts
-form.connect(
-  path: string,
-  element: HTMLElement,
-  options?: ConnectOptions
-): () => void
+form.connect(path: Path<T>, el: HTMLElement, options?: ConnectOptions): () => void
 ```
 
 Links an `HTMLElement` to a form field path. See [DOM Connect Bridge](/api/connect) for full documentation.
@@ -419,12 +413,16 @@ form.reset({ email: 'new@ex.com' })   // re-seed with new values
 
 ### `resetField(path, options?)`
 
+```ts
+form.resetField(path: Path<T>, options?: ResetFieldOptions): void
+```
+
 Restores a single field to its initial value (the value from `initialValues`, or the seed passed to the last `reset(newValues)` call).
 
 ```ts
 form.resetField('email')
 form.resetField('address')              // clears all address.* state
-form.resetField(['items', '0', 'name']) // segment-array path
+form.resetField('items.0.name')         // nested array path
 form.resetField('email', { keepError: true }) // preserve the current error
 ```
 
@@ -450,10 +448,10 @@ Returns the effective validation mode for `path`. Primarily useful for debugging
 
 Resolution order (first match wins):
 
-1. `validationMode.fields[path]` in `FormConfig` — per-field config
-2. `validationMode` string shorthand in `FormConfig` — e.g. `validationMode: 'onBlur'` applies to all fields
+1. `validationMode` string shorthand in `FormConfig` — highest priority; if a string like `'onChange'` is set, it applies globally
+2. `validationMode.fields[path]` in `FormConfig` — per-field override
 3. `validationMode.default` in `FormConfig` — the default inside an object config
-4. `'onTouched'` (library default)
+4. `'onTouched'` (built-in fallback)
 
 ```ts
 const mode = form.getFieldMode('email')
@@ -569,7 +567,7 @@ Clears all subscriptions, cancels any in-flight async validators, disconnects th
 ### `form.isFieldValid(path)`
 
 ```ts
-form.isFieldValid(path: string): boolean | null
+form.isFieldValid(path: Path<T>): boolean | null
 ```
 
 Returns the validation state for a single field:
@@ -592,7 +590,7 @@ if (valid === false) console.log('Has error:', form.getState().errors.email)
 form.isDirty(): boolean
 ```
 
-Returns `true` if any field has been changed via `set()` since the last reset. Equivalent to `Object.keys(form.getState().dirty).length > 0`.
+Returns `true` if any field has been mutated via `set()`, `setDynamic()`, or related methods during this session — even if the value was subsequently changed back to its initial value. To check whether the current values actually differ from initial values, use `Object.keys(form.getState().dirty).length > 0` instead.
 
 ```ts
 const dirty = form.isDirty()
@@ -603,7 +601,7 @@ const dirty = form.isDirty()
 ### `form.isFieldDirty(path)`
 
 ```ts
-form.isFieldDirty(path: string): boolean
+form.isFieldDirty(path: Path<T>): boolean
 ```
 
 Returns `true` if this field or any child path has been set. Uses prefix matching — `isFieldDirty('address')` returns `true` if `address.city` is dirty.
@@ -644,7 +642,7 @@ To observe all form state changes (including errors, touched, etc.), use `form.s
 ### `form.focus(path)`
 
 ```ts
-form.focus(path: string): boolean
+form.focus(path: Path<T>): boolean
 ```
 
 Focus the element connected to `path` via `form.connect()`. Returns `false` if no element is connected to that path or the element is no longer in the DOM.
@@ -751,7 +749,7 @@ export interface PersistenceAdapter<T> {
 ### `form.arrayAppend(path, item)`
 
 ```ts
-form.arrayAppend(path: string, item: unknown): void
+form.arrayAppend(path: Path<T>, item: unknown): void
 ```
 
 Appends an item to the array at `path`. See [Array Operations](/api/array-operations).
@@ -761,7 +759,7 @@ Appends an item to the array at `path`. See [Array Operations](/api/array-operat
 ### `form.arrayInsert(path, index, item)`
 
 ```ts
-form.arrayInsert(path: string, index: number, item: unknown): void
+form.arrayInsert(path: Path<T>, index: number, item: unknown): void
 ```
 
 Inserts an item at `index`, shifting subsequent items and their field state down by one.
@@ -771,7 +769,7 @@ Inserts an item at `index`, shifting subsequent items and their field state down
 ### `form.arrayRemove(path, index)`
 
 ```ts
-form.arrayRemove(path: string, index: number): void
+form.arrayRemove(path: Path<T>, index: number): void
 ```
 
 Removes the item at `index`, shifting subsequent items and their field state up by one.
@@ -781,7 +779,7 @@ Removes the item at `index`, shifting subsequent items and their field state up 
 ### `form.arrayMove(path, from, to)`
 
 ```ts
-form.arrayMove(path: string, from: number, to: number): void
+form.arrayMove(path: Path<T>, from: number, to: number): void
 ```
 
 Moves the item at `from` to `to`, remapping field state for all items in the affected window.
@@ -791,10 +789,14 @@ Moves the item at `from` to `to`, remapping field state for all items in the aff
 ### `form.arraySwap(path, i, j)`
 
 ```ts
-form.arraySwap(path: string, i: number, j: number): void
+form.arraySwap(path: Path<T>, i: number, j: number): void
 ```
 
 Swaps the items at indices `i` and `j`, swapping their field state as well.
+
+---
+
+> **v0.4+ Note:** All path parameters require `Path<T>` — a compile-time-checked union of valid dot-notation paths. For runtime-constructed paths, use [`setDynamic`](#setdynamic) / [`getDynamic`](#getdynamic) / [`subscribeToPathDynamic`](#subscribetojpathdynamic).
 
 ---
 
@@ -803,10 +805,7 @@ Swaps the items at indices `i` and `j`, swapping their field state as well.
 Returns a plain object of ARIA attributes for the given field. Spread the result directly onto an input element. Reads the current state as a snapshot — call it inside a subscription or reactive binding to keep attributes up to date.
 
 ```ts
-form.getAriaProps(
-  path: Path<T> | string,
-  options?: AriaPropsOptions
-): AriaProps
+form.getAriaProps(path: Path<T>, options?: AriaPropsOptions): AriaProps
 ```
 
 #### AriaPropsOptions
