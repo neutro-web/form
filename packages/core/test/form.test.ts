@@ -574,6 +574,24 @@ describe('Payload isolation', () => {
     const form = createForm({ initialValues: { a: 1, b: 2 } });
     expect(form.getPayload()).toEqual({});
   });
+
+  test('getPayload() strips transient computed fields from submit payload', async () => {
+    // The same stripping logic that runs in getPayload() also runs in submit().
+    // We verify via the submit callback payload since the Node test environment has no DOM
+    // (connect() is a no-op without window), so we exercise the same transientPaths loop.
+    type Form = { qty: number; display: number };
+    let receivedPayload: Partial<Form> | undefined;
+    const form = createForm<Form>({
+      initialValues: { qty: 3, display: 0 },
+      computed: { display: { fn: (v) => v.qty * 5, transient: true } },
+      onSubmitSuccess: (payload) => {
+        receivedPayload = payload as Partial<Form>;
+      },
+    });
+    await form.submit(async () => {});
+    expect(receivedPayload?.display).toBeUndefined(); // transient must be stripped
+    expect(receivedPayload?.qty).toBe(3);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -3090,6 +3108,17 @@ describe('setErrors', () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
+  it('setErrors accepts a partial errors object — only specified fields receive errors', () => {
+    const form = createForm<{ email: string; name: string }>({
+      initialValues: { email: '', name: '' },
+    });
+    // Only one of two fields
+    form.setErrors({ email: 'Already taken' });
+    const state = form.getState();
+    expect(state.errors.email).toBe('Already taken');
+    expect(state.errors.name).toBeUndefined();
+  });
+
   it('does not mark injected paths as dirty', () => {
     const form = createForm({ initialValues: { email: '' } });
 
@@ -3916,6 +3945,20 @@ describe('Security & Fault-Tolerance', () => {
       });
 
       await expect(form.hydrate()).resolves.toBeUndefined();
+    });
+
+    it('hydration with __proto__ key in persisted data does not pollute prototype', async () => {
+      const mockAdapter = {
+        read: async () => ({ '__proto__': { polluted: 'yes' } } as any),
+        write: async () => {},
+        clear: async () => {},
+      };
+      const form = createForm({
+        initialValues: { name: '' },
+        persistence: { adapter: mockAdapter },
+      });
+      await form.hydrate();
+      expect((Object.prototype as any).polluted).toBeUndefined();
     });
   });
 
@@ -4820,6 +4863,36 @@ describe('runComputedPass — pass limit and circular warning', () => {
     warnSpy.mockRestore();
   });
 
+  test('computedPassLimit: Infinity — clamped to 50, form does not hang', () => {
+    const form = createForm({
+      initialValues: { qty: 1, total: 0 },
+      computedPassLimit: Infinity,
+      computed: { total: { fn: (v: any) => v.qty * 10 } },
+    });
+    form.set('qty', 3);
+    expect(form.get('total')).toBe(30);
+  });
+
+  test('computedPassLimit: NaN — clamped to 5, form does not hang', () => {
+    const form = createForm({
+      initialValues: { qty: 1, total: 0 },
+      computedPassLimit: NaN,
+      computed: { total: { fn: (v: any) => v.qty * 10 } },
+    });
+    form.set('qty', 3);
+    expect(form.get('total')).toBe(30);
+  });
+
+  test('computedPassLimit: -1 — clamped to 5, form does not hang', () => {
+    const form = createForm({
+      initialValues: { qty: 1, total: 0 },
+      computedPassLimit: -1,
+      computed: { total: { fn: (v: any) => v.qty * 10 } },
+    });
+    form.set('qty', 3);
+    expect(form.get('total')).toBe(30);
+  });
+
   test('directly self-referential computed field (x = x + 1) warns after pass limit', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     type Form = { source: number; x: number };
@@ -4831,6 +4904,33 @@ describe('runComputedPass — pass limit and circular warning', () => {
     warnSpy.mockClear();
     form.set('source', 1);
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('did not stabilize'));
+    warnSpy.mockRestore();
+  });
+
+  test('circular dependency warning message includes the unstable field names', () => {
+    // Use a non-computed source field to trigger runComputedPass; x and y are both computed
+    // and mutually dependent, so they will never stabilize.
+    type Form = { source: number; x: number; y: number };
+    // Suppress the init-time warning that fires during createForm
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm<Form>({
+      initialValues: { source: 0, x: 0, y: 0 },
+      computedPassLimit: 3,
+      computed: {
+        x: { fn: (v) => v.y + 1 },
+        y: { fn: (v) => v.x + 1 },
+      },
+    });
+    spy.mockRestore();
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    form.set('source', 1); // mutate the plain field to trigger runComputedPass
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Still changing'));
+    const warnMessage = warnSpy.mock.calls[0][0] as string;
+    // At least one of the circular fields (x or y) must appear in the warning.
+    // The final check-only pass discovers instability in iteration order, so at minimum
+    // the first detected unstable field is named in the message.
+    expect(warnMessage).toMatch(/\b(x|y)\b/);
     warnSpy.mockRestore();
   });
 });
@@ -5098,11 +5198,53 @@ describe('setDynamic / getDynamic', () => {
     const form = createForm({ initialValues: { x: 1 } });
     expect(() => form.getDynamic(null as any)).not.toThrow();
   });
+
+  test('setDynamic dispatches a SET action to _subscribeToActions', () => {
+    const form = createForm({ initialValues: { qty: 1 } });
+    const actions: any[] = [];
+    form._subscribeToActions((a) => actions.push(a));
+    form.setDynamic('qty', 42);
+    expect(actions).toContainEqual(expect.objectContaining({ type: 'SET', path: 'qty', value: 42 }));
+  });
+
+  test('setDynamic null path fires console.error', () => {
+    const form = createForm({ initialValues: { qty: 1 } });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    form.setDynamic(null as any, 42);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('setDynamic'));
+    spy.mockRestore();
+  });
+
+  test('setDynamic undefined path fires console.error', () => {
+    const form = createForm({ initialValues: { qty: 1 } });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    form.setDynamic(undefined as any, 42);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('setDynamic'));
+    spy.mockRestore();
+  });
 });
 
 // ---------------------------------------------------------------------------
 // Additional computed fields tests — v0.4.0 coverage
 // ---------------------------------------------------------------------------
+
+describe('flattenComputedConfig — security and fault tolerance', () => {
+  test('__proto__ key in computed config is silently dropped', () => {
+    expect(() =>
+      createForm({
+        initialValues: { x: 1 },
+        computed: { '__proto__': { fn: () => 'polluted' } } as any,
+      })
+    ).not.toThrow();
+    expect((Object.prototype as any).polluted).toBeUndefined();
+  });
+
+  test('circular computed config does not stack overflow', () => {
+    const circular: any = { nested: {} };
+    circular.nested.back = circular; // circular reference
+    expect(() => createForm({ initialValues: { x: 1 }, computed: circular })).not.toThrow();
+  });
+});
 
 describe('computed fields — additional edge cases (v0.4.0)', () => {
   test('3-level deeply nested computed field (a.b.c)', () => {
@@ -5195,5 +5337,21 @@ describe('subscribeToPathDynamic', () => {
     unsub();
     form.set('qty', 99);
     expect(received).not.toContain(99); // unsubscribed
+  });
+
+  test('subscribeToPathDynamic fires for a computed path when source changes', () => {
+    type Form = { qty: number; total: number };
+    const form = createForm<Form>({
+      initialValues: { qty: 1, total: 0 },
+      computed: { total: { fn: (v) => v.qty * 10 } },
+    });
+    const received: number[] = [];
+    const unsub = form.subscribeToPathDynamic('total', (v: unknown) => received.push(v as number));
+    expect(received).toEqual([10]); // immediate fire: 1 * 10
+    form.set('qty', 3);
+    expect(received).toContain(30);
+    unsub();
+    form.set('qty', 99);
+    expect(received).not.toContain(990);
   });
 });
