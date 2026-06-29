@@ -1,6 +1,6 @@
 # Svelte 5 Guide
 
-> **v0.4 note:** Hook `paths` parameters (`useFormPaths`, etc.) still accept `Path<T> | string`. Strict adapter path types arrive in v0.5.
+> **v0.4 note:** Adapter hooks still accept `string` for path parameters. Strict adapter path types arrive in v0.5.
 
 ```sh
 npm install @neutro/form

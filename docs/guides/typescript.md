@@ -49,11 +49,20 @@ form.arrayAppend('items', 'not-an-object')             // ❌ TypeScript error
 
 ## Dynamic paths
 
-For paths computed at runtime, the typed overload falls back to `string`:
+When a path is constructed at runtime, use the `setDynamic` and `getDynamic` escape hatches:
 
 ```ts
-const path: string = computePath()
-form.set(path, value) // ✅ always compiles — falls back to loose overload
+// path is a string known only at runtime
+const field = `items.${index}.name`
+
+form.setDynamic(field, 'Gadget')        // set at runtime path
+form.getDynamic(field)                   // read at runtime path — returns unknown
+```
+
+For methods other than `set`/`get`, cast with `as Path<T>` when you are confident the path is valid:
+
+```ts
+form.isFieldDirty(field as Path<typeof form>)
 ```
 
 ## Utility types

@@ -4,7 +4,8 @@ export default defineConfig({
   title: '@neutro/form',
   description: 'Zero-dependency reactive form engine for every framework.',
   base: '/form/',
-  ignoreDeadLinks: [/localhost/, /computed-fields$/, /playground$/],
+  srcExclude: ['superpowers/**'],
+  ignoreDeadLinks: [/localhost/],
 
   vite: {
     server: { port: 7000 },
