@@ -5,10 +5,10 @@
     ".": {
       "component": "form",
       "include-component-in-tag": false,
-      "release-as": "0.4.0",
       "version-file": "packages/alias/package.json",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
+        { "type": "json", "path": "packages/alias/package.json",           "jsonpath": "$.version" },
         { "type": "json", "path": "package.json",                          "jsonpath": "$.version" },
         { "type": "json", "path": "packages/core/package.json",            "jsonpath": "$.version" },
         { "type": "json", "path": "packages/adapters/react/package.json",  "jsonpath": "$.version" },
