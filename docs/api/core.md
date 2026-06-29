@@ -84,6 +84,28 @@ interface FormConfig<T> {
   }
 
   /**
+   * Derived fields evaluated after every mutation.
+   * Each leaf has the shape `{ fn: (values: T) => V; transient?: boolean }`.
+   * Nested object notation mirrors `initialValues`.
+   */
+  computed?: ComputedConfig<T>
+
+  /**
+   * Maximum evaluation passes per `set()` call before the circular-dependency warning fires.
+   * @default 5
+   */
+  computedPassLimit?: number
+
+  /**
+   * Controls when unknown-path warnings fire.
+   * `'dev'` warns only when `NODE_ENV !== 'production'`.
+   * `'always'` warns regardless of environment.
+   * `'off'` disables the trie entirely.
+   * @default 'dev'
+   */
+  pathValidation?: 'dev' | 'always' | 'off'
+
+  /**
    * Called after the submit handler resolves successfully.
    * If it throws, the error is logged and the successful submission is not reversed.
    */
@@ -103,6 +125,30 @@ interface FormConfig<T> {
 |---|---|---|---|
 | `onSubmitSuccess` | `(payload: Partial<T>) => void \| Promise<void>` | `undefined` | Called after the submit handler resolves. If it throws, the error is logged and the successful submission is not reversed. |
 | `onSubmitError` | `(error: unknown, payload: Partial<T>) => void \| Promise<void>` | `undefined` | Called when the submit handler rejects. The original error is re-thrown after the hook runs. |
+
+### `computed`
+
+```ts
+computed?: ComputedConfig<T>
+```
+
+Derived fields evaluated after every mutation. Each leaf node has the shape `{ fn: (values: T) => V; transient?: boolean }`. Nested object notation mirrors `initialValues`. See the [Computed Fields guide](../guides/computed-fields.md).
+
+### `computedPassLimit`
+
+```ts
+computedPassLimit?: number  // default: 5
+```
+
+Maximum evaluation passes per `set()` call before the circular-dependency warning fires.
+
+### `pathValidation`
+
+```ts
+pathValidation?: 'dev' | 'always' | 'off'  // default: 'dev'
+```
+
+Controls when unknown-path warnings fire. `'dev'` warns only when `NODE_ENV !== 'production'`. `'always'` warns regardless of environment. `'off'` disables the trie entirely.
 
 ---
 
@@ -625,6 +671,24 @@ await form.submit(async (payload) => {
 // if submit returns false (validation failed):
 form.focusFirstError()
 ```
+
+---
+
+### `setDynamic(path, value, options?)`
+
+```ts
+form.setDynamic(path: string, value: unknown, options?: SetOptions): void
+```
+
+Sets a value at a runtime-constructed path. Bypasses `Path<T>` compile-time checking. No-op if `path` is a computed field. Use when the path is not known at compile time.
+
+### `getDynamic(path)`
+
+```ts
+form.getDynamic(path: string): unknown
+```
+
+Reads a value at a runtime-constructed path. Returns `unknown`.
 
 ---
 

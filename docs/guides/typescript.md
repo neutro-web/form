@@ -152,3 +152,16 @@ const mockForm: Partial<FormInstance<Values>> = {
   focusFirstError: () => false,
 }
 ```
+
+## Strict path types (v0.4+)
+
+All path-accepting methods require `Path<T>` — a union of every valid dot-notation path in your form type. TypeScript catches typos at compile time:
+
+```ts
+form.set('pricing.vat', 0.2)   // ✅
+form.set('pricing.typo', 0.2)  // ❌ TS error
+```
+
+**Depth limit:** `Path<T>` generates paths up to 5 levels deep. For paths beyond 5 levels, use `setDynamic`/`getDynamic`.
+
+**Runtime paths:** Use `setDynamic(path, value)` and `getDynamic(path)` when the path is constructed at runtime. For other methods, cast with `as Path<T>`.

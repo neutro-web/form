@@ -1,5 +1,7 @@
 # Angular Guide
 
+> **v0.4 note:** Hook `paths` parameters (`useFormPaths`, etc.) still accept `Path<T> | string`. Strict adapter path types arrive in v0.5.
+
 ```sh
 npm install @neutro/form
 # pnpm add @neutro/form
