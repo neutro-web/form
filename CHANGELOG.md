@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/neutro-web/form/compare/v0.4.0...v0.4.1) (2026-06-29)
+
+
+### Bug Fixes
+
+* **release:** bump alias to 0.4.0; add alias to extra-files so all packages stay in lockstep; remove release-as now that 0.4.0 is tagged ([5af15de](https://github.com/neutro-web/form/commit/5af15dead596725cf291fb5153e899cd06def366))
+
 ## [0.4.0](https://github.com/neutro-web/form/compare/v0.3.0...v0.4.0) (2026-06-29)
 
 
