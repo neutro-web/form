@@ -5188,7 +5188,6 @@ describe('subscribeToPathDynamic', () => {
   test('fires with current value on attach and on subsequent changes', () => {
     const form = createForm({ initialValues: { qty: 3 } });
     const received: number[] = [];
-    // @ts-expect-error — subscribeToPathDynamic may not exist yet in v0.4.0
     const unsub = form.subscribeToPathDynamic('qty', (v: unknown) => received.push(v as number));
     expect(received).toEqual([3]); // immediate call
     form.set('qty', 7);
