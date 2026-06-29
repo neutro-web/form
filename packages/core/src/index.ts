@@ -1408,8 +1408,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // Prototype B: after the primary notify, recompute derived fields and fire a second
     // notification if any computed value changed. This runs outside the batch so
     // subscribers receive a distinct snapshot for the derived state.
-    const _changed = runComputedPass();
-    if (_changed.length > 0) notify();
+    const changedComputedPaths = runComputedPass();
+    if (changedComputedPaths.length > 0) notify();
     if (options.validate === true) runValidation([path]);
   };
 
