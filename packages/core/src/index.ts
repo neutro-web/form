@@ -1124,8 +1124,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     return changedPaths;
   };
 
-  // Prototype B: seed computed field values at init time so initial state is already derived.
-  runComputedPass();
+  runComputedPass(); // seed computed values at init
   const __devPathTrie = !__isProduction ? buildPathTrie(config.initialValues) : null;
 
   const __warnUnknownPath = (path: string): void => {
@@ -1420,7 +1419,6 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     val: any,
     options: { touch?: boolean; validate?: boolean } = {}
   ) => {
-    // Prototype B: computed fields are read-only — set() is a no-op for them.
     if (computedMap.has(path)) {
       if (!__isProduction) {
         console.warn(`[NeutroForm] "${path}" is a computed field — set() is a no-op.`);
