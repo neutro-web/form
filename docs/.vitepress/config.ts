@@ -58,6 +58,12 @@ export default defineConfig({
             { text: 'Computed Fields', link: '/guides/computed-fields' },
           ],
         },
+        {
+          text: 'Migration',
+          items: [
+            { text: 'v0.3 → v0.4', link: '/guides/migration-v0.4' },
+          ],
+        },
       ],
     },
 
