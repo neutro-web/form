@@ -51,6 +51,19 @@ type _GetPathValue<T, P extends string> = P extends `${infer K}.${infer Rest}`
 
 export type GetPathValue<T, P extends string> = _GetPathValue<T, P>;
 
+export type ComputedLeaf<TRoot, V> = {
+  fn: (values: TRoot) => V;
+  transient?: boolean;
+};
+
+export type ComputedConfig<T, TRoot = T> = {
+  [K in keyof T]?: NonNullable<T[K]> extends Array<any>
+    ? ComputedLeaf<TRoot, T[K]>
+    : NonNullable<T[K]> extends object
+      ? ComputedLeaf<TRoot, T[K]> | ComputedConfig<NonNullable<T[K]>, TRoot>
+      : ComputedLeaf<TRoot, T[K]>;
+};
+
 export interface FormState<T> {
   values: T;
   errors: Record<string, string>;
@@ -173,23 +186,12 @@ export interface FormConfig<T extends object> {
   persistence?: PersistenceConfig<T>;
   onSubmitSuccess?: (payload: Partial<T>) => void | Promise<void>;
   onSubmitError?: (error: unknown, payload: Partial<T>) => void | Promise<void>;
-  /**
-   * PROTOTYPE — NOT PUBLIC API (v0.4.0 candidate)
-   *
-   * Computed / Derived Fields: each key maps to a pure function that derives its value
-   * from the full form values object. Computed fields are re-evaluated synchronously
-   * after every set() call. Calling set() on a computed field is a no-op (dev warning
-   * is logged). Chain dependencies (A→B→C) resolve in a single two-pass sweep.
-   *
-   * This option is accepted by createForm but is NOT documented or advertised in v0.3.0.
-   * It exists so the implementation can be benchmarked and validated before the v0.4.0
-   * release decision. Do not rely on it in production code — the API may change.
-   *
-   * See: packages/core/test/form.test.ts — describe.skip('computed fields prototype …')
-   */
-  computed?: {
-    [K in keyof T]?: (values: T) => T[K];
-  };
+  /** Derived fields evaluated after every mutation. See ComputedConfig<T>. */
+  computed?: ComputedConfig<T>;
+  /** Max evaluation passes per mutation before the circular-dependency warning fires. Default: 5. */
+  computedPassLimit?: number;
+  /** Controls runtime path validation. Default: 'dev' (warn in development only). */
+  pathValidation?: 'dev' | 'always' | 'off';
 }
 
 export interface ConnectOptions {
