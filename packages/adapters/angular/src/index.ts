@@ -28,6 +28,13 @@ export interface AngularFormReturn<T extends object> {
   isDirty: FormInstance<T>['isDirty'];
   isFieldDirty: FormInstance<T>['isFieldDirty'];
   isFieldValid: FormInstance<T>['isFieldValid'];
+  focus: FormInstance<T>['focus'];
+  focusFirstError: FormInstance<T>['focusFirstError'];
+  hydrate: FormInstance<T>['hydrate'];
+  watch: FormInstance<T>['watch'];
+  setDynamic: FormInstance<T>['setDynamic'];
+  getDynamic: FormInstance<T>['getDynamic'];
+  subscribeToPathDynamic: FormInstance<T>['subscribeToPathDynamic'];
 }
 
 // Must be called inside an injection context (component constructor or inject() call site).
@@ -67,6 +74,13 @@ export function useAngularForm<T extends object>(form: FormInstance<T>): Angular
     isDirty: form.isDirty,
     isFieldDirty: form.isFieldDirty,
     isFieldValid: form.isFieldValid,
+    focus: form.focus,
+    focusFirstError: form.focusFirstError,
+    hydrate: form.hydrate,
+    watch: form.watch,
+    setDynamic: form.setDynamic,
+    getDynamic: form.getDynamic,
+    subscribeToPathDynamic: form.subscribeToPathDynamic,
   };
 }
 

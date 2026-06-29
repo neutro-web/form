@@ -1,4 +1,10 @@
-import type { FormInstance, FormState, GetPathValue, Path } from '@neutro/form-core';
+import type {
+  ConnectOptions,
+  FormInstance,
+  FormState,
+  GetPathValue,
+  Path,
+} from '@neutro/form-core';
 import React, { useCallback, useRef, useSyncExternalStore } from 'react';
 
 export function useForm<T extends object>(
@@ -40,7 +46,7 @@ export function useForm<T extends object>(
     hydrate: (...args: Parameters<typeof form.hydrate>) => form.hydrate(...args),
     watch: (...args: Parameters<typeof form.watch>) => form.watch(...args),
     setDynamic: (...args: Parameters<typeof form.setDynamic>) => form.setDynamic(...args),
-    getDynamic: (...args: Parameters<typeof form.getDynamic>) => form.getDynamic(...args),
+    getDynamic: form.getDynamic,
   } as FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState' | '_subscribeToActions'>;
 }
 
@@ -85,7 +91,7 @@ export function useWatch<T extends object>(
 export function useFormConnect<T extends object>(form: FormInstance<T>) {
   const cleanups = useRef(new Map<string, () => void>());
   return useCallback(
-    (path: string, options?: any) => (el: HTMLElement | null) => {
+    (path: string, options?: ConnectOptions) => (el: HTMLElement | null) => {
       if (el) {
         cleanups.current.get(path)?.();
         cleanups.current.set(path, form.connect(path as any, el, options));

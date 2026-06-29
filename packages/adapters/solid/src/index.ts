@@ -28,6 +28,13 @@ export interface SolidFormActions<T extends object> {
   isDirty: FormInstance<T>['isDirty'];
   isFieldDirty: FormInstance<T>['isFieldDirty'];
   isFieldValid: FormInstance<T>['isFieldValid'];
+  focus: FormInstance<T>['focus'];
+  focusFirstError: FormInstance<T>['focusFirstError'];
+  hydrate: FormInstance<T>['hydrate'];
+  watch: FormInstance<T>['watch'];
+  setDynamic: FormInstance<T>['setDynamic'];
+  getDynamic: FormInstance<T>['getDynamic'];
+  subscribeToPathDynamic: FormInstance<T>['subscribeToPathDynamic'];
 }
 
 // Bug fix: use createStore + reconcile instead of createSignal so Solid's
@@ -69,6 +76,13 @@ export function useSolidForm<T extends object>(
       isDirty: form.isDirty,
       isFieldDirty: form.isFieldDirty,
       isFieldValid: form.isFieldValid,
+      focus: form.focus,
+      focusFirstError: form.focusFirstError,
+      hydrate: form.hydrate,
+      watch: form.watch,
+      setDynamic: form.setDynamic,
+      getDynamic: form.getDynamic,
+      subscribeToPathDynamic: form.subscribeToPathDynamic,
     },
   ];
 }

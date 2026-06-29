@@ -41,6 +41,13 @@ export interface VueFormReturn<T extends object> {
   isDirty: FormInstance<T>['isDirty'];
   isFieldDirty: FormInstance<T>['isFieldDirty'];
   isFieldValid: FormInstance<T>['isFieldValid'];
+  focus: FormInstance<T>['focus'];
+  focusFirstError: FormInstance<T>['focusFirstError'];
+  hydrate: FormInstance<T>['hydrate'];
+  watch: FormInstance<T>['watch'];
+  setDynamic: FormInstance<T>['setDynamic'];
+  getDynamic: FormInstance<T>['getDynamic'];
+  subscribeToPathDynamic: FormInstance<T>['subscribeToPathDynamic'];
 }
 
 export function useVueForm<T extends object>(form: FormInstance<T>): VueFormReturn<T> {
@@ -76,6 +83,13 @@ export function useVueForm<T extends object>(form: FormInstance<T>): VueFormRetu
     isDirty: form.isDirty,
     isFieldDirty: form.isFieldDirty,
     isFieldValid: form.isFieldValid,
+    focus: form.focus,
+    focusFirstError: form.focusFirstError,
+    hydrate: form.hydrate,
+    watch: form.watch,
+    setDynamic: form.setDynamic,
+    getDynamic: form.getDynamic,
+    subscribeToPathDynamic: form.subscribeToPathDynamic,
   };
 }
 
