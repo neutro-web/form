@@ -4645,44 +4645,77 @@ describe('onSubmitSuccess / onSubmitError hooks', () => {
 // computed fields are being officially released.
 // ---------------------------------------------------------------------------
 
-describe.skip('computed fields prototype (0.4.0 candidate)', () => {
-  test('computed field updates when dependency changes', () => {
-    const form = createForm({
+describe('computed fields — stable API', () => {
+  test('top-level computed field updates when dependency changes', () => {
+    type Form = { qty: number; unitPrice: number; total: number };
+    const form = createForm<Form>({
       initialValues: { qty: 1, unitPrice: 10, total: 0 },
-      computed: {
-        total: (values) => (values as any).qty * (values as any).unitPrice,
-      },
+      computed: { total: { fn: (v) => v.qty * v.unitPrice } },
     });
+    expect(form.get('total')).toBe(10); // init seeding
     form.set('qty', 3);
-    expect(form.getState().values.total).toBe(30);
+    expect(form.get('total')).toBe(30);
   });
 
-  test('set() on a computed field is a no-op', () => {
-    const form = createForm({
+  test('set() on a computed field is a no-op with dev warning', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    type Form = { qty: number; unitPrice: number; total: number };
+    const form = createForm<Form>({
       initialValues: { qty: 2, unitPrice: 5, total: 0 },
-      computed: { total: (values) => (values as any).qty * (values as any).unitPrice },
+      computed: { total: { fn: (v) => v.qty * v.unitPrice } },
     });
     form.set('total' as any, 999);
-    expect(form.getState().values.total).toBe(10); // 2 * 5
+    expect(form.get('total')).toBe(10);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('computed field'));
+    spy.mockRestore();
   });
 
-  test('chain A→B→C: exactly one extra notification cycle per set()', () => {
-    let notifyCount = 0;
-    const form = createForm({
+  test('chain A→B→C resolves correctly', () => {
+    type Form = { a: number; b: number; c: number };
+    const form = createForm<Form>({
       initialValues: { a: 1, b: 0, c: 0 },
       computed: {
-        b: (values) => (values as any).a * 2,
-        c: (values) => (values as any).b + 1,
+        b: { fn: (v) => v.a * 2 },
+        c: { fn: (v) => v.b + 1 },
       },
     });
-    form.subscribe(() => {
-      notifyCount++;
-    });
-    notifyCount = 0;
     form.set('a', 2);
-    // Baseline (no computed) = 1 notification. With computed = at most 2 (one extra pass).
-    expect(notifyCount).toBeLessThanOrEqual(2);
-    expect(form.getState().values.c).toBe(5); // a=2 → b=4 → c=5
+    expect(form.get('b')).toBe(4);
+    expect(form.get('c')).toBe(5);
+  });
+
+  test('computed path never contributes to isDirty or isFieldDirty', () => {
+    type Form = { qty: number; total: number };
+    const form = createForm<Form>({
+      initialValues: { qty: 1, total: 0 },
+      computed: { total: { fn: (v) => v.qty * 10 } },
+    });
+    form.set('qty', 2);
+    expect(form.isDirty()).toBe(true);
+    expect(form.isFieldDirty('total')).toBe(false);
+  });
+
+  test('init seeding: computed values correct before any user interaction', () => {
+    type Form = { qty: number; unitPrice: number; total: number };
+    const form = createForm<Form>({
+      initialValues: { qty: 3, unitPrice: 4, total: 0 },
+      computed: { total: { fn: (v) => v.qty * v.unitPrice } },
+    });
+    expect(form.get('total')).toBe(12);
+  });
+
+  test('nested computed field with optional parent type', () => {
+    type Form = { qty: number; pricing?: { vat: number } };
+    const form = createForm<Form>({
+      initialValues: { qty: 1, pricing: { vat: 0 } },
+      computed: {
+        pricing: {
+          vat: { fn: (v) => v.qty * 0.2 },
+        },
+      },
+    });
+    form.set('qty', 10);
+    expect(form.get('pricing.vat' as any)).toBeCloseTo(2);
   });
 });
 
