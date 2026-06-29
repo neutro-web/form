@@ -19,7 +19,7 @@ describe('computed fields overhead', () => {
   const formNoComputed = createForm({ initialValues: { qty: 1, unitPrice: 10, total: 0 } });
   const formWithComputed = createForm({
     initialValues: { qty: 1, unitPrice: 10, total: 0 },
-    computed: { total: (v: SimpleForm) => v.qty * v.unitPrice },
+    computed: { total: { fn: (v: SimpleForm) => v.qty * v.unitPrice } },
   });
 
   bench('set() without computed (baseline)', () => {
@@ -32,11 +32,11 @@ describe('computed fields overhead', () => {
   const form5 = createForm({
     initialValues: { a: 1, b: 1, c: 1, d: 1, e: 1, fa: 0, fb: 0, fc: 0, fd: 0, fe: 0 },
     computed: {
-      fa: (v: MultiForm) => v.a * 2,
-      fb: (v: MultiForm) => v.b * 2,
-      fc: (v: MultiForm) => v.c * 2,
-      fd: (v: MultiForm) => v.d * 2,
-      fe: (v: MultiForm) => v.e * 2,
+      fa: { fn: (v: MultiForm) => v.a * 2 },
+      fb: { fn: (v: MultiForm) => v.b * 2 },
+      fc: { fn: (v: MultiForm) => v.c * 2 },
+      fd: { fn: (v: MultiForm) => v.d * 2 },
+      fe: { fn: (v: MultiForm) => v.e * 2 },
     },
   });
   bench('set() with 5 independent computed fields', () => {

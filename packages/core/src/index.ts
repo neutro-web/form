@@ -965,6 +965,30 @@ function applyBuiltInRules<T>(
 }
 
 // ---------------------------------------------------------------------------
+// flattenComputedConfig
+// ---------------------------------------------------------------------------
+
+function flattenComputedConfig<T>(
+  node: Record<string, unknown>,
+  prefix = ''
+): Map<string, { fn: (values: T) => unknown; transient: boolean }> {
+  const map = new Map<string, { fn: (values: T) => unknown; transient: boolean }>();
+  for (const key of Object.keys(node)) {
+    const val = node[key];
+    if (!val || typeof val !== 'object') continue;
+    const path = prefix ? `${prefix}.${key}` : key;
+    const v = val as Record<string, unknown>;
+    if (typeof v.fn === 'function') {
+      map.set(path, { fn: v.fn as (values: T) => unknown, transient: Boolean(v.transient) });
+    } else {
+      const nested = flattenComputedConfig<T>(v, path);
+      nested.forEach((entry, k) => map.set(k, entry));
+    }
+  }
+  return map;
+}
+
+// ---------------------------------------------------------------------------
 // createForm
 // ---------------------------------------------------------------------------
 
@@ -1034,34 +1058,23 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   // ---------------------------------------------------------------------------
   // Computed / Derived Fields (v0.4.0 stable API)
   // ---------------------------------------------------------------------------
-  const computedFields = config.computed ?? ({} as NonNullable<typeof config.computed>);
-  const computedKeys = Object.keys(computedFields) as Array<keyof T>;
+  const computedMap = flattenComputedConfig<T>(
+    (config.computed ?? {}) as Record<string, unknown>
+  );
 
   /**
    * Re-evaluates all computed fields against current `values`.
-   * Runs up to two passes so that chained dependencies (A→B→C) resolve correctly
-   * in a single runComputedPass() call regardless of declaration order.
-   * Returns true if any value actually changed.
+   * Returns an array of paths whose values actually changed.
    */
-  const runComputedPass = (): boolean => {
-    if (computedKeys.length === 0) return false;
-    let changed = false;
-    // Two passes: first pass may update B from A; second pass updates C from the new B.
-    for (let pass = 0; pass < 2; pass++) {
-      let passChanged = false;
-      for (const key of computedKeys) {
-        const fn = computedFields[key];
-        if (!fn) continue;
-        const newVal = fn(values);
-        const currentVal = getNestedValue(values, key as string);
-        if (!isDeepEqual(newVal, currentVal)) {
-          setNestedValue(values, key as string, newVal);
-          passChanged = true;
-          changed = true;
-        }
+  const runComputedPass = (): string[] => {
+    if (computedMap.size === 0) return [];
+    const changed: string[] = [];
+    for (const [path, { fn }] of computedMap) {
+      const newVal = fn(values);
+      if (!isDeepEqual(newVal, getNestedValue(values, path))) {
+        setNestedValue(values, path, newVal);
+        changed.push(path);
       }
-      // Short-circuit: if nothing changed in this pass, further passes are pointless.
-      if (!passChanged) break;
     }
     return changed;
   };
@@ -1373,7 +1386,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     options: { touch?: boolean; validate?: boolean } = {}
   ) => {
     // Prototype B: computed fields are read-only — set() is a no-op for them.
-    if (computedKeys.length > 0 && computedKeys.includes(path as keyof T)) {
+    if (computedMap.has(path)) {
       if (!__isProduction) {
         console.warn(`[NeutroForm] "${path}" is a computed field — set() is a no-op.`);
       }
@@ -1395,9 +1408,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // Prototype B: after the primary notify, recompute derived fields and fire a second
     // notification if any computed value changed. This runs outside the batch so
     // subscribers receive a distinct snapshot for the derived state.
-    if (runComputedPass()) {
-      notify();
-    }
+    const _changed = runComputedPass();
+    if (_changed.length > 0) notify();
     if (options.validate === true) runValidation([path]);
   };
 
