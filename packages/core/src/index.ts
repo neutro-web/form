@@ -1032,12 +1032,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         })();
 
   // ---------------------------------------------------------------------------
-  // PROTOTYPE B — Computed / Derived Fields (v0.4.0 candidate, NOT public API)
-  //
-  // The implementation lives here so it can be benchmarked in realistic conditions,
-  // but the `computed` config option is intentionally undocumented in v0.3.0.
-  // Release gate: benchmarks must confirm ≤1 extra notification cycle per set() for
-  // any chain depth. Tests live in form.test.ts under describe.skip().
+  // Computed / Derived Fields (v0.4.0 stable API)
   // ---------------------------------------------------------------------------
   const computedFields = config.computed ?? ({} as NonNullable<typeof config.computed>);
   const computedKeys = Object.keys(computedFields) as Array<keyof T>;
