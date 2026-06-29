@@ -4685,3 +4685,52 @@ describe.skip('computed fields prototype (0.4.0 candidate)', () => {
     expect(form.getState().values.c).toBe(5); // a=2 → b=4 → c=5
   });
 });
+
+describe('runComputedPass — pass limit and circular warning', () => {
+  test('A→B→C chain resolves within default pass limit', () => {
+    type Form = { a: number; b: number; c: number };
+    const form = createForm<Form>({
+      initialValues: { a: 1, b: 0, c: 0 },
+      computed: {
+        b: { fn: (v) => v.a * 2 },
+        c: { fn: (v) => v.b + 1 },
+      },
+    });
+    form.set('a', 3);
+    expect(form.get('b')).toBe(6);
+    expect(form.get('c')).toBe(7);
+  });
+
+  test('circular computed fields warn after hitting computedPassLimit', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // source is a plain field (not computed), so set() actually triggers runComputedPass.
+    // x and y are both computed and mutually dependent — they can never stabilize.
+    type Form = { source: number; x: number; y: number };
+    const form = createForm<Form>({
+      initialValues: { source: 0, x: 0, y: 0 },
+      computedPassLimit: 3,
+      computed: {
+        x: { fn: (v) => v.y + 1 },
+        y: { fn: (v) => v.x + 1 },
+      },
+    });
+    form.set('source', 1);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('did not stabilize'));
+    spy.mockRestore();
+  });
+
+  test('computedPassLimit: 1 resolves a flat (non-chained) computed field without warning', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    type Form = { qty: number; total: number };
+    const form = createForm<Form>({
+      initialValues: { qty: 1, total: 0 },
+      computedPassLimit: 1,
+      computed: { total: { fn: (v) => v.qty * 10 } },
+    });
+    form.set('qty', 4);
+    expect(form.get('total')).toBe(40);
+    // A flat field should stabilize in 1 pass — no spurious circular warning
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});

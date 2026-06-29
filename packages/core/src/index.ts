@@ -1055,33 +1055,6 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           return 300;
         })();
 
-  // ---------------------------------------------------------------------------
-  // Computed / Derived Fields (v0.4.0 stable API)
-  // ---------------------------------------------------------------------------
-  const computedMap = flattenComputedConfig<T>(
-    (config.computed ?? {}) as Record<string, unknown>
-  );
-
-  /**
-   * Re-evaluates all computed fields against current `values`.
-   * Returns an array of paths whose values actually changed.
-   */
-  const runComputedPass = (): string[] => {
-    if (computedMap.size === 0) return [];
-    const changed: string[] = [];
-    for (const [path, { fn }] of computedMap) {
-      const newVal = fn(values);
-      if (!isDeepEqual(newVal, getNestedValue(values, path))) {
-        setNestedValue(values, path, newVal);
-        changed.push(path);
-      }
-    }
-    return changed;
-  };
-
-  // Prototype B: seed computed field values at init time so initial state is already derived.
-  runComputedPass();
-
   // Dev-only runtime path validation trie (Prototype A — v0.4.0 release decision pending)
   // Use a try/catch to safely read process.env in Node; in browser builds process is undefined.
   const __isProduction = (() => {
@@ -1091,6 +1064,64 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       return false;
     }
   })();
+
+  // ---------------------------------------------------------------------------
+  // Computed / Derived Fields (v0.4.0 stable API)
+  // ---------------------------------------------------------------------------
+  const computedMap = flattenComputedConfig<T>(
+    (config.computed ?? {}) as Record<string, unknown>
+  );
+
+  /**
+   * Re-evaluates all computed fields against current `values`.
+   * Runs up to `computedPassLimit` passes (default 5) to resolve chained
+   * dependencies. Emits a console.warn if the fields never stabilize (circular
+   * dependency). Returns an array of unique paths whose values changed.
+   */
+  const runComputedPass = (): string[] => {
+    if (computedMap.size === 0) return [];
+    const limit = config.computedPassLimit ?? 5;
+    const changedPaths: string[] = [];
+    let stabilized = false;
+    for (let pass = 0; pass < limit; pass++) {
+      let passChanged = false;
+      for (const [path, { fn }] of computedMap) {
+        const newVal = fn(values);
+        if (!isDeepEqual(newVal, getNestedValue(values, path))) {
+          setNestedValue(values, path, newVal);
+          if (!changedPaths.includes(path)) changedPaths.push(path);
+          passChanged = true;
+        }
+      }
+      if (!passChanged) {
+        stabilized = true;
+        break;
+      }
+    }
+    // If the loop exhausted all passes without an early-exit, run one final check-only
+    // pass (no updates) to distinguish genuine instability from "last pass happened to
+    // do real work". A flat field with computedPassLimit: 1 is stable after 1 pass even
+    // though the loop never saw a no-change pass.
+    if (!stabilized) {
+      let stillChanging = false;
+      for (const [path, { fn }] of computedMap) {
+        if (!isDeepEqual(fn(values), getNestedValue(values, path))) {
+          stillChanging = true;
+          break;
+        }
+      }
+      if (!stillChanging) stabilized = true;
+    }
+    if (!stabilized && !__isProduction) {
+      console.warn(
+        `[NeutroForm] Computed fields did not stabilize after ${limit} passes. Check for circular dependencies.`
+      );
+    }
+    return changedPaths;
+  };
+
+  // Prototype B: seed computed field values at init time so initial state is already derived.
+  runComputedPass();
   const __devPathTrie = !__isProduction ? buildPathTrie(config.initialValues) : null;
 
   const __warnUnknownPath = (path: string): void => {
