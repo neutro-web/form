@@ -4842,7 +4842,11 @@ describe('computed fields — transient marker', () => {
         errorSnapshot = payload as Partial<Form>;
       },
     });
-    await form.submit(async () => { throw new Error('fail'); }).catch(() => {});
+    await form
+      .submit(async () => {
+        throw new Error('fail');
+      })
+      .catch(() => {});
     expect(errorSnapshot?.display).toBeUndefined();
   });
 
@@ -4852,7 +4856,9 @@ describe('computed fields — transient marker', () => {
     const form = createForm<Form>({
       initialValues: { qty: 3, total: 0 },
       computed: { total: { fn: (v) => v.qty * 10 } },
-      onSubmitSuccess: (payload) => { snapshot = payload as Partial<Form>; },
+      onSubmitSuccess: (payload) => {
+        snapshot = payload as Partial<Form>;
+      },
     });
     await form.submit(async () => {});
     expect(snapshot?.total).toBe(30);

@@ -231,11 +231,7 @@ export interface FormInstance<T extends object> {
   subscribe: (fn: FormSubscriber<T>) => () => void;
   subscribeToPath<P extends Path<T>>(path: P, fn: PathSubscriber<GetPathValue<T, P>>): () => void;
   get<P extends Path<T>>(path: P): GetPathValue<T, P>;
-  set<P extends Path<T>>(
-    path: P,
-    val: GetPathValue<T, P>,
-    options?: SetOptions
-  ): void;
+  set<P extends Path<T>>(path: P, val: GetPathValue<T, P>, options?: SetOptions): void;
   validate(scopePaths?: Array<Path<T> | string[]>): Promise<boolean>;
   connect: (path: Path<T>, el: HTMLElement, options?: ConnectOptions) => () => void;
   submit: (onValid: (payload: Partial<T>) => void | Promise<void>) => Promise<boolean>;
@@ -969,7 +965,9 @@ function flattenComputedConfig<T>(
       map.set(path, { fn: v.fn as (values: T) => unknown, transient: Boolean(v.transient) });
     } else {
       const nested = flattenComputedConfig<T>(v, path);
-      nested.forEach((entry, k) => map.set(k, entry));
+      nested.forEach((entry, k) => {
+        map.set(k, entry);
+      });
     }
   }
   return map;
@@ -1055,9 +1053,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   // ---------------------------------------------------------------------------
   // Computed / Derived Fields (v0.4.0 stable API)
   // ---------------------------------------------------------------------------
-  const computedMap = flattenComputedConfig<T>(
-    (config.computed ?? {}) as Record<string, unknown>
-  );
+  const computedMap = flattenComputedConfig<T>((config.computed ?? {}) as Record<string, unknown>);
 
   /**
    * Re-evaluates all computed fields against current `values`.
@@ -1114,8 +1110,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   runComputedPass(); // seed computed values at init
   const __pathValidation = config.pathValidation ?? 'dev';
   const __shouldBuildTrie =
-    __pathValidation !== 'off' &&
-    !(__pathValidation === 'dev' && __isProduction);
+    __pathValidation !== 'off' && !(__pathValidation === 'dev' && __isProduction);
   const __devPathTrie = __shouldBuildTrie ? buildPathTrie(config.initialValues) : null;
 
   const __warnUnknownPath = (path: string): void => {
@@ -1946,7 +1941,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const parts = path.split('.');
         let obj: any = valuesSnapshot;
         for (let i = 0; i < parts.length - 1; i++) {
-          if (!obj || typeof obj !== 'object') { obj = null; break; }
+          if (!obj || typeof obj !== 'object') {
+            obj = null;
+            break;
+          }
           obj = obj[parts[i]];
         }
         if (obj && typeof obj === 'object') {
@@ -2330,7 +2328,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     },
 
     resetField: (path: Path<T>, options?: ResetFieldOptions): void => {
-      const targetPath = Array.isArray(path) ? (path as unknown as string[]).join('.') : (path as string);
+      const targetPath = Array.isArray(path)
+        ? (path as unknown as string[]).join('.')
+        : (path as string);
       const initialVal = getNestedValue(initialValues, targetPath);
       const freshVal = deepClone(initialVal);
 
