@@ -3949,7 +3949,7 @@ describe('Security & Fault-Tolerance', () => {
 
     it('hydration with __proto__ key in persisted data does not pollute prototype', async () => {
       const mockAdapter = {
-        read: async () => ({ '__proto__': { polluted: 'yes' } } as any),
+        read: async () => ({ __proto__: { polluted: 'yes' } }) as any,
         write: async () => {},
         clear: async () => {},
       };
@@ -5204,7 +5204,9 @@ describe('setDynamic / getDynamic', () => {
     const actions: any[] = [];
     form._subscribeToActions((a) => actions.push(a));
     form.setDynamic('qty', 42);
-    expect(actions).toContainEqual(expect.objectContaining({ type: 'SET', path: 'qty', value: 42 }));
+    expect(actions).toContainEqual(
+      expect.objectContaining({ type: 'SET', path: 'qty', value: 42 })
+    );
   });
 
   test('setDynamic null path fires console.error', () => {
@@ -5233,7 +5235,7 @@ describe('flattenComputedConfig — security and fault tolerance', () => {
     expect(() =>
       createForm({
         initialValues: { x: 1 },
-        computed: { '__proto__': { fn: () => 'polluted' } } as any,
+        computed: { __proto__: { fn: () => 'polluted' } } as any,
       })
     ).not.toThrow();
     expect((Object.prototype as any).polluted).toBeUndefined();
