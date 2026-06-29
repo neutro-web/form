@@ -1,3 +1,10 @@
+pre-commit:
+  commands:
+    format:
+      glob: "packages/**/*.{ts,tsx}"
+      run: pnpm exec biome check --write {staged_files}
+      stage_fixed: true
+
 pre-push:
   commands:
     lint:
