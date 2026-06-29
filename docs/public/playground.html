@@ -3952,6 +3952,41 @@ run(el) {
 }
 },
 
+// ── Step 21 ─────────────────────────────────────────────────────────────────
+{
+title: 'Dynamic paths (setDynamic / getDynamic)',
+code: `const form = createForm({
+  initialValues: { items: [{ name: 'Widget', qty: 1 }] },
+})
+
+// Build path at runtime — e.g. from a loop index
+const index = 0
+const path = \`items.\${index}.name\`
+
+form.setDynamic(path, 'Gadget')
+console.log(form.getDynamic(path)) // 'Gadget'`,
+setup() {
+  const out = document.createElement('pre');
+  out.style.cssText = 'font-family:monospace;font-size:13px;padding:1rem;color:#e6edf3;background:#0d1117;border-radius:8px;white-space:pre-wrap';
+
+  const log = (...args) => { out.textContent += args.join(' ') + '\n'; };
+
+  const form = createForm({
+    initialValues: { items: [{ name: 'Widget', qty: 1 }] },
+  });
+
+  const index = 0;
+  const path = `items.${index}.name`;
+
+  form.setDynamic(path, 'Gadget');
+  log('getDynamic result:', form.getDynamic(path)); // 'Gadget'
+  log('Full values:', JSON.stringify(form.getValues(), null, 2));
+
+  document.getElementById('playground-root').appendChild(out);
+  return form;
+}
+},
+
 );  // end VANILLA.push()
 // ─── REACT TUTORIALS ─────────────────────────────────────────────────────────
 const REACT = [
