@@ -142,6 +142,8 @@ computedPassLimit?: number  // default: 5
 
 Maximum evaluation passes per `set()` call before the circular-dependency warning fires.
 
+Values are clamped: must be a finite integer ≥ 1; the maximum accepted value is **50**. Non-finite values (e.g. `Infinity`, `NaN`), zero, and negatives silently fall back to the default of 5. This prevents accidental hangs when `Infinity` is passed.
+
 ### `pathValidation`
 
 ```ts
@@ -306,6 +308,8 @@ await form.validate()
 await form.validate(['firstName', 'lastName', 'email'])
 ```
 
+> **Note:** Passing `string[]` as the first argument is also accepted at runtime (same behaviour as `Path<T>[]`), but is not reflected in the TypeScript overloads. Use `as Path<T>[]` if you need to pass a dynamically-built array.
+
 ---
 
 ### `form.subscribe(fn)`
@@ -331,11 +335,13 @@ unsub()
 ```ts
 form.subscribeToPath<P extends Path<T>>(
   path: P,
-  fn: (value: GetPathValue<T, P>) => void
+  fn: (value: GetPathValue<T, P>, fieldState: { error?: string; touched?: boolean; dirty?: boolean }) => void
 ): () => void
 ```
 
 Registers a path-level subscriber. `fn` is called only when the value or field state at `path` changes. Returns an unsubscribe function.
+
+The subscriber receives `(value: GetPathValue<T, P>, fieldState: { error?: string; touched?: boolean; dirty?: boolean })` as arguments. The `fieldState` second argument is also available in `subscribeToPathDynamic` subscribers.
 
 The wildcard path `'*'` receives every path notification.
 
@@ -365,6 +371,8 @@ form.getPayload(): Partial<T>
 
 Returns a partial values object containing only the paths that are currently connected to a live DOM element or were connected with `persist: true`. Useful for collecting only the visible step's data in a multi-step form.
 
+Transient computed fields are excluded from the returned object — consistent with `submit()` behavior. Non-transient computed fields (e.g. a `total` derived from `qty * unitPrice`) are included.
+
 ---
 
 ### `form.getState()`
@@ -383,7 +391,7 @@ Returns a full snapshot of the current form state. The returned object is a plai
 form.batch(fn: () => void): void
 ```
 
-Runs `fn` synchronously with notifications deferred until the function returns. Useful when making multiple mutations that should appear as a single update to subscribers.
+Runs `fn` synchronously with notifications deferred until the function returns. Useful when making multiple mutations that should appear as a single update to subscribers. Computed fields are kept fully consistent inside a batch — all derived values are re-evaluated once after `fn` returns, before any subscriber fires.
 
 ```ts
 form.batch(() => {
@@ -391,7 +399,7 @@ form.batch(() => {
   form.set('lastName', 'Smith')
   form.set('role', 'admin')
 })
-// subscribers are notified once, after all three sets
+// subscribers are notified once, after all three sets; computed fields already reflect final values
 ```
 
 ---
@@ -465,7 +473,7 @@ const mode = form.getFieldMode('email')
 ### `form.setErrors(errors)`
 
 ```ts
-form.setErrors(errors: Record<string, string>): void
+form.setErrors(errors: Partial<Record<Path<T>, string>>): void
 ```
 
 Merges server-returned field errors into form state. Each injected error behaves identically to a client-side validation error — it appears in `state.errors`, notifies all subscribers, and clears the next time the affected field is validated.
@@ -680,13 +688,53 @@ form.setDynamic(path: string, value: unknown, options?: SetOptions): void
 
 Sets a value at a runtime-constructed path. Bypasses `Path<T>` compile-time checking. No-op if `path` is a computed field. Use when the path is not known at compile time.
 
-### `getDynamic(path)`
+Defensive guards (dev console errors/warnings, no throw):
+- `null` or non-string `path` → `console.error` and no-op.
+- Empty string `path` → `console.warn` and no-op.
+- Computed field path → `console.warn` and no-op.
+
+### `getDynamic<V>(path)`
 
 ```ts
-form.getDynamic(path: string): unknown
+form.getDynamic<V = unknown>(path: string): V
 ```
 
-Reads a value at a runtime-constructed path. Returns `unknown`.
+Reads a value at a runtime-constructed path. The optional generic `V` lets you assert the expected return type without a cast at the call site. Returns `unknown` when `V` is not specified.
+
+```ts
+// untyped — returns unknown
+const raw = form.getDynamic('items.0.name')
+
+// typed — returns string (caller asserts the type)
+const name = form.getDynamic<string>('items.0.name')
+```
+
+Can read computed fields — use freely for any path, including derived values.
+
+### `subscribeToPathDynamic(path, fn)`
+
+```ts
+form.subscribeToPathDynamic(
+  path: string,
+  fn: (value: unknown, fieldState: { error?: string; touched?: boolean; dirty?: boolean }) => void
+): () => void
+```
+
+Registers a path-level subscriber using a runtime-constructed path string. Equivalent to `subscribeToPath` but accepts `string` instead of `Path<T>`. Returns an unsubscribe function.
+
+Use this when the path is built at runtime (e.g. `items.${index}.name`) and cannot be expressed as a compile-time `Path<T>`.
+
+```ts
+const index = 1
+const unsub = form.subscribeToPathDynamic(`items.${index}.qty`, (value) => {
+  console.log('qty changed:', value)
+})
+
+// later:
+unsub()
+```
+
+The wildcard `'*'` path is also supported and receives every path notification.
 
 ---
 
@@ -796,7 +844,7 @@ Swaps the items at indices `i` and `j`, swapping their field state as well.
 
 ---
 
-> **v0.4+ Note:** All path parameters require `Path<T>` — a compile-time-checked union of valid dot-notation paths. For runtime-constructed paths, use [`setDynamic`](#setdynamic) / [`getDynamic`](#getdynamic) / [`subscribeToPathDynamic`](#subscribetojpathdynamic).
+> **v0.4+ Note:** All path parameters require `Path<T>` — a compile-time-checked union of valid dot-notation paths. For runtime-constructed paths, use [`setDynamic`](#setdynamic-path-value-options) / [`getDynamic`](#getdynamic-v-path) / [`subscribeToPathDynamic`](#subscribetopathdynamic-path-fn).
 
 ---
 
@@ -864,6 +912,19 @@ form.getAriaProps('email', { errorId: 'my-email-error' })
 // Suppress aria-required even though rules include 'required'
 form.getAriaProps('email', { required: false })
 ```
+
+---
+
+### `getConnectedCount(path?)`
+
+Returns the number of DOM elements currently connected to the form (or to a specific `path` if provided).
+
+```ts
+form.getConnectedCount()        // total connected elements
+form.getConnectedCount('email') // elements connected to 'email'
+```
+
+Useful for diagnostics and conditional rendering logic.
 
 ---
 
