@@ -1,6 +1,6 @@
 # Migration Guide — v0.3 → v0.4
 
-v0.4.0 contains one breaking change: all path-accepting methods on `FormInstance<T>` now require `Path<T>` instead of accepting plain `string`.
+v0.4 contains one breaking change: all path-accepting methods on `FormInstance<T>` now require `Path<T>` instead of accepting plain `string`.
 
 ## Breaking change: strict path types
 
@@ -82,6 +82,8 @@ The `paths` parameter in adapter hooks (`useFormPaths`, `useFormField`, etc.) st
 
 ## New features in v0.4
 
-- **Computed fields** — see [Computed Fields guide](./computed-fields.md)
+- **Computed fields** (`computed`, `computedPassLimit` config) — see [Computed Fields guide](./computed-fields.md)
 - **`pathValidation` config** — control when unknown-path warnings fire (`'dev'` / `'always'` / `'off'`)
 - **`setDynamic` / `getDynamic`** — explicit runtime-path escape hatches
+- **`subscribeToPathDynamic`** — runtime-path variant of `subscribeToPath`; accepts `string` and returns an unsubscribe function
+- **`setErrors` now accepts `Partial<Record<Path<T>, string>>`** — only the keys present in the argument are merged; other field errors are untouched

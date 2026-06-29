@@ -6,7 +6,7 @@ Neutro is a collection of focused, zero-dependency primitives for the web. Each 
 
 | Package | Description | Status |
 |---|---|---|
-| [`@neutro/form`](https://github.com/neutro-web/form) | Reactive form engine for every framework | `v0.4.0` — stable |
+| [`@neutro/form`](https://github.com/neutro-web/form) | Reactive form engine for every framework | `v0.4.2` — stable |
 | `@neutro/fluid` | Physics-grounded glass material system for the web | In development |
 
 ---
@@ -673,7 +673,7 @@ The DOM bridge (`connect()`) requires an `HTMLElement` and does not apply in Rea
 
 These are things `@neutro/form` does not do cleanly yet. They are not workarounds — if your project needs them, know this going in.
 
-**Strongly typed field paths — path typos not caught (intentional)** — `form.set('emal', value)` compiles without error. Catching path typos would require removing the dynamic-path escape hatch, which would break `const p: string = ...; form.set(p, value)`. The current design preserves dynamic paths at the cost of not catching typos. Compile-time type inference and dev-mode runtime path warnings are both available in v0.4.0 — unknown paths emit a console warning in development.
+**Strongly typed field paths — path typos not caught (intentional)** — `form.set('emal', value)` compiles without error. Catching path typos would require removing the dynamic-path escape hatch, which would break `const p: string = ...; form.set(p, value)`. The current design preserves dynamic paths at the cost of not catching typos. Compile-time type inference and dev-mode runtime path warnings are both available in v0.4.2 — unknown paths emit a console warning in development.
 
 **React Native adapter** — the core works but there is no official adapter with RN-idiomatic patterns.
 
