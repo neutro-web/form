@@ -3833,6 +3833,47 @@ run(el) {
 
 // ── Step 20 ─────────────────────────────────────────────────────────────────
 {
+title: 'Dynamic paths (setDynamic / getDynamic)',
+desc: 'Build a path at runtime from a variable. setDynamic and getDynamic bypass compile-time Path<T> checks — use them when the path cannot be typed statically.',
+code: `const form = createForm({
+  initialValues: { items: [{ name: 'Widget', qty: 1 }, { name: 'Gadget', qty: 3 }] },
+})
+
+// index is built at runtime — e.g. from a loop or user interaction
+const index = 1
+const namePath = \`items.\${index}.name\`
+const qtyPath = \`items.\${index}.qty\`
+
+form.setDynamic(namePath, 'Updated Gadget')
+console.log('name:', form.getDynamic(namePath))  // 'Updated Gadget'
+console.log('qty:', form.getDynamic(qtyPath))     // 3
+console.log('state:', form.getState().values)`,
+run(el) {
+  const out = document.createElement('pre');
+  out.style.cssText = 'font-family:monospace;font-size:13px;padding:1rem;color:#e6edf3;background:#0d1117;border-radius:8px;white-space:pre-wrap';
+
+  const log = (...args) => { out.textContent += args.join(' ') + '\n'; };
+
+  const form = createForm({
+    initialValues: { items: [{ name: 'Widget', qty: 1 }, { name: 'Gadget', qty: 3 }] },
+  });
+
+  const index = 1;
+  const namePath = `items.${index}.name`;
+  const qtyPath = `items.${index}.qty`;
+
+  form.setDynamic(namePath, 'Updated Gadget');
+  log('name:', form.getDynamic(namePath));
+  log('qty:', form.getDynamic(qtyPath));
+  log('state:', JSON.stringify(form.getState().values, null, 2));
+
+  el.appendChild(out);
+  return form;
+},
+},
+
+// ── Step 21 ─────────────────────────────────────────────────────────────────
+{
 title: 'Performance Lab',
 desc: 'Stress-test the engine. Add 50 subscribers, batch 100 field mutations, run async validation — then inspect the perf metrics: notification count, validation time, epoch, and subscriber map.',
 code: `// Create a form with 10 fields
@@ -3950,47 +3991,6 @@ run(el) {
 
   return form;
 }
-},
-
-// ── Step 21 ─────────────────────────────────────────────────────────────────
-{
-title: 'Dynamic paths (setDynamic / getDynamic)',
-desc: 'Build a path at runtime from a variable. setDynamic and getDynamic bypass compile-time Path<T> checks — use them when the path cannot be typed statically.',
-code: `const form = createForm({
-  initialValues: { items: [{ name: 'Widget', qty: 1 }, { name: 'Gadget', qty: 3 }] },
-})
-
-// index is built at runtime — e.g. from a loop or user interaction
-const index = 1
-const namePath = \`items.\${index}.name\`
-const qtyPath = \`items.\${index}.qty\`
-
-form.setDynamic(namePath, 'Updated Gadget')
-console.log('name:', form.getDynamic(namePath))  // 'Updated Gadget'
-console.log('qty:', form.getDynamic(qtyPath))     // 3
-console.log('state:', form.getState().values)`,
-run(el) {
-  const out = document.createElement('pre');
-  out.style.cssText = 'font-family:monospace;font-size:13px;padding:1rem;color:#e6edf3;background:#0d1117;border-radius:8px;white-space:pre-wrap';
-
-  const log = (...args) => { out.textContent += args.join(' ') + '\n'; };
-
-  const form = createForm({
-    initialValues: { items: [{ name: 'Widget', qty: 1 }, { name: 'Gadget', qty: 3 }] },
-  });
-
-  const index = 1;
-  const namePath = `items.${index}.name`;
-  const qtyPath = `items.${index}.qty`;
-
-  form.setDynamic(namePath, 'Updated Gadget');
-  log('name:', form.getDynamic(namePath));
-  log('qty:', form.getDynamic(qtyPath));
-  log('state:', JSON.stringify(form.getState().values, null, 2));
-
-  el.appendChild(out);
-  return form;
-},
 },
 
 );  // end VANILLA.push()

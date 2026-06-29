@@ -93,3 +93,5 @@ The VitePress documentation site lives in `docs/`. Source files are Markdown; th
 ### Browser Demo
 
 `hardened_sandbox_playground.html` is a self-contained browser demo (Tailwind via CDN, engine inlined as vanilla JS). It exercises all features: multi-step wizard with scoped validation, async uniqueness checks with visible AbortSignal cancellation, cursor-preserving phone formatter, multi-select, date cross-field dependency, dynamic array CRUD with move/swap, and `reset(newValues)` re-seeding. Open it directly in a browser — it has no build step.
+
+**Playground tab ordering rule:** The "Performance Lab" tab must always be the last step in the vanilla JS section. Do not insert new demos after it — place them before it.
