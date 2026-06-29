@@ -21,8 +21,7 @@ export function useForm<T extends object>(
     reset: form.reset,
     batch: form.batch,
     subscribeToPath: form.subscribeToPath,
-    subscribeToPathDynamic: (...args: Parameters<typeof form.subscribeToPathDynamic>) =>
-      form.subscribeToPathDynamic(...args),
+    subscribeToPathDynamic: form.subscribeToPathDynamic,
     validate: form.validate,
     getPayload: form.getPayload,
     getAriaProps: form.getAriaProps,
@@ -40,12 +39,11 @@ export function useForm<T extends object>(
     isDirty: form.isDirty,
     isFieldDirty: form.isFieldDirty,
     isFieldValid: form.isFieldValid,
-    focus: (...args: Parameters<typeof form.focus>) => form.focus(...args),
-    focusFirstError: (...args: Parameters<typeof form.focusFirstError>) =>
-      form.focusFirstError(...args),
-    hydrate: (...args: Parameters<typeof form.hydrate>) => form.hydrate(...args),
-    watch: (...args: Parameters<typeof form.watch>) => form.watch(...args),
-    setDynamic: (...args: Parameters<typeof form.setDynamic>) => form.setDynamic(...args),
+    focus: form.focus,
+    focusFirstError: form.focusFirstError,
+    hydrate: form.hydrate,
+    watch: form.watch,
+    setDynamic: form.setDynamic,
     getDynamic: form.getDynamic,
   } as FormState<T> & Omit<FormInstance<T>, 'subscribe' | 'getState' | '_subscribeToActions'>;
 }
