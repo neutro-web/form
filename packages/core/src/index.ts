@@ -1949,6 +1949,18 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         persistedPaths
       );
       const valuesSnapshot = deepClone(values) as Partial<T>;
+      for (const [path, { transient }] of computedMap) {
+        if (!transient) continue;
+        const parts = path.split('.');
+        let obj: any = valuesSnapshot;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!obj || typeof obj !== 'object') { obj = null; break; }
+          obj = obj[parts[i]];
+        }
+        if (obj && typeof obj === 'object') {
+          delete obj[parts[parts.length - 1]];
+        }
+      }
 
       try {
         await onSubmitCallback(callbackPayload);

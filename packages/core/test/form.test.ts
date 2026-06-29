@@ -4808,3 +4808,63 @@ describe('computed fields — reset() interaction', () => {
     expect(form.get('total')).toBe(30); // back to qty=3 derived
   });
 });
+
+// ---------------------------------------------------------------------------
+// computed fields — transient marker
+// ---------------------------------------------------------------------------
+
+describe('computed fields — transient marker', () => {
+  test('transient computed field excluded from onSubmitSuccess valuesSnapshot', async () => {
+    type Form = { qty: number; total: number; displayTotal: number };
+    let snapshot: Partial<Form> | undefined;
+    const form = createForm<Form>({
+      initialValues: { qty: 2, total: 0, displayTotal: 0 },
+      computed: {
+        total: { fn: (v) => v.qty * 10 },
+        displayTotal: { fn: (v) => v.total, transient: true },
+      },
+      onSubmitSuccess: (payload) => {
+        snapshot = payload as Partial<Form>;
+      },
+    });
+    await form.submit(async () => {});
+    expect(snapshot?.total).toBe(20);
+    expect(snapshot?.displayTotal).toBeUndefined();
+  });
+
+  test('transient computed field excluded from onSubmitError valuesSnapshot', async () => {
+    type Form = { qty: number; display: number };
+    let errorSnapshot: Partial<Form> | undefined;
+    const form = createForm<Form>({
+      initialValues: { qty: 1, display: 0 },
+      computed: { display: { fn: (v) => v.qty * 5, transient: true } },
+      onSubmitError: (_err, payload) => {
+        errorSnapshot = payload as Partial<Form>;
+      },
+    });
+    await form.submit(async () => { throw new Error('fail'); }).catch(() => {});
+    expect(errorSnapshot?.display).toBeUndefined();
+  });
+
+  test('non-transient computed field included in valuesSnapshot', async () => {
+    type Form = { qty: number; total: number };
+    let snapshot: Partial<Form> | undefined;
+    const form = createForm<Form>({
+      initialValues: { qty: 3, total: 0 },
+      computed: { total: { fn: (v) => v.qty * 10 } },
+      onSubmitSuccess: (payload) => { snapshot = payload as Partial<Form>; },
+    });
+    await form.submit(async () => {});
+    expect(snapshot?.total).toBe(30);
+  });
+
+  test('transient computed field accessible via get() and getState()', () => {
+    type Form = { a: number; b: number };
+    const form = createForm<Form>({
+      initialValues: { a: 2, b: 0 },
+      computed: { b: { fn: (v) => v.a * 3, transient: true } },
+    });
+    expect(form.get('b')).toBe(6);
+    expect(form.getState().values.b).toBe(6);
+  });
+});
