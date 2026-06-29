@@ -4868,3 +4868,37 @@ describe('computed fields — transient marker', () => {
     expect(form.getState().values.b).toBe(6);
   });
 });
+
+describe('pathValidation config', () => {
+  test("'dev' warns on unknown path (default)", () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({ initialValues: { name: '' }, pathValidation: 'dev' });
+    form.set('ghost' as any, 'x');
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Unknown path'));
+    spy.mockRestore();
+  });
+
+  test("'always' warns on unknown path", () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({ initialValues: { name: '' }, pathValidation: 'always' });
+    form.set('ghost' as any, 'x');
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('Unknown path'));
+    spy.mockRestore();
+  });
+
+  test("'off' never warns on unknown path", () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({ initialValues: { name: '' }, pathValidation: 'off' });
+    form.set('ghost' as any, 'x');
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  test("'off' does not warn on unknown path for get()", () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const form = createForm({ initialValues: { name: '' }, pathValidation: 'off' });
+    form.get('ghost' as any);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});

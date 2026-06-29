@@ -1125,10 +1125,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   runComputedPass(); // seed computed values at init
-  const __devPathTrie = !__isProduction ? buildPathTrie(config.initialValues) : null;
+  const __pathValidation = config.pathValidation ?? 'dev';
+  const __shouldBuildTrie =
+    __pathValidation !== 'off' &&
+    !(__pathValidation === 'dev' && __isProduction);
+  const __devPathTrie = __shouldBuildTrie ? buildPathTrie(config.initialValues) : null;
 
   const __warnUnknownPath = (path: string): void => {
-    if (__devPathTrie && !isKnownPath(__devPathTrie, path)) {
+    if (!__devPathTrie) return;
+    if (!isKnownPath(__devPathTrie, path)) {
       console.warn(`[NeutroForm] Unknown path: "${path}". Check your initialValues schema.`);
     }
   };
