@@ -4775,3 +4775,36 @@ describe('computed field — path subscriber notifications', () => {
     expect(received).toContain(8);
   });
 });
+
+describe('computed fields — reset() interaction', () => {
+  test('reset() re-derives computed values from reset state', () => {
+    type Form = { qty: number; unitPrice: number; total: number };
+    const form = createForm<Form>({
+      initialValues: { qty: 1, unitPrice: 10, total: 0 },
+      computed: { total: { fn: (v) => v.qty * v.unitPrice } },
+    });
+    form.reset({ qty: 4, unitPrice: 5, total: 0 });
+    expect(form.get('total')).toBe(20);
+  });
+
+  test('reset() with computed value in newValues — derived result wins', () => {
+    type Form = { qty: number; unitPrice: number; total: number };
+    const form = createForm<Form>({
+      initialValues: { qty: 1, unitPrice: 10, total: 0 },
+      computed: { total: { fn: (v) => v.qty * v.unitPrice } },
+    });
+    form.reset({ qty: 2, unitPrice: 5, total: 999 });
+    expect(form.get('total')).toBe(10); // 2 * 5, not 999
+  });
+
+  test('reset() with no args re-derives from original initialValues', () => {
+    type Form = { qty: number; total: number };
+    const form = createForm<Form>({
+      initialValues: { qty: 3, total: 0 },
+      computed: { total: { fn: (v) => v.qty * 10 } },
+    });
+    form.set('qty', 7);
+    form.reset();
+    expect(form.get('total')).toBe(30); // back to qty=3 derived
+  });
+});

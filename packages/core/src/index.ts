@@ -2254,6 +2254,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       batch(() => {
         if (newValues) initialValues = deepClone(newValues);
         values = deepClone(initialValues);
+        runComputedPass(); // re-derive computed fields from reset state
         errors = {};
         touched = {};
         dirty = {};
