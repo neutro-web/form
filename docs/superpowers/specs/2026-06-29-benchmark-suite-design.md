@@ -110,7 +110,7 @@ All scripts live in `bench/package.json`. CI uses `pnpm --dir bench run <script>
     "bench:core:all":       "cross-env BENCH_ALL=true BENCH_OUTPUT_FILE=results/core.json vitest bench suites/core --reporter=./reporters/json-bench.ts",
     "bench:correctness":    "vitest run suites/correctness --reporter=json --outputFile=results/correctness.json",
     "bench:browser":        "playwright test suites/browser",
-    "bench:apps:build":     "run-p \"pnpm --dir apps/react build\" \"pnpm --dir apps/vue build\"",
+    "bench:apps:build":     "run-p \"pnpm --dir apps/react install && pnpm --dir apps/react build\" \"pnpm --dir apps/vue install && pnpm --dir apps/vue build\"",
     "bench:merge":          "tsx scripts/merge-results.ts",
     "bench:generate":       "tsx scripts/generate-page.ts",
     "bench:compare":        "tsx scripts/compare-baseline.ts",
@@ -137,7 +137,7 @@ All intermediate and final JSON files conform to this schema. It is the single s
 export interface BenchResults {
   meta: {
     generatedAt: string         // ISO 8601 timestamp
-    neutroVersion: string       // from packages/core/package.json
+    neutroVersion: string       // from NEUTRO_VERSION env var (git tag, e.g. "v0.4.3", "v" prefix stripped)
     nodeVersion: string         // process.version
     platform: 'linux' | 'darwin' | string
     runner: 'github-actions' | 'local'
@@ -331,7 +331,6 @@ Reads `results/core.json`, `results/correctness.json`, and `results/browser.json
 ```ts
 // scripts/merge-results.ts
 import { readFileSync, writeFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import type { BenchResults } from '../types/schema.js'
 
 // Version is passed as NEUTRO_VERSION from the tag (e.g. "v0.4.3") so we read
@@ -531,6 +530,9 @@ jobs:
 
       - run: pnpm --dir bench install --frozen-lockfile
 
+      # Install Playwright browser binaries
+      - run: pnpm --dir bench exec playwright install --with-deps chromium
+
       # Build browser apps first — fail clearly here, not inside Playwright
       - run: pnpm --dir bench/apps/react install && pnpm --dir bench/apps/react build
       - run: pnpm --dir bench/apps/vue install && pnpm --dir bench/apps/vue build
@@ -586,6 +588,7 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: bench/pnpm-lock.yaml
       - run: pnpm --dir bench install --frozen-lockfile
+      - run: pnpm --dir bench exec playwright install --with-deps chromium
       - run: pnpm --dir bench/apps/react install && pnpm --dir bench/apps/react build
       - run: pnpm --dir bench/apps/vue install && pnpm --dir bench/apps/vue build
       - run: pnpm --dir bench run bench:core:all
@@ -630,7 +633,7 @@ All three workflows cache `bench/node_modules` via `actions/setup-node`'s built-
     cache-dependency-path: bench/pnpm-lock.yaml
 ```
 
-This replaces the standalone `actions/setup-node@v4` + `actions/setup-node@v4` pair shown in each workflow above. The `pnpm --dir bench install --frozen-lockfile` step still runs — it becomes a no-op on a cache hit.
+This block is already included in each workflow above. The `cache: 'pnpm'` and `cache-dependency-path` settings are what activate the cache. The `pnpm --dir bench install --frozen-lockfile` step still runs on every job — it becomes a near-no-op on a cache hit.
 
 ### Baseline Update Process
 
