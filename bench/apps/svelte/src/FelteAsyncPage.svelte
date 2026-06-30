@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createForm } from 'felte'
+  import { onDestroy } from 'svelte'
 
   let error = $state('')
 
@@ -17,7 +18,7 @@
     },
   })
 
-  errors.subscribe((e: any) => {
+  const unsubErrors = errors.subscribe((e: any) => {
     // felte errors per-field are string[] | null
     const msgs: string[] | null = e?.email ?? null
     const msg = msgs?.[0] ?? ''
@@ -26,6 +27,7 @@
     }
     error = msg
   })
+  onDestroy(unsubErrors)
 </script>
 
 <form use:formAction>
