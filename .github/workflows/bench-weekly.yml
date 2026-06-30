@@ -1,0 +1,40 @@
+name: Bench Weekly
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  bench-weekly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with: { version: 10 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: bench/pnpm-lock.yaml
+
+      - run: pnpm --dir bench install --frozen-lockfile
+
+      - run: pnpm --dir bench exec playwright install --with-deps chromium
+
+      - run: pnpm --dir bench/apps/react install && pnpm --dir bench/apps/react build
+      - run: pnpm --dir bench/apps/vue install && pnpm --dir bench/apps/vue build
+
+      - run: pnpm --dir bench run bench:core:all
+      - run: pnpm --dir bench run bench:correctness
+      - run: pnpm --dir bench run bench:browser
+      - run: pnpm --dir bench run bench:merge
+
+      - run: pnpm --dir bench run bench:post-drift
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
