@@ -1,0 +1,68 @@
+name: Bench Full
+
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: bench-full
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+# NOTE FOR MAINTAINERS: The "Commit results to main" step requires
+# github-actions[bot] to bypass branch protection on main.
+# Go to: GitHub Settings → Branches → main protection rule
+# → "Allow specified actors to bypass required pull requests"
+# → add "github-actions[bot]"
+
+jobs:
+  bench-full:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v3
+        with: { version: 10 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: bench/pnpm-lock.yaml
+
+      - run: pnpm --dir bench install --frozen-lockfile
+
+      # Install Playwright browser binaries
+      - run: pnpm --dir bench exec playwright install --with-deps chromium
+
+      # Build browser apps first — fail clearly here, not inside Playwright
+      - run: pnpm --dir bench/apps/react install && pnpm --dir bench/apps/react build
+      - run: pnpm --dir bench/apps/vue install && pnpm --dir bench/apps/vue build
+
+      - run: pnpm --dir bench run bench:core:all
+      - run: pnpm --dir bench run bench:correctness
+      - run: pnpm --dir bench run bench:browser
+
+      - run: pnpm --dir bench run bench:merge
+        env:
+          NEUTRO_VERSION: ${{ github.ref_name }}
+
+      - run: pnpm --dir bench run bench:update-baseline
+        env: { CI: true }
+
+      - run: pnpm --dir bench run bench:generate
+
+      - name: Commit results to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bench/results/baseline.json docs/benchmarks/index.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update benchmarks [skip ci]"
+            git push origin main
+          fi
