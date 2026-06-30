@@ -5,9 +5,10 @@ export function createAdapter(fixture: FormFixture): BenchAdapter {
   const form = createForm({
     initialValues: fixture.initialValues,
     dependencies: fixture.dependencies,
-    validators: fixture.validator
-      ? { onChange: async ({ value }) => fixture.validator!(value) }
+    validator: fixture.validator
+      ? async (values: any) => fixture.validator!(values)
       : undefined,
+    asyncDebounceMs: 0,
   })
 
   return {
