@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { createForm } from '@neutro/form-core'
 import { useVueFormPath } from '@neutro/form-vue'
 
@@ -17,13 +17,14 @@ const asyncForm = createForm({
 
 const { value: emailValue } = useVueFormPath(asyncForm, 'email')
 const error = ref('')
-asyncForm.subscribe(state => {
+const unsubscribe = asyncForm.subscribe(state => {
   const e = state.errors['email']
   if (e && !error.value) {
     ;(window as any).__asyncValidationEnd = performance.now()
   }
   error.value = e ?? ''
 })
+onUnmounted(unsubscribe)
 </script>
 
 <template>
