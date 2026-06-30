@@ -30,7 +30,7 @@ jobs:
       - run: pnpm --dir bench/apps/react install && pnpm --dir bench/apps/react build
       - run: pnpm --dir bench/apps/vue install && pnpm --dir bench/apps/vue build
 
-      - run: pnpm --dir bench run bench:core:all
+      - run: pnpm --dir bench run bench:core
       - run: pnpm --dir bench run bench:correctness
       - run: pnpm --dir bench run bench:browser
       - run: pnpm --dir bench run bench:merge
