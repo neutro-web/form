@@ -4,7 +4,7 @@
 
   let error = $state('')
 
-  const { form: formAction, data, errors } = createForm({
+  const { validate, setFields, errors } = createForm({
     initialValues: { email: '' },
     validate: async (values: Record<string, string>) => {
       ;(window as any).__asyncValidationStart = performance.now()
@@ -19,7 +19,6 @@
   })
 
   const unsubErrors = errors.subscribe((e: any) => {
-    // felte errors per-field are string[] | null
     const msgs: string[] | null = e?.email ?? null
     const msg = msgs?.[0] ?? ''
     if (msg && !error) {
@@ -28,11 +27,17 @@
     error = msg
   })
   onDestroy(unsubErrors)
+
+  function handleInput(e: Event) {
+    const val = (e.target as HTMLInputElement).value
+    setFields('email', val, true)
+    validate()
+  }
 </script>
 
-<form use:formAction>
-  <input data-testid="async-email" name="email" value={$data.email ?? ''} />
+<div>
+  <input data-testid="async-email" oninput={handleInput} />
   {#if error}
     <span data-testid="async-error">{error}</span>
   {/if}
-</form>
+</div>
