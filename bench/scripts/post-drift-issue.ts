@@ -78,6 +78,10 @@ const searchRes = await fetch(
   `https://api.github.com/repos/${repo}/issues?labels=benchmark-drift&state=open`,
   { headers: { Authorization: `Bearer ${token}` } }
 )
+if (!searchRes.ok) {
+  console.error(`[post-drift] GitHub API error ${searchRes.status}: ${await searchRes.text()}`)
+  process.exit(1)
+}
 const openIssues = await searchRes.json() as any[]
 
 if (openIssues.length > 0) {

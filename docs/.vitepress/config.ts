@@ -21,6 +21,7 @@ export default defineConfig({
       { text: 'Playground', link: '/playground.html', target: '_self' },
       { text: 'Community', link: '/community' },
       { text: 'Contributing', link: '/contributing' },
+      { text: 'Benchmarks', link: '/benchmarks/' },
     ],
 
     sidebar: {

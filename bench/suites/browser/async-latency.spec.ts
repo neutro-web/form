@@ -11,6 +11,8 @@ async function measureLatency(page: Page): Promise<number[]> {
     })
     const input = page.getByTestId('async-email')
     await input.fill('')
+    // Ensure any prior error is cleared before starting the timed fill
+    await page.waitForSelector('[data-testid="async-error"]', { state: 'hidden', timeout: 2000 }).catch(() => {})
     await input.fill('notanemail')
     // Wait for error to appear (validator takes 200ms + debounce)
     await page.waitForSelector('[data-testid="async-error"]', { timeout: 2000 })

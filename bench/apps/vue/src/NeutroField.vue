@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onBeforeUpdate } from 'vue'
 import type { FormInstance } from '@neutro/form-core'
 import { useVueFormPath } from '@neutro/form-vue'
 
@@ -9,7 +10,12 @@ const props = defineProps<{
 }>()
 
 const { value } = useVueFormPath(props.form, props.name)
+// Count the initial render (mirrors React function-body semantics)
 props.renders[props.name] = (props.renders[props.name] ?? 0) + 1
+// Count every subsequent reactive re-render
+onBeforeUpdate(() => {
+  props.renders[props.name] = (props.renders[props.name] ?? 0) + 1
+})
 </script>
 
 <template>

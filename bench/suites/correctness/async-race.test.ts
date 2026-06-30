@@ -24,7 +24,7 @@ describe('async-race', () => {
     expect(adapter.getErrors().email).toBeUndefined()
   })
 
-  // test.skip produces status 'pending' in vitest JSON → normalizeCorrectnessJson maps to 'na'
+  // test.skip produces status 'skipped' in vitest JSON → normalizeCorrectnessJson maps to 'na'
   // This is correct: these libraries don't support async cancellation in their vanilla APIs.
   test.skip('tanstack-form', () => { /* no async cancellation API */ })
   test.skip('react-hook-form', () => { /* shim has no async cancellation */ })

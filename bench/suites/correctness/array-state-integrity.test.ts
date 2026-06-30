@@ -1,10 +1,5 @@
 import { describe, test, expect } from 'vitest'
 import { createAdapter as neutroAdapter } from '../../adapters/neutro.js'
-import { createAdapter as tanstackAdapter } from '../../adapters/tanstack.js'
-import { createAdapter as rhfAdapter } from '../../adapters/rhf.js'
-import { createAdapter as formikAdapter } from '../../adapters/formik.js'
-import { createAdapter as veeAdapter } from '../../adapters/vee-validate.js'
-import { arrayFixture } from '../../fixtures/array.js'
 
 describe('array-state-integrity', () => {
   test('neutro/form', async () => {

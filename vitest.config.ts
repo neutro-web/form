@@ -8,4 +8,7 @@ export default defineConfig({
       '@neutro/form-testing': resolve(__dirname, 'packages/testing/src/index.ts'),
     },
   },
+  test: {
+    exclude: ['bench/**', 'node_modules/**'],
+  },
 });

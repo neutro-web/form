@@ -2,7 +2,7 @@ name: Deploy Docs
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI", "Bench Full"]
     types:
       - completed
     branches:
