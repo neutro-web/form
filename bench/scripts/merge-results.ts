@@ -1,14 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs'
-import type { BenchResults, CorrectnessResult, LibraryBenchResult } from '../types/schema.js'
-
-// Shim descriptions must be disclosed on the public page. The adapters export
-// shimDescription but can't inject it into tinybench TaskResult objects, so we
-// annotate here after reading the core results.
-const KNOWN_SHIMS: Record<string, string> = {
-  'react-hook-form': 'plain store; RHF hooks unavailable outside React render context',
-  'formik':          'plain store; Formik hooks unavailable outside React render context',
-  'vee-validate':    'plain store; Vee-Validate composables unavailable outside Vue app context',
-}
+import type { BenchResults, CorrectnessResult } from '../types/schema.js'
 
 // Version passed as NEUTRO_VERSION from the git tag (e.g. "v0.4.3") by bench-full.yml.
 // bench-full.yml checks out main (which has the pre-release version in package.json),
@@ -58,13 +49,6 @@ const merged: BenchResults = {
   core,
   correctness: normalizeCorrectnessJson(correctness),
   browser,
-}
-
-// Annotate shim field for known shim adapters so generate-page.ts can add footnotes
-for (const results of Object.values(merged.core)) {
-  for (const r of results as LibraryBenchResult[]) {
-    if (KNOWN_SHIMS[r.library]) r.shim = KNOWN_SHIMS[r.library]
-  }
 }
 
 writeFileSync('results/latest.json', JSON.stringify(merged, null, 2))
