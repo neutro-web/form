@@ -1172,9 +1172,14 @@ function makeAdapters(): BenchAdapter[] {
 
 describe('array-ops/remove', () => {
   const adapters = makeAdapters()
+  // arrayRemove mutates state in-place. Restore the array before each call so the
+  // bench doesn't deplete the 20-item array and start throwing after ~20 iterations.
+  // This measures set() + arrayRemove() together; the set() overhead is small relative
+  // to the shiftStateIndices rekey that arrayRemove must perform.
+  const resetItems = Array.from({ length: 20 }, (_, i) => ({ id: i, value: `item${i}` }))
   for (const a of adapters) {
     bench(a.name, () => {
-      // Remove middle element; op must keep errors/touched/dirty in sync
+      a.set('items', [...resetItems])
       a.arrayRemove('items', 10)
     })
   }
@@ -1328,29 +1333,16 @@ describe('async-race', () => {
     expect(adapter.getErrors().email).toBeUndefined()
   })
 
-  test('tanstack-form', async () => {
-    // @tanstack/form-core does not document async cancellation; result is NA
-    expect(true).toBe(true)
-  })
-
-  test('react-hook-form', async () => {
-    // RHF shim has no async cancellation; result is NA
-    expect(true).toBe(true)
-  })
-
-  test('formik', async () => {
-    // Formik shim has no async cancellation; result is NA
-    expect(true).toBe(true)
-  })
-
-  test('vee-validate', async () => {
-    // Vee-Validate shim has no async cancellation; result is NA
-    expect(true).toBe(true)
-  })
+  // test.skip produces status 'pending' in vitest JSON → normalizeCorrectnessJson maps to 'na'
+  // This is correct: these libraries don't support async cancellation in their vanilla APIs.
+  test.skip('tanstack-form', () => { /* no async cancellation API */ })
+  test.skip('react-hook-form', () => { /* shim has no async cancellation */ })
+  test.skip('formik', () => { /* shim has no async cancellation */ })
+  test.skip('vee-validate', () => { /* shim has no async cancellation */ })
 })
 ```
 
-Note: the correctness test for neutro is the meaningful one. Competitors are marked `na` via the `normalizeCorrectnessJson` parser when their test body is a trivial `expect(true).toBe(true)`. Add a `SKIP_REASON` comment convention if you need to surface the reason on the public page.
+Note: the correctness test for neutro is the meaningful one. Competitors use `test.skip()` which vitest reports as status `'pending'`; `normalizeCorrectnessJson` maps `'pending'` → `'na'` so they render as `— N/A` on the public page.
 
 - [ ] **Step 2: Create `bench/suites/correctness/array-state-integrity.test.ts`**
 
@@ -1389,26 +1381,10 @@ describe('array-state-integrity', () => {
     expect(adapter.getErrors()['items.1.v']).toBeUndefined()
   })
 
-  test('tanstack-form', async () => {
-    // TanStack Form maintains field metadata during array ops — assumed correct
-    // Full verification requires React context; result is NA for this test suite
-    expect(true).toBe(true)
-  })
-
-  test('react-hook-form', async () => {
-    // RHF shim uses splice; state-map rekey is not implemented. Result: NA
-    expect(true).toBe(true)
-  })
-
-  test('formik', async () => {
-    // Formik shim. Result: NA
-    expect(true).toBe(true)
-  })
-
-  test('vee-validate', async () => {
-    // Vee-Validate shim. Result: NA
-    expect(true).toBe(true)
-  })
+  test.skip('tanstack-form', () => { /* full verification requires React context */ })
+  test.skip('react-hook-form', () => { /* shim splice; state-map rekey not implemented */ })
+  test.skip('formik', () => { /* shim */ })
+  test.skip('vee-validate', () => { /* shim */ })
 })
 ```
 
@@ -1417,9 +1393,8 @@ describe('array-state-integrity', () => {
 Asserts that changing field `a` causes field `b`'s validator to fire when declared as dependent.
 
 ```ts
-import { describe, test, expect, vi } from 'vitest'
+import { describe, test, expect } from 'vitest'
 import { createAdapter as neutroAdapter } from '../../adapters/neutro.js'
-import { dependentFixture } from '../../fixtures/dependent.js'
 
 describe('dependency-trigger', () => {
   test('neutro/form', async () => {
@@ -1442,25 +1417,10 @@ describe('dependency-trigger', () => {
     expect(adapter.getErrors()['b']).toBe('triggered-by-a')
   })
 
-  test('tanstack-form', async () => {
-    // TanStack Form requires per-field validators and manual cross-field logic. Result: NA
-    expect(true).toBe(true)
-  })
-
-  test('react-hook-form', async () => {
-    // RHF shim. Result: NA
-    expect(true).toBe(true)
-  })
-
-  test('formik', async () => {
-    // Formik shim. Result: NA
-    expect(true).toBe(true)
-  })
-
-  test('vee-validate', async () => {
-    // Vee-Validate shim. Result: NA
-    expect(true).toBe(true)
-  })
+  test.skip('tanstack-form', () => { /* requires per-field validators; no declarative dep graph */ })
+  test.skip('react-hook-form', () => { /* shim */ })
+  test.skip('formik', () => { /* shim */ })
+  test.skip('vee-validate', () => { /* shim */ })
 })
 ```
 
@@ -1881,7 +1841,7 @@ import { test, expect, type Page } from '@playwright/test'
 import type { BrowserResult } from '../../types/schema.js'
 
 async function measureReRenders(page: Page, prefix: string): Promise<number> {
-  await page.evaluate((p) => (window as any).__resetRenders?.())
+  await page.evaluate(() => (window as any).__resetRenders?.())
   const input = page.getByTestId(`${prefix}-field0`)
   for (let i = 0; i < 20; i++) {
     await input.pressSequentially('x', { delay: 10 })
@@ -2013,7 +1973,16 @@ Reads core, correctness, and browser JSON files, normalizes them, merges into a 
 
 ```ts
 import { readFileSync, writeFileSync } from 'node:fs'
-import type { BenchResults, CorrectnessResult } from '../types/schema.js'
+import type { BenchResults, CorrectnessResult, LibraryBenchResult } from '../types/schema.js'
+
+// Shim descriptions must be disclosed on the public page. The adapters export
+// shimDescription but can't inject it into tinybench TaskResult objects, so we
+// annotate here after reading the core results.
+const KNOWN_SHIMS: Record<string, string> = {
+  'react-hook-form': 'plain store; RHF hooks unavailable outside React render context',
+  'formik':          'plain store; Formik hooks unavailable outside React render context',
+  'vee-validate':    'plain store; Vee-Validate composables unavailable outside Vue app context',
+}
 
 // Version passed as NEUTRO_VERSION from the git tag (e.g. "v0.4.3") by bench-full.yml.
 // bench-full.yml checks out main (which has the pre-release version in package.json),
@@ -2063,6 +2032,13 @@ const merged: BenchResults = {
   core,
   correctness: normalizeCorrectnessJson(correctness),
   browser,
+}
+
+// Annotate shim field for known shim adapters so generate-page.ts can add footnotes
+for (const results of Object.values(merged.core)) {
+  for (const r of results as LibraryBenchResult[]) {
+    if (KNOWN_SHIMS[r.library]) r.shim = KNOWN_SHIMS[r.library]
+  }
 }
 
 writeFileSync('results/latest.json', JSON.stringify(merged, null, 2))
