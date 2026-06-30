@@ -1,0 +1,22 @@
+{
+  "name": "@neutro/bench-app-svelte",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "preview": "vite preview --port 4175"
+  },
+  "dependencies": {
+    "@neutro/form-core": "link:../../../packages/core",
+    "@neutro/form-svelte": "link:../../../packages/adapters/svelte",
+    "@tanstack/svelte-form": "^1.0.0",
+    "felte": "^1.3.0",
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.4"
+  }
+}
