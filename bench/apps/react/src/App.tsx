@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useCallback } from 'react'
+import { useSyncExternalStore } from 'react'
 import { createForm } from '@neutro/form-core'
-import { useForm, useFormPath } from '@neutro/form-react'
+import { useFormPath } from '@neutro/form-react'
 import { useForm as useRhfForm, Controller } from 'react-hook-form'
 
 // Module-level render counters — not refs, to avoid closure staleness.
@@ -85,27 +86,41 @@ function RhfForm() {
 
 const asyncForm = createForm({
   initialValues: { email: '' },
-  validators: {
-    onChange: async ({ value }) => {
-      window.__asyncValidationStart = performance.now()
-      await new Promise(r => setTimeout(r, 200))
-      if (!String(value.email).includes('@')) return { email: 'Invalid email' }
-      return {}
-    },
+  validator: async (values, _scopePaths, signal) => {
+    window.__asyncValidationStart = performance.now()
+    await new Promise(r => setTimeout(r, 200))
+    if (signal?.aborted) return {}
+    if (!String(values.email).includes('@')) return { email: 'Invalid email' }
+    return {}
   },
+  validationMode: 'onChange',
 })
 
 function AsyncField() {
-  const { errors } = useForm(asyncForm)
   const email = useFormPath(asyncForm, 'email')
-  const error = errors['email']
+
+  // Subscribe to the email path error via useSyncExternalStore.
+  // subscribeToPath fires when the field's value OR fieldState (error) changes.
+  // The snapshot returns a primitive string (or undefined), so reference equality
+  // works correctly and avoids the infinite re-render that useForm/getState causes
+  // (getState() always returns new object references).
+  const subscribeEmailPath = useCallback(
+    (onChange: () => void) => asyncForm.subscribeToPath('email', () => onChange()),
+    []
+  )
+  const getEmailError = useCallback(
+    () => asyncForm.getState().errors['email'] ?? '',
+    []
+  )
+  const error = useSyncExternalStore(subscribeEmailPath, getEmailError, getEmailError)
+
   if (error) window.__asyncValidationEnd = performance.now()
   return (
     <section data-testid="async-section">
       <input
         data-testid="async-email"
         value={email as string}
-        onChange={e => asyncForm.set('email', e.target.value)}
+        onChange={e => asyncForm.set('email', e.target.value, { validate: true })}
       />
       {error && <span data-testid="async-error">{error}</span>}
     </section>
