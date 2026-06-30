@@ -1,0 +1,39 @@
+{
+  "name": "@neutro/bench",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench:core":            "cross-env BENCH_OUTPUT_FILE=results/core.json vitest bench suites/core --reporter=./reporters/json-bench.ts",
+    "bench:core:all":        "cross-env BENCH_ALL=true BENCH_OUTPUT_FILE=results/core.json vitest bench suites/core --reporter=./reporters/json-bench.ts",
+    "bench:correctness":     "vitest run suites/correctness --reporter=json --outputFile=results/correctness.json",
+    "bench:browser":         "playwright test suites/browser",
+    "bench:apps:build":      "run-p \"pnpm --dir apps/react install && pnpm --dir apps/react build\" \"pnpm --dir apps/vue install && pnpm --dir apps/vue build\"",
+    "bench:merge":           "tsx scripts/merge-results.ts",
+    "bench:generate":        "tsx scripts/generate-page.ts",
+    "bench:compare":         "tsx scripts/compare-baseline.ts",
+    "bench:post-drift":      "tsx scripts/post-drift-issue.ts",
+    "bench:full":            "run-s bench:apps:build bench:core:all bench:correctness bench:browser bench:merge bench:generate",
+    "bench:install:browsers": "playwright install --with-deps chromium",
+    "bench:update-baseline": "node -e \"if (!process.env.CI) { console.error('[bench] bench:update-baseline must run on CI only'); process.exit(1); }\" && cp results/latest.json results/baseline.json"
+  },
+  "devDependencies": {
+    "@neutro/form-core": "link:../packages/core",
+    "@neutro/form-react": "link:../packages/adapters/react",
+    "@neutro/form-vue": "link:../packages/adapters/vue",
+    "@playwright/test": "^1.45.0",
+    "@tanstack/form-core": "^0.29.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "cross-env": "^7.0.3",
+    "formik": "^2.4.6",
+    "npm-run-all2": "^6.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.52.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4",
+    "vee-validate": "^4.13.2",
+    "vitest": "^3.2.6",
+    "vue": "^3.4.31"
+  }
+}
