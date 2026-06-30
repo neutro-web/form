@@ -14,5 +14,10 @@ export default defineConfig({
       port: 4174,
       reuseExistingServer: !process.env.CI,
     },
+    {
+      command: 'pnpm --dir apps/svelte preview',
+      port: 4175,
+      reuseExistingServer: !process.env.CI,
+    },
   ],
 })
