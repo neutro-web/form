@@ -16,6 +16,9 @@
     "bench:install:browsers": "playwright install --with-deps chromium",
     "bench:update-baseline": "node -e \"if (!process.env.CI) { console.error('[bench] bench:update-baseline must run on CI only'); process.exit(1); }\" && cp results/latest.json results/baseline.json"
   },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "devDependencies": {
     "@neutro/form-core": "link:../packages/core",
     "@neutro/form-react": "link:../packages/adapters/react",
