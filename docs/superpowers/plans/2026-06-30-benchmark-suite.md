@@ -66,6 +66,7 @@ bench/
       src/
         main.ts
         App.vue
+        NeutroField.vue
   scripts/
     merge-results.ts
     compare-baseline.ts
@@ -112,6 +113,7 @@ docs/benchmarks/
     "bench:compare":         "tsx scripts/compare-baseline.ts",
     "bench:post-drift":      "tsx scripts/post-drift-issue.ts",
     "bench:full":            "run-s bench:apps:build bench:core:all bench:correctness bench:browser bench:merge bench:generate",
+    "bench:install:browsers": "playwright install --with-deps chromium",
     "bench:update-baseline": "node -e \"if (!process.env.CI) { console.error('[bench] bench:update-baseline must run on CI only'); process.exit(1); }\" && cp results/latest.json results/baseline.json"
   },
   "devDependencies": {
@@ -232,6 +234,8 @@ pnpm --dir bench exec playwright install --with-deps chromium
 ```
 
 Expected: Chromium browser binaries downloaded. Subsequent runs use the cached binaries.
+
+This step is a one-time local prerequisite. On CI, each workflow runs `pnpm --dir bench exec playwright install --with-deps chromium` explicitly before `bench:browser`. Locally, use `pnpm --dir bench run bench:install:browsers` (the script added in Task 1).
 
 - [ ] **Step 3: Commit**
 
@@ -879,7 +883,7 @@ export default class JsonBenchReporter implements Reporter {
     const walk = (tasks: Task[], suiteName: string) => {
       for (const task of tasks) {
         if (isBenchmark(task)) {
-          const result = (task as any).result as any
+          const result = (task as any).meta?.result as any
           const entry: LibraryBenchResult = result
             ? {
                 library: task.name,
@@ -1300,44 +1304,11 @@ Asserts that a stale async validation result is discarded when a newer one compl
 ```ts
 import { describe, test, expect, vi } from 'vitest'
 import { createAdapter as neutroAdapter } from '../../adapters/neutro.js'
-import { createAdapter as tanstackAdapter } from '../../adapters/tanstack.js'
-import { createAdapter as rhfAdapter } from '../../adapters/rhf.js'
-import { createAdapter as formikAdapter } from '../../adapters/formik.js'
-import { createAdapter as veeAdapter } from '../../adapters/vee-validate.js'
-import type { BenchAdapter } from '../../adapters/interface.js'
-
-function delay(ms: number) { return new Promise(r => setTimeout(r, ms)) }
-
-async function runRaceTest(adapter: BenchAdapter) {
-  let callCount = 0
-  const fixture = {
-    initialValues: { email: '' },
-    validator: async (values: any) => {
-      const myCall = ++callCount
-      // First call takes 50ms, second call takes 10ms (arrives first)
-      await delay(myCall === 1 ? 50 : 10)
-      return myCall === 1 ? { email: 'stale error' } : {}
-    },
-  }
-
-  // Re-create adapter with validator
-  const a = neutroAdapter === adapter.constructor
-    ? adapter
-    : adapter
-
-  // Both validations fire before either resolves
-  const p1 = adapter.validate()
-  const p2 = adapter.validate()
-  await Promise.all([p1, p2])
-
-  return adapter.getErrors()
-}
 
 describe('async-race', () => {
   test('neutro/form', async () => {
     vi.useFakeTimers()
     let seq = 0
-    const results: Record<string, string>[] = []
     const fixture = {
       initialValues: { email: '' },
       validator: async (values: any) => {
@@ -1350,7 +1321,7 @@ describe('async-race', () => {
     const adapter = neutroAdapter(fixture)
     const p1 = adapter.validate()
     const p2 = adapter.validate()
-    vi.runAllTimersAsync()
+    await vi.runAllTimersAsync()
     await Promise.allSettled([p1, p2])
     vi.useRealTimers()
     // neutro/form's async epoch mechanism discards stale results
@@ -1452,20 +1423,23 @@ import { dependentFixture } from '../../fixtures/dependent.js'
 
 describe('dependency-trigger', () => {
   test('neutro/form', async () => {
-    let bValidated = false
     const adapter = neutroAdapter({
       initialValues: { a: '', b: '', c: '' },
       dependencies: { b: ['a'], c: ['a'] },
       validator: async (values: any) => {
-        if ('b' in values) bValidated = true
+        // Validator returns an error for 'b' whenever 'a' has the trigger value.
+        // Dependency scope expansion means validating 'a' also validates 'b'.
+        if (values.a === 'trigger') return { b: 'triggered-by-a' }
         return {}
       },
     })
 
-    adapter.set('a', 'changed')
+    adapter.set('a', 'trigger')
     await adapter.validate(['a'])
 
-    expect(bValidated).toBe(true)
+    // 'b' was not directly validated, but it's in 'a's dependency scope.
+    // The error on 'b' proves the scope was expanded.
+    expect(adapter.getErrors()['b']).toBe('triggered-by-a')
   })
 
   test('tanstack-form', async () => {
@@ -1596,7 +1570,7 @@ createRoot(document.getElementById('root')!).render(<App />)
 ```tsx
 import React from 'react'
 import { createForm } from '@neutro/form-core'
-import { useFormPath } from '@neutro/form-react'
+import { useForm, useFormPath } from '@neutro/form-react'
 import { useForm as useRhfForm, Controller } from 'react-hook-form'
 
 // Module-level render counters — not refs, to avoid closure staleness.
@@ -1692,9 +1666,9 @@ const asyncForm = createForm({
 })
 
 function AsyncField() {
+  const { errors } = useForm(asyncForm)
   const email = useFormPath(asyncForm, 'email')
-  const state = asyncForm.getState()
-  const error = state.errors['email']
+  const error = errors['email']
   if (error) window.__asyncValidationEnd = performance.now()
   return (
     <section data-testid="async-section">
@@ -1814,56 +1788,9 @@ import App from './App.vue'
 createApp(App).mount('#app')
 ```
 
-- [ ] **Step 5: Create `bench/apps/vue/src/App.vue`**
+- [ ] **Step 5: Create `bench/apps/vue/src/NeutroField.vue`**
 
-```vue
-<script setup lang="ts">
-import { createForm } from '@neutro/form-core'
-import { useVueFormPath } from '@neutro/form-vue'
-
-const FIELD_NAMES = Array.from({ length: 10 }, (_, i) => `field${i}`)
-
-const neutroForm = createForm({
-  initialValues: Object.fromEntries(FIELD_NAMES.map(n => [n, ''])),
-})
-
-// Module-level render counters exposed on window for Playwright
-const neutroRenders: Record<string, number> = {}
-;(window as any).__neutroRenders = neutroRenders
-;(window as any).__resetRenders = () => {
-  for (const k in neutroRenders) neutroRenders[k] = 0
-}
-</script>
-
-<script lang="ts">
-// Per-field render tracking component
-export default {
-  name: 'App',
-}
-</script>
-
-<template>
-  <div>
-    <section data-testid="neutro-form">
-      <NeutroField
-        v-for="name in FIELD_NAMES"
-        :key="name"
-        :form="neutroForm"
-        :name="name"
-        :renders="neutroRenders"
-      />
-    </section>
-  </div>
-</template>
-```
-
-Vue SFCs with `v-for` over a child component that uses `useVueFormPath` achieve per-field isolation. Create the child component:
-
-```bash
-# Create bench/apps/vue/src/NeutroField.vue
-```
-
-Create `bench/apps/vue/src/NeutroField.vue`:
+Per-field component — `useVueFormPath` subscribes only to its own path, so only the changed field re-renders.
 
 ```vue
 <script setup lang="ts">
@@ -1889,7 +1816,7 @@ props.renders[props.name] = (props.renders[props.name] ?? 0) + 1
 </template>
 ```
 
-Update `App.vue` to import and use `NeutroField`:
+- [ ] **Step 6: Create `bench/apps/vue/src/App.vue`**
 
 ```vue
 <script setup lang="ts">
@@ -1922,7 +1849,7 @@ const neutroRenders: Record<string, number> = {}
 </template>
 ```
 
-- [ ] **Step 6: Build the Vue app**
+- [ ] **Step 7: Build the Vue app**
 
 ```bash
 pnpm --dir bench/apps/vue install && pnpm --dir bench/apps/vue build
@@ -1930,11 +1857,11 @@ pnpm --dir bench/apps/vue install && pnpm --dir bench/apps/vue build
 
 Expected: `bench/apps/vue/dist/` created. No TypeScript errors.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add bench/apps/vue/
-git commit -m "feat(bench): add Vue browser benchmark app"
+git commit -m "feat(bench): add Vue browser benchmark app with NeutroField per-field component"
 ```
 
 ---
@@ -2197,84 +2124,88 @@ function readJson(path: string): unknown {
   catch (e) { console.error(`[compare] cannot read ${path}:`, e); process.exit(1) }
 }
 
-const inputPath   = process.env.BENCH_INPUT_FILE ?? 'results/core.json'
-const inputRaw    = readJson(inputPath) as Record<string, LibraryBenchResult[]>
-const baselineRaw = readJson('results/baseline.json') as BenchResults
+async function main() {
+  const inputPath   = process.env.BENCH_INPUT_FILE ?? 'results/core.json'
+  const inputRaw    = readJson(inputPath) as Record<string, LibraryBenchResult[]>
+  const baselineRaw = readJson('results/baseline.json') as BenchResults
 
-const regressions: Regression[] = []
-const skipped: string[] = []
+  const regressions: Regression[] = []
+  const skipped: string[] = []
 
-for (const [surface, results] of Object.entries(inputRaw)) {
-  const current = results.find(r => r.library === 'neutro/form')
-  if (!current || current.status !== 'ok' || !current.opsPerSec) continue
+  for (const [surface, results] of Object.entries(inputRaw)) {
+    const current = results.find(r => r.library === 'neutro/form')
+    if (!current || current.status !== 'ok' || !current.opsPerSec) continue
 
-  if (current.highVariance || (current.rme ?? 0) > HIGH_VARIANCE_RME) {
-    skipped.push(`${surface} (rme=${current.rme?.toFixed(1)}%)`)
-    continue
+    if (current.highVariance || (current.rme ?? 0) > HIGH_VARIANCE_RME) {
+      skipped.push(`${surface} (rme=${current.rme?.toFixed(1)}%)`)
+      continue
+    }
+
+    const baselineSurface = baselineRaw.core?.[surface]
+    if (!baselineSurface) {
+      console.log(`[compare] ${surface}: no baseline entry — skipped`)
+      continue
+    }
+
+    const baseline = baselineSurface.find(r => r.library === 'neutro/form')
+    if (!baseline?.opsPerSec) continue
+
+    const pct = (baseline.opsPerSec - current.opsPerSec) / baseline.opsPerSec
+    if (pct > REGRESSION_THRESHOLD) {
+      regressions.push({ surface, baselineHz: baseline.opsPerSec, currentHz: current.opsPerSec, pct })
+    }
   }
 
-  const baselineSurface = baselineRaw.core?.[surface]
-  if (!baselineSurface) {
-    console.log(`[compare] ${surface}: no baseline entry — skipped`)
-    continue
+  // Print summary
+  if (skipped.length) console.log(`[compare] skipped (high variance): ${skipped.join(', ')}`)
+  if (!regressions.length) {
+    console.log('[compare] no regressions found')
+    process.exit(0)
   }
 
-  const baseline = baselineSurface.find(r => r.library === 'neutro/form')
-  if (!baseline?.opsPerSec) continue
-
-  const pct = (baseline.opsPerSec - current.opsPerSec) / baseline.opsPerSec
-  if (pct > REGRESSION_THRESHOLD) {
-    regressions.push({ surface, baselineHz: baseline.opsPerSec, currentHz: current.opsPerSec, pct })
+  console.log(`[compare] ${regressions.length} regression(s) found:`)
+  for (const r of regressions) {
+    console.log(`  ${r.surface}: ${r.baselineHz.toFixed(0)} → ${r.currentHz.toFixed(0)} ops/s (-${(r.pct * 100).toFixed(1)}%)`)
   }
-}
 
-// Print summary
-if (skipped.length) console.log(`[compare] skipped (high variance): ${skipped.join(', ')}`)
-if (!regressions.length) {
-  console.log('[compare] no regressions found')
+  // Post PR comment if tokens available
+  const token = process.env.GH_TOKEN
+  const prNumber = process.env.PR_NUMBER
+  const repo = process.env.GITHUB_REPOSITORY
+
+  if (token && prNumber && repo) {
+    const rows = regressions.map(r =>
+      `| ${r.surface} | ${Math.round(r.baselineHz).toLocaleString()} | ${Math.round(r.currentHz).toLocaleString()} | **-${(r.pct * 100).toFixed(1)}%** |`
+    ).join('\n')
+
+    const body = [
+      '## Benchmark Regression Detected',
+      '',
+      '> Threshold: 15%. Entries with rme > 10% are skipped.',
+      '',
+      '| Surface | Baseline (ops/s) | Current (ops/s) | Delta |',
+      '|---|---|---|---|',
+      rows,
+      '',
+      skipped.length ? `**Skipped (high variance):** ${skipped.join(', ')}` : '',
+    ].filter(Boolean).join('\n')
+
+    await fetch(`https://api.github.com/repos/${repo}/issues/${prNumber}/comments`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body }),
+    }).catch(e => console.warn('[compare] PR comment failed:', e))
+  }
+
+  if (process.env.BENCH_HARD_FAIL === 'true') {
+    console.error('[compare] exiting 1 (BENCH_HARD_FAIL=true)')
+    process.exit(1)
+  }
+  // Phase C: soft warn — exit 0
   process.exit(0)
 }
 
-console.log(`[compare] ${regressions.length} regression(s) found:`)
-for (const r of regressions) {
-  console.log(`  ${r.surface}: ${r.baselineHz.toFixed(0)} → ${r.currentHz.toFixed(0)} ops/s (-${(r.pct * 100).toFixed(1)}%)`)
-}
-
-// Post PR comment if tokens available
-const token = process.env.GH_TOKEN
-const prNumber = process.env.PR_NUMBER
-const repo = process.env.GITHUB_REPOSITORY
-
-if (token && prNumber && repo) {
-  const rows = regressions.map(r =>
-    `| ${r.surface} | ${Math.round(r.baselineHz).toLocaleString()} | ${Math.round(r.currentHz).toLocaleString()} | **-${(r.pct * 100).toFixed(1)}%** |`
-  ).join('\n')
-
-  const body = [
-    '## Benchmark Regression Detected',
-    '',
-    '> Threshold: 15%. Entries with rme > 10% are skipped.',
-    '',
-    '| Surface | Baseline (ops/s) | Current (ops/s) | Delta |',
-    '|---|---|---|---|',
-    rows,
-    '',
-    skipped.length ? `**Skipped (high variance):** ${skipped.join(', ')}` : '',
-  ].filter(Boolean).join('\n')
-
-  fetch(`https://api.github.com/repos/${repo}/issues/${prNumber}/comments`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ body }),
-  }).catch(e => console.warn('[compare] PR comment failed:', e))
-}
-
-if (process.env.BENCH_HARD_FAIL === 'true') {
-  console.error('[compare] exiting 1 (BENCH_HARD_FAIL=true)')
-  process.exit(1)
-}
-// Phase C: soft warn — exit 0
-process.exit(0)
+main()
 ```
 
 - [ ] **Step 2: Bootstrap `results/baseline.json`** (done in Task 20, referenced here)
@@ -2330,7 +2261,13 @@ for (const results of Object.values(baseline.correctness ?? {})) {
 function fmtOps(r: LibraryBenchResult): string {
   if (r.status === 'error') return 'ERROR'
   if (r.status === 'na') return 'N/A'
-  if (correctnessFails.has(r.library)) return `FAIL[^${r.library}-correctness-fail]`
+  if (correctnessFails.has(r.library)) {
+    const key = `${r.library}-correctness-fail`
+    if (!footnotes.some(f => f.startsWith(`[^${key}]`))) {
+      footnotes.push(`[^${key}]: ${r.library} failed correctness tests; performance number withheld.`)
+    }
+    return `FAIL[^${key}]`
+  }
   if (!r.opsPerSec) return '—'
   const base = r.opsPerSec >= 1_000_000
     ? `${(r.opsPerSec / 1_000_000).toFixed(2)}M`
@@ -2407,7 +2344,7 @@ for (const surface of correctnessSurfaces) {
 
 lines.push(`## Core Performance (Node.js / Tinybench)`, ``)
 
-// Honesty rule 1: throw if any surface is missing from the output
+// Honesty rule 1: every surface in core must appear in the output — no cherry-picking
 for (const surface of coreSurfaces) {
   const results = baseline.core[surface] as LibraryBenchResult[]
   lines.push(coreTable(surface, results), ``)
@@ -2430,12 +2367,12 @@ if (footnotes.length) {
 }
 
 const out = lines.join('\n')
-mkdirSync('../../docs/benchmarks', { recursive: true })
-writeFileSync('../../docs/benchmarks/index.md', out)
+mkdirSync('../docs/benchmarks', { recursive: true })
+writeFileSync('../docs/benchmarks/index.md', out)
 console.log('[generate-page] wrote docs/benchmarks/index.md')
 ```
 
-Note: `generate-page.ts` is run from within `bench/` (the `tsx` invocation is `pnpm --dir bench run bench:generate`), so `../../docs/benchmarks/` resolves to `docs/benchmarks/` at the repo root.
+Note: `generate-page.ts` is run via `pnpm --dir bench run bench:generate`, so tsx's cwd is `bench/`. `../docs/benchmarks/` resolves to `docs/benchmarks/` at the repo root.
 
 - [ ] **Step 2: Create placeholder `docs/benchmarks/index.md`**
 
@@ -2890,7 +2827,7 @@ Expected: `[compare] no regressions found` (baseline is empty, all surfaces skip
 - [ ] **Step 3: Run BENCH_ALL to verify all adapters load**
 
 ```bash
-BENCH_ALL=true pnpm --dir bench run bench:core
+pnpm --dir bench run bench:core:all
 ```
 
 Expected: each surface in `results/core.json` has entries for all 5 adapters. No adapter errors.
