@@ -1,0 +1,35 @@
+name: Bench Regression
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  bench-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with: { version: 10 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: bench/pnpm-lock.yaml
+
+      - run: pnpm --dir bench install --frozen-lockfile
+
+      - run: pnpm --dir bench run bench:core
+
+      - run: pnpm --dir bench run bench:compare
+        env:
+          BENCH_INPUT_FILE: results/core.json
+          BENCH_HARD_FAIL: ${{ vars.BENCH_HARD_FAIL }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.number }}
