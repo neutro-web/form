@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
+    "@tanstack/form-core": "^1.33.0",
     "jsdom": "^25.0.0",
     "lefthook": "^2.1.9",
     "typescript": "^5.0.0",
