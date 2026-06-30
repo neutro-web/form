@@ -1,0 +1,21 @@
+{
+  "name": "@neutro/bench-app-vue",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "preview": "vite preview --port 4174"
+  },
+  "dependencies": {
+    "@neutro/form-core": "link:../../../packages/core",
+    "@neutro/form-vue": "link:../../../packages/adapters/vue",
+    "vee-validate": "^4.13.2",
+    "vue": "^3.4.31"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.2",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.4",
+    "vue-tsc": "^2.0.26"
+  }
+}
