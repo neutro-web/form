@@ -470,7 +470,10 @@ jobs:
       - uses: pnpm/action-setup@v3
         with: { version: 10 }
       - uses: actions/setup-node@v4
-        with: { node-version: '22' }
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: bench/pnpm-lock.yaml
       - run: pnpm --dir bench install --frozen-lockfile
       - run: pnpm --dir bench run bench:core
       - run: pnpm --dir bench run bench:compare
@@ -521,7 +524,10 @@ jobs:
       - uses: pnpm/action-setup@v3
         with: { version: 10 }
       - uses: actions/setup-node@v4
-        with: { node-version: '22' }
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: bench/pnpm-lock.yaml
 
       - run: pnpm --dir bench install --frozen-lockfile
 
@@ -575,7 +581,10 @@ jobs:
       - uses: pnpm/action-setup@v3
         with: { version: 10 }
       - uses: actions/setup-node@v4
-        with: { node-version: '22' }
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: bench/pnpm-lock.yaml
       - run: pnpm --dir bench install --frozen-lockfile
       - run: pnpm --dir bench/apps/react install && pnpm --dir bench/apps/react build
       - run: pnpm --dir bench/apps/vue install && pnpm --dir bench/apps/vue build
@@ -609,7 +618,19 @@ on:
 
 ### Dependency Caching
 
-All three workflows install `bench/node_modules` from scratch on each run. Adding `actions/cache` keyed on `bench/pnpm-lock.yaml` would reduce install time from ~60s to ~3s after the first run. Not implemented in the initial version — add once the suite is stable and CI time becomes a concern.
+All three workflows cache `bench/node_modules` via `actions/setup-node`'s built-in pnpm support. Cache is keyed on `bench/pnpm-lock.yaml`. A cache hit reduces install time from ~60s to ~3s. Include in every workflow that calls `pnpm --dir bench install`:
+
+```yaml
+- uses: pnpm/action-setup@v3
+  with: { version: 10 }
+- uses: actions/setup-node@v4
+  with:
+    node-version: '22'
+    cache: 'pnpm'
+    cache-dependency-path: bench/pnpm-lock.yaml
+```
+
+This replaces the standalone `actions/setup-node@v4` + `actions/setup-node@v4` pair shown in each workflow above. The `pnpm --dir bench install --frozen-lockfile` step still runs — it becomes a no-op on a cache hit.
 
 ### Baseline Update Process
 
