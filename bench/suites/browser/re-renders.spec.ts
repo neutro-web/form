@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type TestInfo } from '@playwright/test'
 import type { BrowserResult } from '../../types/schema.js'
 
 async function measureReRenders(
@@ -19,7 +19,7 @@ async function measureReRenders(
   return Object.values(counts).reduce((sum, n) => sum + n, 0)
 }
 
-async function attach(testInfo: any, library: string, renderCount: number) {
+async function attach(testInfo: TestInfo, library: string, renderCount: number) {
   const result: BrowserResult = { library, status: 'ok', renderCount }
   await testInfo.attach('result', { body: JSON.stringify(result), contentType: 'application/json' })
 }
