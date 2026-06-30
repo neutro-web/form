@@ -14,7 +14,7 @@ export default class JsonBenchReporter implements Reporter {
     const walk = (tasks: Task[], suiteName: string) => {
       for (const task of tasks) {
         if (isBenchmark(task)) {
-          const result = (task as any).meta?.result as any
+          const result = ((task as any).result?.benchmark ?? (task as any).meta?.result) as any
           const entry: LibraryBenchResult = result
             ? {
                 library: task.name,
