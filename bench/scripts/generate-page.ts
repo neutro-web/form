@@ -30,7 +30,7 @@ function fmtOps(r: LibraryBenchResult): string {
   if (r.status === 'na') return 'N/A'
   if (correctnessFails.has(r.library)) {
     const key = `${r.library}-correctness-fail`
-    if (!footnotes.some(f => f.startsWith(`[^${key}]`))) {
+    if (!footnotes.some(f => f.startsWith(`[^${key}]:`))) {
       footnotes.push(`[^${key}]: ${r.library} failed correctness tests; performance number withheld.`)
     }
     return `FAIL[^${key}]`
@@ -48,9 +48,10 @@ function fmtOps(r: LibraryBenchResult): string {
 
 function coreTable(surface: string, results: LibraryBenchResult[]): string {
   const sorted = [...results].sort((a, b) => (b.opsPerSec ?? 0) - (a.opsPerSec ?? 0))
-  const neutroHz = results.find(r => r.library === 'neutro/form')?.opsPerSec ?? 1
+  const neutroEntry = results.find(r => r.library === 'neutro/form')
+  const neutroHz = neutroEntry?.opsPerSec
   const rows = sorted.map(r => {
-    const ratio = (r.opsPerSec && r.library !== 'neutro/form')
+    const ratio = (neutroHz && r.opsPerSec && r.library !== 'neutro/form')
       ? ` (${(r.opsPerSec / neutroHz).toFixed(2)}×)`
       : ''
     return `| ${r.library} | ${fmtOps(r)}${ratio} |`
@@ -119,13 +120,14 @@ for (const surface of coreSurfaces) {
 
 if (browserSurfaces.length) {
   lines.push(`## Browser (Chromium / Playwright, production build, no StrictMode)`, ``)
-  const renderResults = baseline.browser['re-renders'] as BrowserResult[] | undefined
-  if (renderResults) {
-    lines.push(`### Re-renders per 20-keystroke sequence`, ``, browserTable(renderResults), ``)
-  }
-  const latencyResults = baseline.browser['async-latency'] as BrowserResult[] | undefined
-  if (latencyResults) {
-    lines.push(`### Async Validation Latency`, ``, browserTable(latencyResults), ``)
+  for (const surface of browserSurfaces) {
+    const results = baseline.browser[surface] as BrowserResult[]
+    const title = surface === 're-renders'
+      ? 'Re-renders per 20-keystroke sequence'
+      : surface === 'async-latency'
+      ? 'Async Validation Latency'
+      : surface
+    lines.push(`### ${title}`, ``, browserTable(results), ``)
   }
 }
 
