@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "generatedAt": "2026-06-30T00:00:00.000Z",
+    "neutroVersion": "0.0.0",
+    "nodeVersion": "v22.0.0",
+    "platform": "linux",
+    "runner": "github-actions"
+  },
+  "core": {},
+  "correctness": {},
+  "browser": {}
+}
