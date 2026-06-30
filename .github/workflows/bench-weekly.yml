@@ -29,6 +29,7 @@ jobs:
 
       - run: pnpm --dir bench/apps/react install && pnpm --dir bench/apps/react build
       - run: pnpm --dir bench/apps/vue install && pnpm --dir bench/apps/vue build
+      - run: pnpm --dir bench/apps/svelte install && pnpm --dir bench/apps/svelte build
 
       - run: pnpm --dir bench run bench:core
       - run: pnpm --dir bench run bench:correctness

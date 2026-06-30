@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import type { BenchResults, LibraryBenchResult } from '../types/schema.js'
+import type { BenchResults, BrowserResult } from '../types/schema.js'
 
 const DRIFT_THRESHOLD = 0.20 // 20%
 
@@ -16,28 +16,34 @@ const repo     = process.env.GITHUB_REPOSITORY
 interface DriftEntry {
   library: string
   surface: string
-  baselineHz: number
-  latestHz:   number
-  pct:        number
+  metric:  'renderCount' | 'p50Ms'
+  baselineVal: number
+  latestVal:   number
+  pct:         number
 }
 
 const drifts: DriftEntry[] = []
 
-for (const [surface, latestResults] of Object.entries(latest.core ?? {})) {
-  const baselineSurface = baseline.core?.[surface]
+for (const [surface, latestResults] of Object.entries(latest.browser ?? {})) {
+  const baselineSurface = baseline.browser?.[surface]
   if (!baselineSurface) continue
 
-  for (const lr of latestResults as LibraryBenchResult[]) {
-    if (lr.library === 'neutro/form') continue // neutro drift is caught by PR regression gate
-    if (lr.status !== 'ok' || !lr.opsPerSec) continue
-    if (lr.highVariance) continue
+  for (const lr of latestResults as BrowserResult[]) {
+    if (lr.library === 'neutro/form' || lr.library.startsWith('neutro/form')) continue
+    if (lr.status !== 'ok') continue
 
-    const br = (baselineSurface as LibraryBenchResult[]).find(r => r.library === lr.library)
-    if (!br?.opsPerSec) continue
+    const br = (baselineSurface as BrowserResult[]).find(r => r.library === lr.library)
+    if (!br || br.status !== 'ok') continue
 
-    const pct = Math.abs(lr.opsPerSec - br.opsPerSec) / br.opsPerSec
-    if (pct > DRIFT_THRESHOLD) {
-      drifts.push({ library: lr.library, surface, baselineHz: br.opsPerSec, latestHz: lr.opsPerSec, pct })
+    for (const metric of ['renderCount', 'p50Ms'] as const) {
+      const lv = lr[metric]
+      const bv = br[metric]
+      if (lv == null || bv == null || bv === 0) continue
+      // Positive pct = got worse (more renders / slower). Negative = got better; not an alert.
+      const pct = (lv - bv) / bv
+      if (pct > DRIFT_THRESHOLD) {
+        drifts.push({ library: lr.library, surface, metric, baselineVal: bv, latestVal: lv, pct })
+      }
     }
   }
 }
@@ -55,18 +61,18 @@ if (!token || !repo) {
 }
 
 const rows = drifts.map(d => {
-  const dir = d.latestHz > d.baselineHz ? '⬆️' : '⬇️'
-  return `| ${d.library} | ${d.surface} | ${Math.round(d.baselineHz).toLocaleString()} | ${Math.round(d.latestHz).toLocaleString()} | ${dir} ${(d.pct * 100).toFixed(1)}% |`
+  const unit = d.metric === 'renderCount' ? 'renders' : 'ms'
+  return `| ${d.library} | ${d.surface} | ${d.metric} | ${d.baselineVal.toFixed(1)} ${unit} | ${d.latestVal.toFixed(1)} ${unit} | ⬆️ ${(d.pct * 100).toFixed(1)}% |`
 }).join('\n')
 
 const body = [
   '## Competitor Benchmark Drift Detected',
   '',
-  `Weekly run detected changes >20% in competitor results vs. committed baseline.`,
-  `This may indicate a competitor released a new version with perf changes.`,
+  `Weekly run detected competitor browser metrics >20% worse vs. committed baseline.`,
+  `This may indicate a competitor released a new version with regressions.`,
   '',
-  '| Library | Surface | Baseline (ops/s) | Weekly (ops/s) | Change |',
-  '|---|---|---|---|---|',
+  '| Library | Surface | Metric | Baseline | Weekly | Change |',
+  '|---|---|---|---|---|---|',
   rows,
   '',
   `Baseline: ${baseline.meta.neutroVersion} (${baseline.meta.generatedAt.slice(0, 10)})`,
