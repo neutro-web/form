@@ -7,6 +7,8 @@ import NeutroAsyncPage from './NeutroAsyncPage.vue'
 import VeeAsyncPage from './VeeAsyncPage.vue'
 import NeutroCancelPage from './NeutroCancelPage.vue'
 import VeeCancelPage from './VeeCancelPage.vue'
+import NeutroArraySection from './NeutroArraySection.vue'
+import VeeArraySection from './VeeArraySection.vue'
 
 const path = window.location.pathname
 
@@ -40,6 +42,11 @@ useVeeForm()
   <VeeAsyncPage v-else-if="path === '/async/vee'" />
   <NeutroCancelPage v-else-if="path === '/cancel/neutro'" />
   <VeeCancelPage v-else-if="path === '/cancel/vee'" />
+
+  <div v-else-if="path === '/array'">
+    <NeutroArraySection />
+    <VeeArraySection />
+  </div>
 
   <!-- Re-renders page -->
   <div v-else>
