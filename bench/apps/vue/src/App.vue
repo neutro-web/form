@@ -5,6 +5,8 @@ import NeutroField from './NeutroField.vue'
 import VeeField from './VeeField.vue'
 import NeutroAsyncPage from './NeutroAsyncPage.vue'
 import VeeAsyncPage from './VeeAsyncPage.vue'
+import NeutroCancelPage from './NeutroCancelPage.vue'
+import VeeCancelPage from './VeeCancelPage.vue'
 
 const path = window.location.pathname
 
@@ -35,6 +37,8 @@ useVeeForm()
   <!-- Async pages -->
   <NeutroAsyncPage v-if="path === '/async/neutro'" />
   <VeeAsyncPage v-else-if="path === '/async/vee'" />
+  <NeutroCancelPage v-else-if="path === '/cancel/neutro'" />
+  <VeeCancelPage v-else-if="path === '/cancel/vee'" />
 
   <!-- Re-renders page -->
   <div v-else>

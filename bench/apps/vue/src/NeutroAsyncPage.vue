@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import { ref, onUnmounted, computed } from 'vue'
 import { createForm } from '@neutro/form-core'
 import { useVueFormPath } from '@neutro/form-vue'
 
+const debounce = computed(() => new URLSearchParams(window.location.search).get('debounce') === '0')
+
 const asyncForm = createForm({
   initialValues: { email: '' },
+  asyncDebounceMs: debounce.value ? 0 : 300,
   validator: async (values, _scope, signal) => {
     ;(window as any).__asyncValidationStart = performance.now()
     await new Promise(r => setTimeout(r, 200))
