@@ -4,8 +4,16 @@ import type { BenchResults, CorrectnessResult } from '../types/schema.js'
 // Version passed as NEUTRO_VERSION from the git tag (e.g. "v0.4.3") by bench-full.yml.
 // bench-full.yml checks out main (which has the pre-release version in package.json),
 // so the tag ref_name is the only way to get the correct released version.
-// Falls back to "unknown" for the weekly cron job which does not publish results.
-const neutroVersion = (process.env.NEUTRO_VERSION ?? '').replace(/^v/, '') || 'unknown'
+// Falls back to reading root package.json for local development runs.
+function readLocalVersion(): string {
+  try {
+    return JSON.parse(readFileSync('../package.json', 'utf8')).version ?? 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+const neutroVersion = (process.env.NEUTRO_VERSION ?? '').replace(/^v/, '') || readLocalVersion()
 
 function readJson(path: string): unknown {
   try {
