@@ -8,6 +8,9 @@
   import NeutroAsyncPage from './NeutroAsyncPage.svelte'
   import TanStackAsyncPage from './TanStackAsyncPage.svelte'
   import FelteAsyncPage from './FelteAsyncPage.svelte'
+  import NeutroCancelPage from './NeutroCancelPage.svelte'
+  import TanStackCancelPage from './TanStackCancelPage.svelte'
+  import FelteCancelPage from './FelteCancelPage.svelte'
 
   const path = window.location.pathname
 
@@ -45,6 +48,12 @@
   <TanStackAsyncPage />
 {:else if path === '/async/felte'}
   <FelteAsyncPage />
+{:else if path === '/cancel/neutro'}
+  <NeutroCancelPage />
+{:else if path === '/cancel/tanstack'}
+  <TanStackCancelPage />
+{:else if path === '/cancel/felte'}
+  <FelteCancelPage />
 {:else}
   <!-- Re-renders page -->
   <section data-testid="neutro-form">

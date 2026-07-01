@@ -3,14 +3,15 @@
   import { createForm } from '@neutro/form-core'
   import { useSvelteFormPath } from '@neutro/form-svelte'
 
-  const debounce = new URLSearchParams(window.location.search).get('debounce') === '0'
+  function cancellationDelay(value: string): number {
+    return value.includes('slow') ? 600 : 100
+  }
 
-  const asyncForm = createForm({
+  const cancelForm = createForm({
     initialValues: { email: '' },
-    asyncDebounceMs: debounce ? 0 : 300,
+    asyncDebounceMs: 0,
     validator: async (values: any, _scope: any, signal: any) => {
-      ;(window as any).__asyncValidationStart = performance.now()
-      await new Promise((r) => setTimeout(r, 200))
+      await new Promise((r) => setTimeout(r, cancellationDelay(values.email)))
       if (signal?.aborted) return {}
       if (!String(values.email).includes('@')) return { email: 'Invalid email' }
       return {}
@@ -18,15 +19,11 @@
     validationMode: 'onChange',
   })
 
-  const field = useSvelteFormPath(asyncForm, 'email')
+  const field = useSvelteFormPath(cancelForm, 'email')
 
   let error = $state('')
-  const unsubscribe = asyncForm.subscribe((state: any) => {
-    const e = state.errors['email']
-    if (e && !error) {
-      ;(window as any).__asyncValidationEnd = performance.now()
-    }
-    error = e ?? ''
+  const unsubscribe = cancelForm.subscribe((state: any) => {
+    error = state.errors['email'] ?? ''
   })
   onDestroy(unsubscribe)
 </script>
@@ -36,7 +33,7 @@
     data-testid="async-email"
     value={$field.value as string}
     oninput={(e) =>
-      asyncForm.set('email', (e.target as HTMLInputElement).value, {
+      cancelForm.set('email', (e.target as HTMLInputElement).value, {
         validate: true,
       })}
   />
