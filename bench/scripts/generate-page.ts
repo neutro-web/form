@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import type { BenchResults, CorrectnessResult, BrowserResult, BundleSizeResult } from '../types/schema.js'
-import { ANNOTATIONS } from '../annotations.js'
+import { ANNOTATIONS, PASS_REASONS } from '../annotations.js'
 import { buildScorecard } from './scorecard.js'
 import type { Verdict } from '../lib/verdict.js'
 
@@ -47,10 +47,13 @@ function correctnessTable(surface: string, results: CorrectnessResult[]): string
     const badge = r.status === 'pass' ? '✅ PASS'
       : r.status === 'fail' ? '❌ FAIL'
       : r.status === 'error' ? '💥 ERROR'
-      : `— N/A${reasonMarker(surface, r.library)}`
-    return `| ${r.library} | ${badge} |`
+      : '— N/A'
+    const why = r.status === 'pass'
+      ? (PASS_REASONS[surface] ?? '')
+      : (ANNOTATIONS[surface]?.[r.library] ?? '')
+    return `| ${r.library} | ${badge} | ${why} |`
   }).join('\n')
-  return `| Library | Result |\n|---|---|\n${rows}`
+  return `| Library | Result | Why |\n|---|---|---|\n${rows}`
 }
 
 function browserTable(surface: string, results: BrowserResult[]): string {

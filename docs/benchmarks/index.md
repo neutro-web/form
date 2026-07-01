@@ -55,33 +55,33 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 
 ### array-state-integrity
 
-| Library | Result |
-|---|---|
-| neutro/form | ✅ PASS |
-| tanstack-form | — N/A[^array-state-integrity-tanstack-form] |
-| react-hook-form | — N/A[^array-state-integrity-react-hook-form] |
-| formik | — N/A[^array-state-integrity-formik] |
-| vee-validate | — N/A[^array-state-integrity-vee-validate] |
+| Library | Result | Why |
+|---|---|---|
+| neutro/form | ✅ PASS | errors/touched/dirty state is rekeyed by index on every array splice/move/swap |
+| tanstack-form | — N/A | no public API to rekey per-field error/touched state on array splice outside React context |
+| react-hook-form | — N/A | state-map rekey on splice not exposed outside hook context |
+| formik | — N/A | state-map rekey on splice not exposed outside hook context |
+| vee-validate | — N/A | state-map rekey on splice not exposed outside hook context |
 
 ### async-race
 
-| Library | Result |
-|---|---|
-| neutro/form | ✅ PASS |
-| tanstack-form | — N/A[^async-race-tanstack-form] |
-| react-hook-form | — N/A[^async-race-react-hook-form] |
-| formik | — N/A[^async-race-formik] |
-| vee-validate | — N/A[^async-race-vee-validate] |
+| Library | Result | Why |
+|---|---|---|
+| neutro/form | ✅ PASS | each async validation run gets its own AbortController; stale results are discarded by epoch |
+| tanstack-form | — N/A | no async cancellation API in vanilla usage |
+| react-hook-form | — N/A | no async cancellation API in vanilla usage |
+| formik | — N/A | no async cancellation API in vanilla usage |
+| vee-validate | — N/A | no async cancellation API in vanilla usage |
 
 ### dependency-trigger
 
-| Library | Result |
-|---|---|
-| neutro/form | ✅ PASS |
-| tanstack-form | — N/A[^dependency-trigger-tanstack-form] |
-| react-hook-form | — N/A[^dependency-trigger-react-hook-form] |
-| formik | — N/A[^dependency-trigger-formik] |
-| vee-validate | — N/A[^dependency-trigger-vee-validate] |
+| Library | Result | Why |
+|---|---|---|
+| neutro/form | ✅ PASS | a static dependency graph is precompiled at form init, so dependent fields re-validate automatically |
+| tanstack-form | — N/A | requires per-field validators; no declarative cross-field dependency graph |
+| react-hook-form | — N/A | no declarative dependency graph; cross-field validation is manual |
+| formik | — N/A | no declarative dependency graph; cross-field validation is manual |
+| vee-validate | — N/A | no declarative dependency graph; cross-field validation is manual |
 
 ## Browser (Chromium / Playwright, production build, no StrictMode)
 
@@ -190,18 +190,6 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 ---
 
-[^array-state-integrity-tanstack-form]: tanstack-form — no public API to rekey per-field error/touched state on array splice outside React context
-[^array-state-integrity-react-hook-form]: react-hook-form — state-map rekey on splice not exposed outside hook context
-[^array-state-integrity-formik]: formik — state-map rekey on splice not exposed outside hook context
-[^array-state-integrity-vee-validate]: vee-validate — state-map rekey on splice not exposed outside hook context
-[^async-race-tanstack-form]: tanstack-form — no async cancellation API in vanilla usage
-[^async-race-react-hook-form]: react-hook-form — no async cancellation API in vanilla usage
-[^async-race-formik]: formik — no async cancellation API in vanilla usage
-[^async-race-vee-validate]: vee-validate — no async cancellation API in vanilla usage
-[^dependency-trigger-tanstack-form]: tanstack-form — requires per-field validators; no declarative cross-field dependency graph
-[^dependency-trigger-react-hook-form]: react-hook-form — no declarative dependency graph; cross-field validation is manual
-[^dependency-trigger-formik]: formik — no declarative dependency graph; cross-field validation is manual
-[^dependency-trigger-vee-validate]: vee-validate — no declarative dependency graph; cross-field validation is manual
 [^async-cancellation-formik]: formik — no async cancellation API
 [^async-latency-neutro/form (React)]: neutro/form (React) — neutro debounces async validation 300ms by default (asyncDebounceMs) to avoid firing on every keystroke. See the debounce=0 column for the floor cost.
 [^async-latency-neutro/form (Vue)]: neutro/form (Vue) — same debounce policy as React — see debounce=0 column.

@@ -1,3 +1,11 @@
+// Hand-maintained map of surface -> "why neutro/form passes" explanation, shown in the
+// correctness tables' Why column. Keyed by surface name (bench/results correctness key).
+export const PASS_REASONS: Record<string, string> = {
+  'array-state-integrity': 'errors/touched/dirty state is rekeyed by index on every array splice/move/swap',
+  'async-race': 'each async validation run gets its own AbortController; stale results are discarded by epoch',
+  'dependency-trigger': 'a static dependency graph is precompiled at form init, so dependent fields re-validate automatically',
+}
+
 // Hand-maintained map of surface -> library -> reason. This is the single source for both
 // Tradeoff badge tooltip text (verdict.ts) and N/A reason text shown inline on the generated page.
 export const ANNOTATIONS: Record<string, Record<string, string>> = {
