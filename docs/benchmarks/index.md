@@ -5,20 +5,51 @@
 
 ## Methodology
 
-Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwright Chromium), and **bundle size** (esbuild + gzip).
-Badges are always relative to neutro/form: ✅ Win (neutro beats this library by >10%), ➖ Tied (within 10%), ❌ Behind (neutro trails by >10%, no documented reason), ⚖️ Tradeoff (either neutro trails by >10% due to a documented design choice, or neutro passes a correctness/capability check that this library architecturally cannot — the library's failure has a documented reason, so a harsh "neutro wins" framing is softened to Tradeoff instead — see footnotes), — N/A (surface doesn't apply to this library).
+Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwright Chromium), and **bundle size** (esbuild + gzip). Badges are always relative to neutro/form:
+
+- ✅ **Win** — neutro beats this library by more than 10%
+- ➖ **Tied** — within 10% either way
+- ❌ **Behind** — neutro trails by more than 10%, no documented reason
+- ⚖️ **Tradeoff** — neutro trails for a documented design reason, *or* neutro passes a check this library architecturally can't (a harsh "neutro wins" is softened to Tradeoff instead) — see footnotes
+- — **N/A** — surface doesn't apply to this library
 
 ## Scorecard
 
-| Library | array-state-integrity | async-race | dependency-trigger | re-renders/10 | re-renders/100 | async-latency | array-ops | async-cancellation | bundle-size |
-|---|---|---|---|---|---|---|---|---|---|
-| felte | — N/A | — N/A | — N/A | ✅ Win | ✅ Win | ❌ Behind | ✅ Win | ➖ Tied | ✅ Win |
-| formik | — N/A | — N/A | — N/A | ✅ Win | ✅ Win | ❌ Behind | ✅ Win | ⚖️ Tradeoff | ✅ Win |
-| react-hook-form | — N/A | — N/A | — N/A | ➖ Tied | ➖ Tied | ❌ Behind | ➖ Tied | ➖ Tied | ➖ Tied |
-| tanstack-form | — N/A | — N/A | — N/A | — N/A | — N/A | — N/A | — N/A | — N/A | ❌ Behind |
-| tanstack-form (React) | — N/A | — N/A | — N/A | ➖ Tied | ➖ Tied | ❌ Behind | ✅ Win | ➖ Tied | — N/A |
-| tanstack-form (Svelte) | — N/A | — N/A | — N/A | ➖ Tied | ➖ Tied | ❌ Behind | ❌ Behind | ➖ Tied | — N/A |
-| vee-validate | — N/A | — N/A | — N/A | ➖ Tied | ➖ Tied | ❌ Behind | ➖ Tied | ➖ Tied | ➖ Tied |
+### Correctness
+
+| Library | array-state-integrity | async-race | dependency-trigger |
+|---|---|---|---|
+| felte | — N/A | — N/A | — N/A |
+| formik | — N/A | — N/A | — N/A |
+| react-hook-form | — N/A | — N/A | — N/A |
+| tanstack-form | — N/A | — N/A | — N/A |
+| tanstack-form (React) | — N/A | — N/A | — N/A |
+| tanstack-form (Svelte) | — N/A | — N/A | — N/A |
+| vee-validate | — N/A | — N/A | — N/A |
+
+### Performance
+
+| Library | re-renders/10 | re-renders/100 | async-latency | array-ops | async-cancellation |
+|---|---|---|---|---|---|
+| felte | ✅ Win | ✅ Win | ❌ Behind | ✅ Win | ➖ Tied |
+| formik | ✅ Win | ✅ Win | ❌ Behind | ✅ Win | ⚖️ Tradeoff |
+| react-hook-form | ➖ Tied | ➖ Tied | ❌ Behind | ➖ Tied | ➖ Tied |
+| tanstack-form | — N/A | — N/A | — N/A | — N/A | — N/A |
+| tanstack-form (React) | ➖ Tied | ➖ Tied | ❌ Behind | ✅ Win | ➖ Tied |
+| tanstack-form (Svelte) | ➖ Tied | ➖ Tied | ❌ Behind | ❌ Behind | ➖ Tied |
+| vee-validate | ➖ Tied | ➖ Tied | ❌ Behind | ➖ Tied | ➖ Tied |
+
+### Size
+
+| Library | bundle-size |
+|---|---|
+| felte | ✅ Win |
+| formik | ✅ Win |
+| react-hook-form | ➖ Tied |
+| tanstack-form | ❌ Behind |
+| tanstack-form (React) | — N/A |
+| tanstack-form (Svelte) | — N/A |
+| vee-validate | ➖ Tied |
 
 ## Correctness
 

@@ -90,9 +90,8 @@ function bundleSizeTable(results: BundleSizeResult[]): string {
   return `| Library | Gzip size |\n|---|---|\n${rows}`
 }
 
-function scorecardTable(): string {
+function scorecardTable(columns: string[]): string {
   const rows = buildScorecard(baseline)
-  const columns = ['array-state-integrity', 'async-race', 'dependency-trigger', 're-renders/10', 're-renders/100', 'async-latency', 'array-ops', 'async-cancellation', 'bundle-size']
   const header = `| Library | ${columns.join(' | ')} |`
   const divider = `|---|${columns.map(() => '---').join('|')}|`
   const body = rows.map(r => {
@@ -113,12 +112,27 @@ const lines: string[] = [
   ``,
   `## Methodology`,
   ``,
-  `Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwright Chromium), and **bundle size** (esbuild + gzip).`,
-  `Badges are always relative to neutro/form: ✅ Win (neutro beats this library by >10%), ➖ Tied (within 10%), ❌ Behind (neutro trails by >10%, no documented reason), ⚖️ Tradeoff (either neutro trails by >10% due to a documented design choice, or neutro passes a correctness/capability check that this library architecturally cannot — the library's failure has a documented reason, so a harsh "neutro wins" framing is softened to Tradeoff instead — see footnotes), — N/A (surface doesn't apply to this library).`,
+  `Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwright Chromium), and **bundle size** (esbuild + gzip). Badges are always relative to neutro/form:`,
+  ``,
+  `- ✅ **Win** — neutro beats this library by more than 10%`,
+  `- ➖ **Tied** — within 10% either way`,
+  `- ❌ **Behind** — neutro trails by more than 10%, no documented reason`,
+  `- ⚖️ **Tradeoff** — neutro trails for a documented design reason, *or* neutro passes a check this library architecturally can't (a harsh "neutro wins" is softened to Tradeoff instead) — see footnotes`,
+  `- — **N/A** — surface doesn't apply to this library`,
   ``,
   `## Scorecard`,
   ``,
-  scorecardTable(),
+  `### Correctness`,
+  ``,
+  scorecardTable(['array-state-integrity', 'async-race', 'dependency-trigger']),
+  ``,
+  `### Performance`,
+  ``,
+  scorecardTable(['re-renders/10', 're-renders/100', 'async-latency', 'array-ops', 'async-cancellation']),
+  ``,
+  `### Size`,
+  ``,
+  scorecardTable(['bundle-size']),
   ``,
   `## Correctness`,
   ``,
