@@ -119,21 +119,27 @@ function TanStackSection() {
 }
 
 // ==================== ASYNC PAGES ====================
-const neutroAsyncForm = createForm({
-  initialValues: { email: '' },
-  validator: async (values, _scope, signal) => {
-    window.__asyncValidationStart = performance.now()
-    await new Promise(r => setTimeout(r, 200))
-    if (signal?.aborted) return {}
-    if (!String(values.email).includes('@')) return { email: 'Invalid email' }
-    return {}
-  },
-  validationMode: 'onChange',
-})
-function NeutroAsyncPage() {
-  const email = useFormPath(neutroAsyncForm, 'email')
-  const sub = useCallback((cb: () => void) => neutroAsyncForm.subscribeToPath('email', cb), [])
-  const getErr = useCallback(() => neutroAsyncForm.getState().errors['email'] ?? '', [])
+function makeNeutroAsyncForm(debounceMs: number) {
+  return createForm({
+    initialValues: { email: '' },
+    asyncDebounceMs: debounceMs,
+    validator: async (values, _scope, signal) => {
+      window.__asyncValidationStart = performance.now()
+      await new Promise(r => setTimeout(r, 200))
+      if (signal?.aborted) return {}
+      if (!String(values.email).includes('@')) return { email: 'Invalid email' }
+      return {}
+    },
+    validationMode: 'onChange',
+  })
+}
+const neutroAsyncForm = makeNeutroAsyncForm(300)
+const neutroAsyncFormNoDebounce = makeNeutroAsyncForm(0)
+
+function NeutroAsyncPage({ form }: { form: ReturnType<typeof makeNeutroAsyncForm> }) {
+  const email = useFormPath(form, 'email')
+  const sub = useCallback((cb: () => void) => form.subscribeToPath('email', cb), [form])
+  const getErr = useCallback(() => form.getState().errors['email'] ?? '', [form])
   const error = useSyncExternalStore(sub, getErr, getErr)
   if (error) window.__asyncValidationEnd = performance.now()
   return (
@@ -141,7 +147,7 @@ function NeutroAsyncPage() {
       <input
         data-testid="async-email"
         value={email as string}
-        onChange={e => neutroAsyncForm.set('email', e.target.value, { validate: true })}
+        onChange={e => form.set('email', e.target.value, { validate: true })}
       />
       {error && <span data-testid="async-error">{error}</span>}
     </div>
@@ -231,19 +237,138 @@ function TanStackAsyncPage() {
   )
 }
 
+// ==================== ASYNC-CANCELLATION PAGES ====================
+// Validator delay depends on the value: anything containing "slow" takes 600ms,
+// everything else takes 100ms. Typing "slow@x" then immediately overtyping with
+// "fastbad" creates a real race — the slow validation (valid, no error) must not
+// overwrite the fast validation's result (invalid, error shown) when it resolves later.
+function cancellationDelay(value: string): number {
+  return value.includes('slow') ? 600 : 100
+}
+
+const neutroCancelForm = createForm({
+  initialValues: { email: '' },
+  asyncDebounceMs: 0,
+  validator: async (values, _scope, signal) => {
+    await new Promise(r => setTimeout(r, cancellationDelay(values.email)))
+    if (signal?.aborted) return {}
+    if (!String(values.email).includes('@')) return { email: 'Invalid email' }
+    return {}
+  },
+  validationMode: 'onChange',
+})
+function NeutroCancelPage() {
+  const email = useFormPath(neutroCancelForm, 'email')
+  const sub = useCallback((cb: () => void) => neutroCancelForm.subscribeToPath('email', cb), [])
+  const getErr = useCallback(() => neutroCancelForm.getState().errors['email'] ?? '', [])
+  const error = useSyncExternalStore(sub, getErr, getErr)
+  return (
+    <div>
+      <input
+        data-testid="async-email"
+        value={email as string}
+        onChange={e => neutroCancelForm.set('email', e.target.value, { validate: true })}
+      />
+      {error && <span data-testid="async-error">{error}</span>}
+    </div>
+  )
+}
+
+function RhfCancelPage() {
+  const { register, formState: { errors } } = useRhfForm({ mode: 'onChange' })
+  const emailProps = register('email', {
+    validate: async (value) => {
+      await new Promise(r => setTimeout(r, cancellationDelay(value)))
+      if (!String(value).includes('@')) return 'Invalid email'
+      return undefined
+    },
+  })
+  return (
+    <div>
+      <input data-testid="async-email" {...emailProps} />
+      {errors.email && <span data-testid="async-error">{errors.email.message}</span>}
+    </div>
+  )
+}
+
+function FormikCancelPage() {
+  return (
+    <Formik
+      initialValues={{ email: '' }}
+      validateOnChange
+      validate={async (values) => {
+        await new Promise(r => setTimeout(r, cancellationDelay(values.email)))
+        if (!String(values.email).includes('@')) return { email: 'Invalid email' }
+        return {}
+      }}
+    >
+      {({ handleChange, errors }) => (
+        <div>
+          <input data-testid="async-email" name="email" onChange={handleChange} />
+          {errors.email && <span data-testid="async-error">{errors.email}</span>}
+        </div>
+      )}
+    </Formik>
+  )
+}
+
+function TanStackCancelPage() {
+  const form = useTsForm({ defaultValues: { email: '' } })
+  return (
+    <div>
+      <form.Field
+        name="email"
+        validators={{
+          onChangeAsync: async ({ value }: { value: string }) => {
+            await new Promise(r => setTimeout(r, cancellationDelay(value)))
+            if (!String(value).includes('@')) return 'Invalid email'
+            return undefined
+          },
+        }}
+      >
+        {(field: any) => {
+          const err = field.state.meta.errors[0]
+          return (
+            <>
+              <input
+                data-testid="async-email"
+                value={field.state.value}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.handleChange(e.target.value)}
+              />
+              {err && <span data-testid="async-error">{err}</span>}
+            </>
+          )
+        }}
+      </form.Field>
+    </div>
+  )
+}
+
 // ==================== ROUTER ====================
-const ASYNC_PAGES: Record<string, React.ReactElement> = {
-  neutro: <NeutroAsyncPage />,
-  rhf: <RhfAsyncPage />,
-  formik: <FormikAsyncPage />,
-  tanstack: <TanStackAsyncPage />,
+const ASYNC_PAGES: Record<string, (debounce: boolean) => React.ReactElement> = {
+  neutro: (debounce) => <NeutroAsyncPage form={debounce ? neutroAsyncFormNoDebounce : neutroAsyncForm} />,
+  rhf: () => <RhfAsyncPage />,
+  formik: () => <FormikAsyncPage />,
+  tanstack: () => <TanStackAsyncPage />,
+}
+
+const CANCEL_PAGES: Record<string, React.ReactElement> = {
+  neutro: <NeutroCancelPage />,
+  rhf: <RhfCancelPage />,
+  formik: <FormikCancelPage />,
+  tanstack: <TanStackCancelPage />,
 }
 
 export default function App() {
   const path = window.location.pathname
   if (path.startsWith('/async/')) {
     const lib = path.slice('/async/'.length)
-    return ASYNC_PAGES[lib] ?? <div data-testid="not-found">Unknown: {lib}</div>
+    const debounce = new URLSearchParams(window.location.search).get('debounce') === '0'
+    return ASYNC_PAGES[lib]?.(debounce) ?? <div data-testid="not-found">Unknown: {lib}</div>
+  }
+  if (path.startsWith('/cancel/')) {
+    const lib = path.slice('/cancel/'.length)
+    return CANCEL_PAGES[lib] ?? <div data-testid="not-found">Unknown: {lib}</div>
   }
   return (
     <div>
