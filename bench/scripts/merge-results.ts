@@ -36,7 +36,8 @@ function normalizeCorrectnessJson(raw: any): Record<string, CorrectnessResult[]>
 
 const core        = readJson('results/core.json') as Record<string, any>
 const correctness = readJson('results/correctness.json') as Record<string, any>
-const browser     = readJson('results/browser.json') as Record<string, any>
+const browser      = readJson('results/browser.json') as Record<string, any>
+const bundleSize    = readJson('results/bundle-size.json') as Record<string, any>
 
 const merged: BenchResults = {
   meta: {
@@ -49,6 +50,7 @@ const merged: BenchResults = {
   core,
   correctness: normalizeCorrectnessJson(correctness),
   browser,
+  bundleSize,
 }
 
 writeFileSync('results/latest.json', JSON.stringify(merged, null, 2))
