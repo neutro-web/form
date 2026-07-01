@@ -11,6 +11,9 @@
   import NeutroCancelPage from './NeutroCancelPage.svelte'
   import TanStackCancelPage from './TanStackCancelPage.svelte'
   import FelteCancelPage from './FelteCancelPage.svelte'
+  import NeutroArraySection from './NeutroArraySection.svelte'
+  import TanStackArraySection from './TanStackArraySection.svelte'
+  import FelteArraySection from './FelteArraySection.svelte'
 
   const path = window.location.pathname
 
@@ -55,6 +58,10 @@
   <TanStackCancelPage />
 {:else if path === '/cancel/felte'}
   <FelteCancelPage />
+{:else if path === '/array'}
+  <NeutroArraySection />
+  <TanStackArraySection />
+  <FelteArraySection />
 {:else}
   <!-- Re-renders page -->
   <section data-testid="neutro-form">
