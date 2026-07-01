@@ -2,9 +2,8 @@ import React, { useCallback } from 'react'
 import { useSyncExternalStore } from 'react'
 import { createForm } from '@neutro/form-core'
 import { useFormPath } from '@neutro/form-react'
-import { useForm as useRhfForm, Controller } from 'react-hook-form'
-import { Formik, useFormikContext } from 'formik'
-// NOTE: Do NOT import Field from formik — it is not used in this file.
+import { useForm as useRhfForm, Controller, useFieldArray } from 'react-hook-form'
+import { Formik, useFormikContext, FieldArray } from 'formik'
 import { useForm as useTsForm } from '@tanstack/react-form'
 
 // --- Module-level render counters (survive re-renders; exposed on window) ---
@@ -116,6 +115,138 @@ function TanStackSection() {
         </form.Field>
       ))}
     </section>
+  )
+}
+
+// ==================== ARRAY-OPS ====================
+const ARRAY_ITEMS = Array.from({ length: 10 }, (_, i) => ({ v: `item${i}` }))
+
+const neutroArrayRenders: Record<string, number> = {}
+const rhfArrayRenders: Record<string, number> = {}
+const formikArrayRenders: Record<string, number> = {}
+const tanstackArrayRenders: Record<string, number> = {}
+;(window as any).__neutroArrayRenders = neutroArrayRenders
+;(window as any).__rhfArrayRenders = rhfArrayRenders
+;(window as any).__formikArrayRenders = formikArrayRenders
+;(window as any).__tanstackArrayRenders = tanstackArrayRenders
+;(window as any).__resetArrayRenders = () => {
+  for (const k in neutroArrayRenders) neutroArrayRenders[k] = 0
+  for (const k in rhfArrayRenders) rhfArrayRenders[k] = 0
+  for (const k in formikArrayRenders) formikArrayRenders[k] = 0
+  for (const k in tanstackArrayRenders) tanstackArrayRenders[k] = 0
+}
+
+const neutroArrayForm = createForm({ initialValues: { items: ARRAY_ITEMS } })
+
+function NeutroArrayItem({ index }: { index: number }) {
+  const value = useFormPath(neutroArrayForm, `items.${index}.v` as any)
+  neutroArrayRenders[`item${index}`] = (neutroArrayRenders[`item${index}`] ?? 0) + 1
+  return (
+    <input
+      data-testid={`neutro-array-item-${index}`}
+      value={value as string}
+      onChange={e => neutroArrayForm.set(`items.${index}.v` as any, e.target.value)}
+    />
+  )
+}
+function NeutroArraySection() {
+  const items = useFormPath(neutroArrayForm, 'items' as any) as Array<{ v: string }>
+  return (
+    <section data-testid="neutro-array">
+      {items.map((_, i) => (
+        <span key={i}>
+          <NeutroArrayItem index={i} />
+          <button data-testid={`neutro-array-remove-${i}`} onClick={() => neutroArrayForm.arrayRemove('items' as any, i)}>remove</button>
+        </span>
+      ))}
+      <button data-testid="neutro-array-move-3-7" onClick={() => neutroArrayForm.arrayMove('items' as any, 3, 7)}>move</button>
+    </section>
+  )
+}
+
+function RhfArraySection() {
+  const { control } = useRhfForm({ defaultValues: { items: ARRAY_ITEMS } })
+  const { fields, remove, move } = useFieldArray({ control, name: 'items' })
+  return (
+    <section data-testid="rhf-array">
+      {fields.map((field, i) => (
+        <span key={field.id}>
+          <Controller
+            control={control} name={`items.${i}.v`}
+            render={({ field: f }) => {
+              rhfArrayRenders[`item${i}`] = (rhfArrayRenders[`item${i}`] ?? 0) + 1
+              return <input data-testid={`rhf-array-item-${i}`} value={f.value} onChange={f.onChange} />
+            }}
+          />
+          <button data-testid={`rhf-array-remove-${i}`} onClick={() => remove(i)}>remove</button>
+        </span>
+      ))}
+      <button data-testid="rhf-array-move-3-7" onClick={() => move(3, 7)}>move</button>
+    </section>
+  )
+}
+
+function FormikArrayItem({ index }: { index: number }) {
+  const { values, handleChange } = useFormikContext<{ items: Array<{ v: string }> }>()
+  formikArrayRenders[`item${index}`] = (formikArrayRenders[`item${index}`] ?? 0) + 1
+  return (
+    <input
+      data-testid={`formik-array-item-${index}`}
+      name={`items.${index}.v`}
+      value={values.items[index].v}
+      onChange={handleChange}
+    />
+  )
+}
+function FormikArraySection() {
+  return (
+    <Formik initialValues={{ items: ARRAY_ITEMS }} onSubmit={() => {}}>
+      {({ values }) => (
+        <FieldArray name="items">
+          {(helpers) => (
+            <section data-testid="formik-array">
+              {values.items.map((_, i) => (
+                <span key={i}>
+                  <FormikArrayItem index={i} />
+                  <button data-testid={`formik-array-remove-${i}`} onClick={() => helpers.remove(i)}>remove</button>
+                </span>
+              ))}
+              <button data-testid="formik-array-move-3-7" onClick={() => helpers.move(3, 7)}>move</button>
+            </section>
+          )}
+        </FieldArray>
+      )}
+    </Formik>
+  )
+}
+
+function TanStackArraySection() {
+  const form = useTsForm({ defaultValues: { items: ARRAY_ITEMS } })
+  return (
+    <form.Field name="items" mode="array">
+      {(arrayField: any) => (
+        <section data-testid="tanstack-array">
+          {arrayField.state.value.map((_: unknown, i: number) => (
+            <span key={i}>
+              <form.Field name={`items[${i}].v`}>
+                {(field: any) => {
+                  tanstackArrayRenders[`item${i}`] = (tanstackArrayRenders[`item${i}`] ?? 0) + 1
+                  return (
+                    <input
+                      data-testid={`tanstack-array-item-${i}`}
+                      value={field.state.value}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.handleChange(e.target.value)}
+                    />
+                  )
+                }}
+              </form.Field>
+              <button data-testid={`tanstack-array-remove-${i}`} onClick={() => arrayField.removeValue(i)}>remove</button>
+            </span>
+          ))}
+          <button data-testid="tanstack-array-move-3-7" onClick={() => arrayField.moveValue(3, 7)}>move</button>
+        </section>
+      )}
+    </form.Field>
   )
 }
 
@@ -370,6 +501,16 @@ export default function App() {
   if (path.startsWith('/cancel/')) {
     const lib = path.slice('/cancel/'.length)
     return CANCEL_PAGES[lib] ?? <div data-testid="not-found">Unknown: {lib}</div>
+  }
+  if (path === '/array') {
+    return (
+      <div>
+        <NeutroArraySection />
+        <RhfArraySection />
+        <FormikArraySection />
+        <TanStackArraySection />
+      </div>
+    )
   }
   return (
     <div>
