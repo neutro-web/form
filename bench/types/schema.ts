@@ -8,7 +8,8 @@ export interface BenchResults {
   }
   core:        Record<string, LibraryBenchResult[]>   // key = "surface/scale" e.g. "set-get/small"
   correctness: Record<string, CorrectnessResult[]>    // key = surface name e.g. "async-race"
-  browser:     Record<string, BrowserResult[]>        // key = surface name e.g. "re-renders"
+  browser:     Record<string, BrowserResult[]>        // key = surface name e.g. "re-renders/10"
+  bundleSize:  Record<string, BundleSizeResult[]>      // key = "bundle-size"
 }
 
 export interface LibraryBenchResult {
@@ -26,15 +27,23 @@ export interface LibraryBenchResult {
 export interface CorrectnessResult {
   library: string
   status: 'pass' | 'fail' | 'na' | 'error'
-  detail?: string           // failure message or shim description
+  detail?: string           // failure message
 }
 
 export interface BrowserResult {
   library: string
   status: 'ok' | 'error' | 'na'
-  renderCount?: number      // total renders across all fields during 20-keystroke sequence
-  p50Ms?: number            // async validation latency p50
-  p99Ms?: number            // async validation latency p99
-  concurrentRacePass?: boolean
+  renderCount?: number                  // total renders across all fields during a keystroke sequence
+  p50Ms?: number                        // async validation latency p50
+  p99Ms?: number                        // async validation latency p99
+  cancellationPass?: boolean            // async-cancellation surface: did the UI show the fresh result, not stale?
+  connectedCountAfterCleanup?: number   // dom-cleanup surface only; 0 = pass
+  error?: string
+}
+
+export interface BundleSizeResult {
+  library: string
+  status: 'ok' | 'error'
+  gzipBytes?: number
   error?: string
 }
