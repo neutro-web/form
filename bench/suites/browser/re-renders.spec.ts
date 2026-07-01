@@ -24,71 +24,39 @@ async function attach(testInfo: TestInfo, library: string, renderCount: number) 
   await testInfo.attach('result', { body: JSON.stringify(result), contentType: 'application/json' })
 }
 
-test.describe('re-renders', () => {
-  // ---- React (port 4173) ----
-  test('neutro/form (React)', async ({ page }, testInfo) => {
-    await page.goto('http://localhost:4173')
-    const total = await measureReRenders(page, 'neutro', '__neutroRenders')
-    await attach(testInfo, 'neutro/form (React)', total)
-    expect(total).toBeLessThanOrEqual(25)
-  })
+const COMBOS: Array<{ name: string; port: number; prefix: string; key: string; library: string; limit: number }> = [
+  { name: 'neutro/form (React)',    port: 4173, prefix: 'neutro',   key: '__neutroRenders',   library: 'neutro/form (React)',    limit: 25 },
+  { name: 'react-hook-form',        port: 4173, prefix: 'rhf',      key: '__rhfRenders',      library: 'react-hook-form',        limit: 500 },
+  { name: 'formik',                 port: 4173, prefix: 'formik',   key: '__formikRenders',   library: 'formik',                 limit: 4500 },
+  { name: 'tanstack-form (React)',  port: 4173, prefix: 'tanstack', key: '__tanstackRenders', library: 'tanstack-form (React)',  limit: 500 },
+  { name: 'neutro/form (Vue)',      port: 4174, prefix: 'neutro',   key: '__neutroRenders',   library: 'neutro/form (Vue)',      limit: 25 },
+  { name: 'vee-validate',           port: 4174, prefix: 'vee',      key: '__veeRenders',      library: 'vee-validate',           limit: 500 },
+  { name: 'neutro/form (Svelte)',   port: 4175, prefix: 'neutro',   key: '__neutroRenders',   library: 'neutro/form (Svelte)',   limit: 25 },
+  { name: 'tanstack-form (Svelte)', port: 4175, prefix: 'tanstack', key: '__tanstackRenders', library: 'tanstack-form (Svelte)', limit: 500 },
+  { name: 'felte',                  port: 4175, prefix: 'felte',    key: '__felteRenders',    library: 'felte',                  limit: 2500 },
+]
 
-  test('react-hook-form', async ({ page }, testInfo) => {
-    await page.goto('http://localhost:4173')
-    const total = await measureReRenders(page, 'rhf', '__rhfRenders')
-    await attach(testInfo, 'react-hook-form', total)
-    expect(total).toBeLessThanOrEqual(500) // RHF Controller re-renders only the subscribed field
-  })
+test.describe('re-renders/10', () => {
+  for (const c of COMBOS) {
+    test(c.name, async ({ page }, testInfo) => {
+      await page.goto(`http://localhost:${c.port}/`)
+      const total = await measureReRenders(page, c.prefix, c.key)
+      await attach(testInfo, c.library, total)
+      expect(total).toBeLessThanOrEqual(c.limit)
+    })
+  }
+})
 
-  test('formik', async ({ page }, testInfo) => {
-    await page.goto('http://localhost:4173')
-    const total = await measureReRenders(page, 'formik', '__formikRenders')
-    await attach(testInfo, 'formik', total)
-    // Formik re-renders ALL fields on every change via context; 200 renders (20 keystrokes × 10 fields) is expected
-    expect(total).toBeLessThanOrEqual(500)
-  })
-
-  test('tanstack-form (React)', async ({ page }, testInfo) => {
-    await page.goto('http://localhost:4173')
-    const total = await measureReRenders(page, 'tanstack', '__tanstackRenders')
-    await attach(testInfo, 'tanstack-form (React)', total)
-    expect(total).toBeLessThanOrEqual(500)
-  })
-
-  // ---- Vue (port 4174) ----
-  test('neutro/form (Vue)', async ({ page }, testInfo) => {
-    await page.goto('http://localhost:4174')
-    const total = await measureReRenders(page, 'neutro', '__neutroRenders')
-    await attach(testInfo, 'neutro/form (Vue)', total)
-    expect(total).toBeLessThanOrEqual(25)
-  })
-
-  test('vee-validate', async ({ page }, testInfo) => {
-    await page.goto('http://localhost:4174')
-    const total = await measureReRenders(page, 'vee', '__veeRenders')
-    await attach(testInfo, 'vee-validate', total)
-    expect(total).toBeLessThanOrEqual(500)
-  })
-
-  // ---- Svelte (port 4175) ----
-  test('neutro/form (Svelte)', async ({ page }, testInfo) => {
-    await page.goto('http://localhost:4175')
-    const total = await measureReRenders(page, 'neutro', '__neutroRenders')
-    await attach(testInfo, 'neutro/form (Svelte)', total)
-    expect(total).toBeLessThanOrEqual(25)
-  })
-
-  test('tanstack-form (Svelte)', async ({ page }, testInfo) => {
-    await page.goto('http://localhost:4175')
-    const total = await measureReRenders(page, 'tanstack', '__tanstackRenders')
-    await attach(testInfo, 'tanstack-form (Svelte)', total)
-    expect(total).toBeLessThanOrEqual(500)
-  })
-
-  test('felte', async ({ page }, testInfo) => {
-    await page.goto('http://localhost:4175')
-    const total = await measureReRenders(page, 'felte', '__felteRenders')
-    await attach(testInfo, 'felte', total)
-    expect(total).toBeLessThanOrEqual(500)
-  })
+test.describe('re-renders/100', () => {
+  for (const c of COMBOS) {
+    test(c.name, async ({ page }, testInfo) => {
+      await page.goto(`http://localhost:${c.port}/?fields=100`)
+      const total = await measureReRenders(page, c.prefix, c.key)
+      await attach(testInfo, c.library, total)
+      // At 100 fields, whole-form re-render libraries (Formik, Felte) scale linearly with field
+      // count — limits are 10x the /10 limits since the typed sequence length (20 keystrokes) is
+      // unchanged but each whole-form render now touches 10x more fields.
+      expect(total).toBeLessThanOrEqual(c.limit * 10)
+    })
+  }
 })

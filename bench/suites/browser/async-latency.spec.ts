@@ -32,8 +32,9 @@ async function runLatencyTest(
   testInfo: TestInfo,
   url: string,
   library: string,
+  p50Limit: number,
 ) {
-  test.setTimeout(90000) // 20 iterations × ~1s each + server startup headroom
+  test.setTimeout(90000)
   await page.goto(url)
   const latencies = await measureLatency(page)
   const p50 = percentile(latencies, 50)
@@ -43,21 +44,26 @@ async function runLatencyTest(
     status: 'ok',
     p50Ms: Math.round(p50),
     p99Ms: Math.round(p99),
-    concurrentRacePass: library.startsWith('neutro'), // only neutro has verified epoch cancellation
   }
   await testInfo.attach('result', { body: JSON.stringify(result), contentType: 'application/json' })
-  expect(p50).toBeLessThan(600) // 200ms validator + 300ms debounce headroom + React scheduling
-  expect(latencies.length).toBeGreaterThanOrEqual(10) // enough valid samples
+  expect(p50).toBeLessThan(p50Limit)
+  expect(latencies.length).toBeGreaterThanOrEqual(10)
 }
 
 test.describe('async-latency', () => {
-  test('neutro/form (React)',       async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4173/async/neutro',   'neutro/form (React)'))
-  test('react-hook-form',           async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4173/async/rhf',       'react-hook-form'))
-  test('formik',                    async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4173/async/formik',    'formik'))
-  test('tanstack-form (React)',     async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4173/async/tanstack',  'tanstack-form (React)'))
-  test('neutro/form (Vue)',         async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4174/async/neutro',    'neutro/form (Vue)'))
-  test('vee-validate',              async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4174/async/vee',       'vee-validate'))
-  test('neutro/form (Svelte)',      async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4175/async/neutro',    'neutro/form (Svelte)'))
-  test('tanstack-form (Svelte)',    async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4175/async/tanstack',  'tanstack-form (Svelte)'))
-  test('felte',                     async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4175/async/felte',     'felte'))
+  test('neutro/form (React)',       async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4173/async/neutro',   'neutro/form (React)', 600))
+  test('react-hook-form',           async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4173/async/rhf',       'react-hook-form', 400))
+  test('formik',                    async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4173/async/formik',    'formik', 400))
+  test('tanstack-form (React)',     async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4173/async/tanstack',  'tanstack-form (React)', 400))
+  test('neutro/form (Vue)',         async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4174/async/neutro',    'neutro/form (Vue)', 600))
+  test('vee-validate',              async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4174/async/vee',       'vee-validate', 400))
+  test('neutro/form (Svelte)',      async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4175/async/neutro',    'neutro/form (Svelte)', 600))
+  test('tanstack-form (Svelte)',    async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4175/async/tanstack',  'tanstack-form (Svelte)', 400))
+  test('felte',                     async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4175/async/felte',     'felte', 400))
+})
+
+test.describe('async-latency-debounce-floor', () => {
+  test('neutro/form (React) [debounce=0]',  async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4173/async/neutro?debounce=0', 'neutro/form (React) [debounce=0]', 400))
+  test('neutro/form (Vue) [debounce=0]',    async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4174/async/neutro?debounce=0', 'neutro/form (Vue) [debounce=0]', 400))
+  test('neutro/form (Svelte) [debounce=0]', async ({ page }, i) => runLatencyTest(page, i, 'http://localhost:4175/async/neutro?debounce=0', 'neutro/form (Svelte) [debounce=0]', 400))
 })
