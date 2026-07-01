@@ -51,13 +51,13 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 
 | Library | re-renders/10 | re-renders/100 | async-latency | array-ops | async-cancellation |
 |---|---|---|---|---|---|
-| felte | ✅ Win | ✅ Win | ❌ Behind | ✅ Win | ➖ Tied |
-| formik | ✅ Win | ✅ Win | ❌ Behind | ✅ Win | ⚖️ Tradeoff |
-| react-hook-form | ➖ Tied | ➖ Tied | ❌ Behind | ➖ Tied | ➖ Tied |
+| felte | ✅ Win | ✅ Win | ⚖️ Tradeoff | ✅ Win | ➖ Tied |
+| formik | ✅ Win | ✅ Win | ⚖️ Tradeoff | ✅ Win | ⚖️ Tradeoff |
+| react-hook-form | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ➖ Tied | ➖ Tied |
 | tanstack-form | — N/A | — N/A | — N/A | — N/A | — N/A |
-| tanstack-form (React) | ➖ Tied | ➖ Tied | ❌ Behind | ✅ Win | ➖ Tied |
-| tanstack-form (Svelte) | ➖ Tied | ➖ Tied | ❌ Behind | ❌ Behind | ➖ Tied |
-| vee-validate | ➖ Tied | ➖ Tied | ❌ Behind | ➖ Tied | ➖ Tied |
+| tanstack-form (React) | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ✅ Win | ➖ Tied |
+| tanstack-form (Svelte) | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ❌ Behind | ➖ Tied |
+| vee-validate | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ➖ Tied | ➖ Tied |
 
 ### Size
 

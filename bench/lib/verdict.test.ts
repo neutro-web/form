@@ -30,11 +30,19 @@ describe('computeVerdict (numeric)', () => {
     expect(computeVerdict('unknown-surface', 'react-hook-form', 302, 202, false, 'ok')).toBe('behind')
   })
 
-  test('competitor much better WITH annotation is tradeoff (lower-is-better)', () => {
-    // neutro=302, competitor=202 on async-latency, react-hook-form has no annotation entry there —
-    // use neutro/form (React) row itself is never compared to itself; instead verify the tradeoff path
-    // using a surface/library pair that IS annotated.
-    expect(computeVerdict('async-latency', 'neutro/form (React)', 302, 202, false, 'ok')).not.toBe('behind')
+  test('competitor much better WITH annotation on the competitor key is tradeoff (lower-is-better)', () => {
+    // neutro=1000, competitor=100 on dependency-trigger's underlying metric, tanstack-form is annotated there.
+    expect(computeVerdict('dependency-trigger', 'tanstack-form', 1000, 100, false, 'ok')).toBe('tradeoff')
+  })
+
+  test('competitor much better WITH annotation on the neutro-variant key is tradeoff (lower-is-better)', () => {
+    // async-latency's annotation is keyed by neutro's own variant name (the debounce is neutro's
+    // design choice, not something about the competitor) — computeVerdict must check both keys.
+    expect(computeVerdict('async-latency', 'react-hook-form', 302, 202, false, 'ok', 'neutro/form (React)')).toBe('tradeoff')
+  })
+
+  test('competitor much better with NEITHER key annotated is behind (lower-is-better)', () => {
+    expect(computeVerdict('async-latency', 'react-hook-form', 302, 202, false, 'ok', 'neutro/form (unannotated-variant)')).toBe('behind')
   })
 
   test('higher-is-better metric flips the comparison direction', () => {

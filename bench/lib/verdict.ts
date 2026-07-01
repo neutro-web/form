@@ -11,6 +11,7 @@ export function computeVerdict(
   competitorValue: number | undefined,
   higherIsBetter: boolean,
   status: 'ok' | 'error' | 'na',
+  neutroLibrary?: string,
 ): Verdict {
   if (status === 'na') return 'na'
   if (status === 'error') return 'error'
@@ -23,8 +24,11 @@ export function computeVerdict(
 
   if (Math.abs(pct) <= VERDICT_THRESHOLD) return 'tied'
   if (pct > 0) return 'win' // competitor worse than neutro by more than threshold
-  // competitor is BETTER than neutro by more than threshold
-  return ANNOTATIONS[surface]?.[library] ? 'tradeoff' : 'behind'
+  // competitor is BETTER than neutro by more than threshold. The documented reason can live on
+  // either side: keyed by the competitor (why THIS library is excused) or by neutro's own variant
+  // (why NEUTRO trails here by design, e.g. async-latency's debounce tradeoff).
+  const hasAnnotation = Boolean(ANNOTATIONS[surface]?.[library]) || Boolean(neutroLibrary && ANNOTATIONS[surface]?.[neutroLibrary])
+  return hasAnnotation ? 'tradeoff' : 'behind'
 }
 
 export function computeBooleanVerdict(

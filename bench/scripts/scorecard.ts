@@ -51,7 +51,7 @@ export function buildScorecard(baseline: BenchResults): ScorecardRow[] {
       const neutroResult = results.find(r => r.library === neutroLib)
       const competitorResult = results.find(r => r.library === library)
       if (!competitorResult) continue
-      badges[key] = computeVerdict(key, library, neutroResult?.[metric], competitorResult[metric], higherIsBetter, competitorResult.status)
+      badges[key] = computeVerdict(key, library, neutroResult?.[metric], competitorResult[metric], higherIsBetter, competitorResult.status, neutroLib)
     }
 
     {
