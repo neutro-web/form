@@ -35,7 +35,8 @@ window.__resetRenders = () => {
   for (const k in tanstackRenders) tanstackRenders[k] = 0
 }
 
-const FIELDS = Array.from({ length: 10 }, (_, i) => `field${i}`)
+const FIELD_COUNT = Number(new URLSearchParams(window.location.search).get('fields')) || 10
+const FIELDS = Array.from({ length: FIELD_COUNT }, (_, i) => `field${i}`)
 
 // ==================== NEUTRO ====================
 const neutroForm = createForm({ initialValues: Object.fromEntries(FIELDS.map(n => [n, ''])) })

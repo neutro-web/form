@@ -14,7 +14,8 @@
 
   const path = window.location.pathname
 
-  const FIELDS = Array.from({ length: 10 }, (_, i) => `field${i}`)
+  const FIELD_COUNT = Number(new URLSearchParams(window.location.search).get('fields')) || 10
+  const FIELDS = Array.from({ length: FIELD_COUNT }, (_, i) => `field${i}`)
 
   // --- Render counters ---
   const neutroRenders: Record<string, number> = {}

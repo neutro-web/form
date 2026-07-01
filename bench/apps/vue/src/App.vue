@@ -11,7 +11,8 @@ import VeeCancelPage from './VeeCancelPage.vue'
 const path = window.location.pathname
 
 // ---- Re-renders page setup ----
-const FIELD_NAMES = Array.from({ length: 10 }, (_, i) => `field${i}`)
+const FIELD_COUNT = Number(new URLSearchParams(window.location.search).get('fields')) || 10
+const FIELD_NAMES = Array.from({ length: FIELD_COUNT }, (_, i) => `field${i}`)
 
 const neutroForm = createForm({
   initialValues: Object.fromEntries(FIELD_NAMES.map(n => [n, ''])),
