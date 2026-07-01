@@ -257,8 +257,10 @@ const cleanupForm = createForm({
 ;(window as any).__getConnectedCount = () => cleanupForm.getConnectedCount()
 
 function CleanupField({ name }: { name: string }) {
-  const ref = useCallback((el: HTMLInputElement | null) => {
-    if (el) return cleanupForm.connect(name as any, el)
+  const ref = React.useRef<HTMLInputElement | null>(null)
+  React.useEffect(() => {
+    if (!ref.current) return
+    return cleanupForm.connect(name as any, ref.current)
   }, [name])
   return <input ref={ref} data-testid={`cleanup-${name}`} />
 }

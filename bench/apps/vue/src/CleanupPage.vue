@@ -12,13 +12,30 @@ const mounted = ref(true)
 let batch = 0
 let timer: ReturnType<typeof setTimeout>
 
+const disconnectFns = new Map<string, () => void>()
+
+function connectField(el: HTMLInputElement | null, name: string) {
+  if (el) {
+    disconnectFns.set(name, cleanupForm.connect(name as any, el))
+  }
+}
+
+function disconnectAll() {
+  for (const fn of disconnectFns.values()) fn()
+  disconnectFns.clear()
+}
+
 function tick() {
   if (batch >= 10) {
     ;(window as any).__cleanupDone = true
     return
   }
   if (mounted.value) {
-    timer = setTimeout(() => { mounted.value = false; timer = setTimeout(tick, 20) }, 20)
+    timer = setTimeout(() => {
+      disconnectAll()
+      mounted.value = false
+      timer = setTimeout(tick, 20)
+    }, 20)
   } else {
     batch++
     mounted.value = true
@@ -28,10 +45,6 @@ function tick() {
 
 onMounted(tick)
 onUnmounted(() => clearTimeout(timer))
-
-function connectField(el: HTMLInputElement | null, name: string) {
-  if (el) cleanupForm.connect(name as any, el)
-}
 </script>
 
 <template>
