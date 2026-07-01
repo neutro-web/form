@@ -271,15 +271,21 @@ function CleanupPage() {
   const fieldNames = Object.keys(Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`f${i}`, ''])))
 
   React.useEffect(() => {
-    if (batch >= 10) {
-      ;(window as any).__cleanupDone = true
-      return
-    }
     if (mounted) {
-      const t = setTimeout(() => setMounted(false), 20)
+      // Unmount and count this cycle. Batch is incremented on unmount (not remount) so
+      // that once batch reaches the limit, the fields stay unmounted/disconnected —
+      // otherwise the loop would remount one final time and never disconnect it.
+      const t = setTimeout(() => {
+        setMounted(false)
+        setBatch(b => b + 1)
+      }, 20)
       return () => clearTimeout(t)
     } else {
-      const t = setTimeout(() => { setBatch(b => b + 1); setMounted(true) }, 20)
+      if (batch >= 10) {
+        ;(window as any).__cleanupDone = true
+        return
+      }
+      const t = setTimeout(() => setMounted(true), 20)
       return () => clearTimeout(t)
     }
   }, [batch, mounted])

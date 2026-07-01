@@ -26,20 +26,25 @@ function disconnectAll() {
 }
 
 function tick() {
-  if (batch >= 10) {
-    ;(window as any).__cleanupDone = true
-    return
-  }
   if (mounted.value) {
+    // Unmount and count this cycle. Batch is incremented on unmount (not remount) so
+    // that once batch reaches the limit, the fields stay unmounted/disconnected —
+    // otherwise the loop would remount one final time and never disconnect it.
     timer = setTimeout(() => {
       disconnectAll()
       mounted.value = false
+      batch++
+      if (batch >= 10) {
+        ;(window as any).__cleanupDone = true
+        return
+      }
       timer = setTimeout(tick, 20)
     }, 20)
   } else {
-    batch++
-    mounted.value = true
-    timer = setTimeout(tick, 20)
+    timer = setTimeout(() => {
+      mounted.value = true
+      timer = setTimeout(tick, 20)
+    }, 20)
   }
 }
 
