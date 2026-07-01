@@ -5,6 +5,7 @@
     ".": {
       "component": "form",
       "include-component-in-tag": false,
+      "release-as": "0.4.3",
       "version-file": "packages/alias/package.json",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
