@@ -15,7 +15,7 @@
     "bench:generate":        "tsx scripts/generate-page.ts",
     "bench:compare":         "tsx scripts/compare-baseline.ts",
     "bench:post-drift":      "tsx scripts/post-drift-issue.ts",
-    "bench:full":            "run-s bench:apps:build bench:core bench:correctness bench:browser bench:merge bench:generate",
+    "bench:full":            "run-s bench:apps:build bench:core bench:correctness bench:browser bench:bundle-size bench:merge bench:generate",
     "bench:install:browsers": "playwright install --with-deps chromium",
     "bench:update-baseline": "node -e \"if (!process.env.CI) { console.error('[bench] bench:update-baseline must run on CI only'); process.exit(1); }\" && cp results/latest.json results/baseline.json"
   },

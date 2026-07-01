@@ -34,6 +34,7 @@ jobs:
       - run: pnpm --dir bench run bench:core
       - run: pnpm --dir bench run bench:correctness
       - run: pnpm --dir bench run bench:browser
+      - run: pnpm --dir bench run bench:bundle-size
       - run: pnpm --dir bench run bench:merge
 
       - run: pnpm --dir bench run bench:post-drift
