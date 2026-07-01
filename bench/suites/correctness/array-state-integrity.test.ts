@@ -25,8 +25,8 @@ describe('array-state-integrity', () => {
     expect(adapter.getErrors()['items.1.v']).toBeUndefined()
   })
 
-  test.skip('tanstack-form', () => { /* full verification requires React context */ })
-  test.skip('react-hook-form', () => { /* shim splice; state-map rekey not implemented */ })
-  test.skip('formik', () => { /* shim */ })
-  test.skip('vee-validate', () => { /* shim */ })
+  test.skip('tanstack-form', () => { /* no public API to rekey per-field error/touched state on array splice outside React context */ })
+  test.skip('react-hook-form', () => { /* state-map rekey on splice not exposed outside hook context */ })
+  test.skip('formik', () => { /* state-map rekey on splice not exposed outside hook context */ })
+  test.skip('vee-validate', () => { /* state-map rekey on splice not exposed outside composable context */ })
 })

@@ -22,8 +22,8 @@ describe('dependency-trigger', () => {
     expect(adapter.getErrors()['b']).toBe('triggered-by-a')
   })
 
-  test.skip('tanstack-form', () => { /* requires per-field validators; no declarative dep graph */ })
-  test.skip('react-hook-form', () => { /* shim */ })
-  test.skip('formik', () => { /* shim */ })
-  test.skip('vee-validate', () => { /* shim */ })
+  test.skip('tanstack-form', () => { /* requires per-field validators; no declarative cross-field dependency graph */ })
+  test.skip('react-hook-form', () => { /* no declarative dependency graph; cross-field validation is manual */ })
+  test.skip('formik', () => { /* no declarative dependency graph; cross-field validation is manual */ })
+  test.skip('vee-validate', () => { /* no declarative dependency graph; cross-field validation is manual */ })
 })
