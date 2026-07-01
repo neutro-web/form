@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import footnote from 'markdown-it-footnote'
 
 export default defineConfig({
   title: '@neutro/form',
@@ -6,6 +7,12 @@ export default defineConfig({
   base: '/form/',
   srcExclude: ['superpowers/**'],
   ignoreDeadLinks: [/localhost/],
+
+  markdown: {
+    config: (md) => {
+      md.use(footnote)
+    },
+  },
 
   vite: {
     server: { port: 7000 },
