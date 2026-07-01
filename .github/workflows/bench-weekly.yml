@@ -23,13 +23,13 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: bench/pnpm-lock.yaml
 
-      - run: pnpm --dir bench install --frozen-lockfile
+      - run: pnpm --dir bench install --frozen-lockfile --ignore-workspace
 
       - run: pnpm --dir bench exec playwright install --with-deps chromium
 
-      - run: pnpm --dir bench/apps/react install && pnpm --dir bench/apps/react build
-      - run: pnpm --dir bench/apps/vue install && pnpm --dir bench/apps/vue build
-      - run: pnpm --dir bench/apps/svelte install && pnpm --dir bench/apps/svelte build
+      - run: pnpm --dir bench/apps/react install --ignore-workspace && pnpm --dir bench/apps/react build
+      - run: pnpm --dir bench/apps/vue install --ignore-workspace && pnpm --dir bench/apps/vue build
+      - run: pnpm --dir bench/apps/svelte install --ignore-workspace && pnpm --dir bench/apps/svelte build
 
       - run: pnpm --dir bench run bench:core
       - run: pnpm --dir bench run bench:correctness
