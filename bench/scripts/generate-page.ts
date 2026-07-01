@@ -114,7 +114,7 @@ const lines: string[] = [
   `## Methodology`,
   ``,
   `Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwright Chromium), and **bundle size** (esbuild + gzip).`,
-  `Badges are always relative to neutro/form: ✅ Win (neutro beats this library by >10%), ➖ Tied (within 10%), ❌ Behind (neutro trails by >10%, no documented reason), ⚖️ Tradeoff (neutro trails by >10%, but it's a documented design choice — see footnotes), — N/A (surface doesn't apply to this library).`,
+  `Badges are always relative to neutro/form: ✅ Win (neutro beats this library by >10%), ➖ Tied (within 10%), ❌ Behind (neutro trails by >10%, no documented reason), ⚖️ Tradeoff (either neutro trails by >10% due to a documented design choice, or neutro passes a correctness/capability check that this library architecturally cannot — the library's failure has a documented reason, so a harsh "neutro wins" framing is softened to Tradeoff instead — see footnotes), — N/A (surface doesn't apply to this library).`,
   ``,
   `## Scorecard`,
   ``,
@@ -134,7 +134,14 @@ if (browserSurfaces.length) {
   for (const surface of browserSurfaces) {
     const results = baseline.browser[surface] as BrowserResult[]
     const title = SURFACE_TITLES[surface] ?? surface
-    lines.push(`### ${title}`, ``, browserTable(surface, results), ``)
+    lines.push(`### ${title}`, ``)
+    if (surface === 'array-ops') {
+      lines.push(
+        `_Note: render counts are not directly comparable across all libraries on this surface — some libraries (e.g. TanStack Form) isolate counters per array index, while others (e.g. neutro/form, Felte) increment counters for every item in the array on any mutation. A low count does not necessarily indicate less DOM work._`,
+        ``,
+      )
+    }
+    lines.push(browserTable(surface, results), ``)
   }
 }
 
