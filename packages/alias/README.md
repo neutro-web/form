@@ -88,7 +88,7 @@ import { useAngularForm } from '@neutro/form/adapters/angular'
 
 ## Docs
 
-Full documentation, API reference, and live playground at **https://neutro-web.github.io/form/**.
+Full documentation, API reference, and live playground at **https://neutro-web.github.io/form/**. Benchmarks against react-hook-form, formik, tanstack-form, vee-validate, and felte at **https://neutro-web.github.io/form/benchmarks/**.
 
 ## License
 

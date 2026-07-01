@@ -2,7 +2,7 @@
 
 High-performance, zero-dependency, framework-agnostic reactive form engine.
 
-**[Documentation](https://neutro-web.github.io/form/)** · [Getting Started](https://neutro-web.github.io/form/getting-started) · [API Reference](https://neutro-web.github.io/form/api/)
+**[Documentation](https://neutro-web.github.io/form/)** · [Getting Started](https://neutro-web.github.io/form/getting-started) · [API Reference](https://neutro-web.github.io/form/api/) · [Benchmarks](https://neutro-web.github.io/form/benchmarks/)
 
 ## Install
 

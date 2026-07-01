@@ -11,6 +11,9 @@ hero:
     - theme: alt
       text: API Reference
       link: /api/
+    - theme: alt
+      text: Benchmarks
+      link: /benchmarks/
 
 features:
   - title: Framework Agnostic
@@ -50,7 +53,7 @@ const form = createForm({
 })
 ```
 
-[Get Started](/getting-started) | [API Reference](/api/) | [Playground](/playground)
+[Get Started](/getting-started) | [API Reference](/api/) | [Playground](/playground) | [Benchmarks](/benchmarks/)
 
 ---
 
