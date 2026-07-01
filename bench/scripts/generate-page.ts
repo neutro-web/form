@@ -107,16 +107,30 @@ function scorecardTable(columns: string[]): string {
 const date = baseline.meta.generatedAt.slice(0, 10)
 const version = baseline.meta.neutroVersion
 
-const competitorVersionsLine = ['react-hook-form', 'formik', 'vee-validate', 'felte', 'tanstack-form (React)', 'tanstack-form (Svelte)']
-  .map(lib => `${lib} v${COMPETITOR_VERSIONS[lib]}`)
-  .join(', ')
+const competitorVersionRows = ['react-hook-form', 'formik', 'vee-validate', 'felte', 'tanstack-form (React)', 'tanstack-form (Svelte)']
+  .map(lib => `| ${lib} | v${COMPETITOR_VERSIONS[lib]} |`)
+  .join('\n')
 
 const lines: string[] = [
   `# Benchmarks`,
   ``,
-  `> Measured on: GitHub Actions ubuntu-latest, Node ${baseline.meta.nodeVersion}, Chromium (Playwright)`,
-  `> Last updated: ${date} | neutro/form v${version}`,
-  `> Competitor versions: ${competitorVersionsLine}. Results reflect these releases — a later competitor update may change outcomes; check the version before drawing conclusions.`,
+  `*Last updated ${date} — neutro/form v${version}*`,
+  ``,
+  `## Environment`,
+  ``,
+  `| | |`,
+  `|---|---|`,
+  `| CI | GitHub Actions ubuntu-latest |`,
+  `| Node | ${baseline.meta.nodeVersion} |`,
+  `| Browser | Chromium (Playwright) |`,
+  ``,
+  `## Competitor Versions`,
+  ``,
+  `| Library | Version |`,
+  `|---|---|`,
+  competitorVersionRows,
+  ``,
+  `Results reflect these exact releases — a later competitor update may change outcomes, so check the version above before drawing conclusions.`,
   ``,
   `## Methodology`,
   ``,

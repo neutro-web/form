@@ -1,8 +1,27 @@
 # Benchmarks
 
-> Measured on: GitHub Actions ubuntu-latest, Node v18.20.8, Chromium (Playwright)
-> Last updated: 2026-07-01 | neutro/form v0.4.2
-> Competitor versions: react-hook-form v7.80.0, formik v2.4.9, vee-validate v4.15.1, felte v1.3.0, tanstack-form (React) v0.29.2, tanstack-form (Svelte) v1.33.0. Results reflect these releases — a later competitor update may change outcomes; check the version before drawing conclusions.
+*Last updated 2026-07-01 — neutro/form v0.4.2*
+
+## Environment
+
+| | |
+|---|---|
+| CI | GitHub Actions ubuntu-latest |
+| Node | v18.20.8 |
+| Browser | Chromium (Playwright) |
+
+## Competitor Versions
+
+| Library | Version |
+|---|---|
+| react-hook-form | v7.80.0 |
+| formik | v2.4.9 |
+| vee-validate | v4.15.1 |
+| felte | v1.3.0 |
+| tanstack-form (React) | v0.29.2 |
+| tanstack-form (Svelte) | v1.33.0 |
+
+Results reflect these exact releases — a later competitor update may change outcomes, so check the version above before drawing conclusions.
 
 ## Methodology
 
