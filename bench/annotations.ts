@@ -1,3 +1,16 @@
+// Hand-maintained map of competitor library -> version actually benchmarked. Update this
+// whenever a competitor's package.json dependency range in bench/package.json or
+// bench/apps/*/package.json is bumped, so results stay attributable to a specific release.
+export const COMPETITOR_VERSIONS: Record<string, string> = {
+  'react-hook-form': '7.80.0',
+  formik: '2.4.9',
+  'vee-validate': '4.15.1',
+  felte: '1.3.0',
+  'tanstack-form': '0.29.2',
+  'tanstack-form (React)': '0.29.2',
+  'tanstack-form (Svelte)': '1.33.0',
+}
+
 // Hand-maintained map of surface -> "why neutro/form passes" explanation, shown in the
 // correctness tables' Why column. Keyed by surface name (bench/results correctness key).
 export const PASS_REASONS: Record<string, string> = {

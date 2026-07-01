@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import type { BenchResults, CorrectnessResult, BrowserResult, BundleSizeResult } from '../types/schema.js'
-import { ANNOTATIONS, PASS_REASONS } from '../annotations.js'
+import { ANNOTATIONS, PASS_REASONS, COMPETITOR_VERSIONS } from '../annotations.js'
 import { buildScorecard } from './scorecard.js'
 import type { Verdict } from '../lib/verdict.js'
 
@@ -107,11 +107,16 @@ function scorecardTable(columns: string[]): string {
 const date = baseline.meta.generatedAt.slice(0, 10)
 const version = baseline.meta.neutroVersion
 
+const competitorVersionsLine = ['react-hook-form', 'formik', 'vee-validate', 'felte', 'tanstack-form (React)', 'tanstack-form (Svelte)']
+  .map(lib => `${lib} v${COMPETITOR_VERSIONS[lib]}`)
+  .join(', ')
+
 const lines: string[] = [
   `# Benchmarks`,
   ``,
   `> Measured on: GitHub Actions ubuntu-latest, Node ${baseline.meta.nodeVersion}, Chromium (Playwright)`,
   `> Last updated: ${date} | neutro/form v${version}`,
+  `> Competitor versions: ${competitorVersionsLine}. Results reflect these releases — a later competitor update may change outcomes; check the version before drawing conclusions.`,
   ``,
   `## Methodology`,
   ``,
