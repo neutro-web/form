@@ -18,7 +18,7 @@
 | formik | v2.4.9 |
 | vee-validate | v4.15.1 |
 | felte | v1.3.0 |
-| tanstack-form (React) | v0.29.2 |
+| tanstack-form (React) | v1.33.0 |
 | tanstack-form (Svelte) | v1.33.0 |
 
 Results reflect these exact releases — a later competitor update may change outcomes, so check the version above before drawing conclusions.
@@ -175,23 +175,23 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 | Library | p50 | p99 |
 |---|---|---|
-| neutro/form (React) | 301ms[^async-latency-neutro/form (React)] | 302ms |
-| react-hook-form | 202ms | 203ms |
-| formik | 202ms | 202ms |
-| tanstack-form (React) | 202ms | 203ms |
-| neutro/form (Vue) | 301ms[^async-latency-neutro/form (Vue)] | 302ms |
-| vee-validate | 202ms | 202ms |
-| neutro/form (Svelte) | 301ms[^async-latency-neutro/form (Svelte)] | 302ms |
-| tanstack-form (Svelte) | 201ms | 201ms |
+| neutro/form (React) | 302ms[^async-latency-neutro/form (React)] | 302ms |
+| react-hook-form | 202ms | 202ms |
+| formik | 202ms | 203ms |
+| tanstack-form (React) | 201ms | 202ms |
+| neutro/form (Vue) | 302ms[^async-latency-neutro/form (Vue)] | 302ms |
+| vee-validate | 201ms | 202ms |
+| neutro/form (Svelte) | 302ms[^async-latency-neutro/form (Svelte)] | 302ms |
+| tanstack-form (Svelte) | 201ms | 202ms |
 | felte | 202ms | 202ms |
 
 ### Async Validation Latency — Debounce Floor (neutro only)
 
 | Library | p50 | p99 |
 |---|---|---|
-| neutro/form (React) [debounce=0] | 201ms | 202ms |
+| neutro/form (React) [debounce=0] | 202ms | 202ms |
 | neutro/form (Vue) [debounce=0] | 201ms | 202ms |
-| neutro/form (Svelte) [debounce=0] | 202ms | 202ms |
+| neutro/form (Svelte) [debounce=0] | 201ms | 202ms |
 
 ## Bundle Size
 

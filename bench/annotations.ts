@@ -6,8 +6,8 @@ export const COMPETITOR_VERSIONS: Record<string, string> = {
   formik: '2.4.9',
   'vee-validate': '4.15.1',
   felte: '1.3.0',
-  'tanstack-form': '0.29.2',
-  'tanstack-form (React)': '0.29.2',
+  'tanstack-form': '1.33.0',
+  'tanstack-form (React)': '1.33.0',
   'tanstack-form (Svelte)': '1.33.0',
 }
 
