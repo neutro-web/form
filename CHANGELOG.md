@@ -1,5 +1,75 @@
 # Changelog
 
+## [0.4.3](https://github.com/neutro-web/form/compare/v0.4.2...v0.4.3) (2026-07-01)
+
+
+### Features
+
+* **bench:** add async-race, array-state-integrity, and dependency-trigger correctness suites ([abff643](https://github.com/neutro-web/form/commit/abff64302ffd580ec7abe27eefa84627b71f13ed))
+* **bench:** add BenchAdapter interface and AdapterCapability type ([27cb3d6](https://github.com/neutro-web/form/commit/27cb3d6a6bbbfcea74b43e5f679cb5323124d61f))
+* **bench:** add BenchResults schema types ([cdd91e8](https://github.com/neutro-web/form/commit/cdd91e8a54ef3b30237cf85bc6933c402b553397))
+* **bench:** add compare-baseline.ts regression gate (15% threshold, soft/hard via BENCH_HARD_FAIL) ([25401e8](https://github.com/neutro-web/form/commit/25401e81c65f62f025165fae179ba1b54f987cd2))
+* **bench:** add computed-fields core bench suite ([00b8c3b](https://github.com/neutro-web/form/commit/00b8c3ba7a62f394323e208750c4062f66f85a3a))
+* **bench:** add dependency-scopes and array-ops core bench suites ([b278cdf](https://github.com/neutro-web/form/commit/b278cdfcef4c1e6661bcbc9a141a68b0f6c72d2f))
+* **bench:** add generate-page.ts and docs/benchmarks placeholder ([5acb779](https://github.com/neutro-web/form/commit/5acb779cc0b22ff7be4222b19aa66f0cd1691326))
+* **bench:** add merge-results.ts to consolidate all bench outputs ([f399673](https://github.com/neutro-web/form/commit/f399673020f676efdf1b8fbd1a300701cf948a84))
+* **bench:** add neutro/form bench adapter ([a1ba9e5](https://github.com/neutro-web/form/commit/a1ba9e5aa4beb181f1c74c3c5b5a8016c44708c5))
+* **bench:** add playwright.config.ts with json reporter and webServer config ([cb09438](https://github.com/neutro-web/form/commit/cb094386d2b9880bc5d426cd80063f589f81a9a3))
+* **bench:** add post-drift-issue.ts, baseline.json bootstrap, and results .gitignore ([2e494dd](https://github.com/neutro-web/form/commit/2e494ddc7648a05949fd21c62327202c6f7ccabf))
+* **bench:** add re-renders and async-latency Playwright suites ([d95cb2d](https://github.com/neutro-web/form/commit/d95cb2db08aed062fac0ed2a1bdaded73e26712f))
+* **bench:** add React browser benchmark app (no StrictMode, prod build) ([68cc2ce](https://github.com/neutro-web/form/commit/68cc2ce9ed524f9db1854e9b3facdc6e0b8d8c48))
+* **bench:** add RHF, Formik, and vee-validate shim adapters (shims disclosed) ([16c1cba](https://github.com/neutro-web/form/commit/16c1cbabbaaad5a710625ef3854bbe955ff95bc8))
+* **bench:** add set-get and subscriptions core bench suites ([087e19f](https://github.com/neutro-web/form/commit/087e19fad39ea464c513976f577f250832f29363))
+* **bench:** add small, large, array, and dependent fixtures ([f39024e](https://github.com/neutro-web/form/commit/f39024eb44eec3ae2c7ef900435fab7f98718246))
+* **bench:** add TanStack Form bench adapter (vanilla FormApi) ([ccba9d8](https://github.com/neutro-web/form/commit/ccba9d8391886c52eedcdde0014f96296b854e67))
+* **bench:** add vitest bench and playwright JSON reporters ([414734b](https://github.com/neutro-web/form/commit/414734be4c566114dd4faa76c94043431107120f))
+* **bench:** add Vue browser benchmark app with NeutroField per-field component ([6aef492](https://github.com/neutro-web/form/commit/6aef4923a1db1695ab3c75cef0d5b69fba0b4841))
+* **bench:** scaffold bench/ workspace with package.json, tsconfig, vitest config ([6072dd4](https://github.com/neutro-web/form/commit/6072dd48ff027034ef3e20feffdc23ce10e007ff))
+* **ci:** add bench-full.yml — full suite on tag push, commits baseline + docs page ([017e73b](https://github.com/neutro-web/form/commit/017e73b159cf0a91a27813c97dc1fe99245300e6))
+* **ci:** add bench-regression.yml — PR perf gate (soft warn, flip to hard via BENCH_HARD_FAIL) ([3f39bba](https://github.com/neutro-web/form/commit/3f39bba9dca7a8aed671c35fa4cc27e76aaa99d2))
+* **ci:** add bench-weekly.yml and update docs.yml to deploy on benchmark commits ([44bc5f4](https://github.com/neutro-web/form/commit/44bc5f49738367eaf1e8ebc5a5301f651da2bbc1))
+
+
+### Bug Fixes
+
+* **bench/svelte:** add resolve.alias for [@neutro](https://github.com/neutro) packages (parity with React/Vue) ([f23ec06](https://github.com/neutro-web/form/commit/f23ec06f6d5019e445a659dd434e534da93719e8))
+* **bench/svelte:** capture errors.subscribe unsubscribe in FelteAsyncPage ([6f3a95c](https://github.com/neutro-web/form/commit/6f3a95ca0c8a17e34e2c1bfa40f12494bd51a92c))
+* **bench/svelte:** FelteAsyncPage use explicit input handler; all 18 browser tests pass ([736c551](https://github.com/neutro-web/form/commit/736c551ddd3f64bda5c8485234bf3fcfedbc40f9))
+* **bench/vue:** register onUnmounted unsubscribe in NeutroAsyncPage ([2d0b295](https://github.com/neutro-web/form/commit/2d0b295481e87ffde1872fb94f39aef0128660c2))
+* **bench:** address deep review findings ([d2eb9c1](https://github.com/neutro-web/form/commit/d2eb9c17cd219ff9882e0a0736e8a916939ba0ad))
+* **bench:** correct dom-cleanup batch/cleanupDone sequencing across all 3 apps ([acc3261](https://github.com/neutro-web/form/commit/acc326114083255caca2ca81333693e40ccd197e))
+* **bench:** fail fast on port conflicts in preview servers ([320cef7](https://github.com/neutro-web/form/commit/320cef7c27f011970975d3d154b122c7d5467d8c))
+* **bench:** fix footnote dedup, neutroHz ratio, and browser surface coverage in generate-page.ts ([1ea8701](https://github.com/neutro-web/form/commit/1ea870146cc66518cfe4e7f38525d9f737d1eeb5))
+* **bench:** fix React app infinite re-render and async validation in bench suite ([b9384be](https://github.com/neutro-web/form/commit/b9384be34c70fe8b2c6b998a33059b9089c172b5))
+* **bench:** remove @tanstack/form-core from root package.json (belongs in bench/ only) ([5dd1cec](https://github.com/neutro-web/form/commit/5dd1cec47c8b56a5588bf1a662f1ef1e8c832de2))
+* **bench:** tradeoff annotation lookup must also check neutro's own library key ([27438d5](https://github.com/neutro-web/form/commit/27438d506ad6b0475773db7967c5f17b7e30e656))
+* **bench:** type TestInfo in re-renders spec attach helper ([472e7eb](https://github.com/neutro-web/form/commit/472e7eb9e5d353277255a31aa3aba9167044075a))
+* **bench:** update bench-weekly.yml to use bench:core ([ec2cf4b](https://github.com/neutro-web/form/commit/ec2cf4bb5b35640f7eaf94c20d4da5248138115e))
+* **ci:** --dir install into bench/ and its apps silently no-ops without --ignore-workspace ([c610208](https://github.com/neutro-web/form/commit/c61020829ab62f060b16f13e842ef41dbfea1eb7))
+* **ts:** exclude bench/ from root tsconfig to prevent tsc pick-up of bench-scoped files ([512c293](https://github.com/neutro-web/form/commit/512c293b6a4f5c6fdacb7434b4d2bae86f830b5a))
+
+
+### Documentation
+
+* add benchmark suite design spec ([60cf5ef](https://github.com/neutro-web/form/commit/60cf5ef8cc63a8e072eb4320d31a23e2eccf79ce))
+* add v0.5.0 performance-tuning design spec ([cd35020](https://github.com/neutro-web/form/commit/cd350206e321fa626ba8a14377493c771176dccc))
+* **bench:** add benchmark suite implementation plan (24 tasks, full pipeline) ([8bff42b](https://github.com/neutro-web/form/commit/8bff42b6e8cff00e02f9b38a698475ac3777edce))
+* **bench:** fix 12 issues in benchmark suite implementation plan ([dd0e2f1](https://github.com/neutro-web/form/commit/dd0e2f1b833867dcff8c44beb6ed7374a23bfa86))
+* **bench:** fix 5 more issues found in final plan review ([19b6ac6](https://github.com/neutro-web/form/commit/19b6ac6bd4b0acaf2e9cc339f35a69f07274c8ba))
+* **bench:** fix 5 spec issues found in 4th review pass ([5ee5fa9](https://github.com/neutro-web/form/commit/5ee5fa9bce20a3781b68c954607e95cddf383e5d))
+* **bench:** fix Tradeoff legend and add array-ops render-count caveat ([ad1bd5d](https://github.com/neutro-web/form/commit/ad1bd5da0e142776f61e64f3beaeccde2b707a6c))
+* benchmark page cleanup design — footnote plugin, scorecard split, legend ([e161a0e](https://github.com/neutro-web/form/commit/e161a0e4aeb92df31a740cccf7060ae9ed93e6a2))
+* benchmark suite v2 design — comprehensive coverage, badges, annotations ([dac4eb8](https://github.com/neutro-web/form/commit/dac4eb808331980eeffa1d81603efaab92e92373))
+* fix internal inconsistencies in benchmark v2 spec found in review ([50a62df](https://github.com/neutro-web/form/commit/50a62dfc046fb97cb5d8f5a9e5515a03b30c7c2b))
+* fold regression-gate reliability into v0.5.0 spec ([59b7b5b](https://github.com/neutro-web/form/commit/59b7b5bb393004d29087c5c901be5802727bc1f5))
+* implement pnpm dependency caching in all bench CI workflows ([5cdc9db](https://github.com/neutro-web/form/commit/5cdc9db1df921787d76c5303e67d141807fe824a))
+* implementation plan for benchmark page cleanup ([e3979f0](https://github.com/neutro-web/form/commit/e3979f0b96474b12c12917938df9c3a7b52c9e76))
+* implementation plan for benchmark suite v2 ([1d82342](https://github.com/neutro-web/form/commit/1d8234241c45bfc35c7ae54dfb6f8b879dc02d7a))
+* register markdown-it-footnote plugin so [^ref] syntax renders correctly ([0e9e89f](https://github.com/neutro-web/form/commit/0e9e89ffefde95ee9f2222e623232b237d6e2123))
+* revise benchmark suite spec after three-pass review ([87f60b9](https://github.com/neutro-web/form/commit/87f60b991a06ce586eec3bb4f46fac89b39ff21b))
+* surface benchmarks link from README/homepage; document bench/ in CLAUDE.md ([fb163ba](https://github.com/neutro-web/form/commit/fb163ba508cae59a0f2e23fe8246044534e5a037))
+* update version references from 0.4.0 to 0.4.2 ([623866d](https://github.com/neutro-web/form/commit/623866d8a3c89dd8686e19233290d7dfe6f7671f))
+
 ## [0.4.2](https://github.com/neutro-web/form/compare/v0.4.1...v0.4.2) (2026-06-29)
 
 
