@@ -250,6 +250,41 @@ function TanStackArraySection() {
   )
 }
 
+// ==================== DOM-CLEANUP ====================
+const cleanupForm = createForm({
+  initialValues: Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`f${i}`, ''])),
+})
+;(window as any).__getConnectedCount = () => cleanupForm.getConnectedCount()
+
+function CleanupField({ name }: { name: string }) {
+  const ref = useCallback((el: HTMLInputElement | null) => {
+    if (el) return cleanupForm.connect(name as any, el)
+  }, [name])
+  return <input ref={ref} data-testid={`cleanup-${name}`} />
+}
+
+function CleanupPage() {
+  const [batch, setBatch] = React.useState(0)
+  const [mounted, setMounted] = React.useState(true)
+  const fieldNames = Object.keys(Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`f${i}`, ''])))
+
+  React.useEffect(() => {
+    if (batch >= 10) {
+      ;(window as any).__cleanupDone = true
+      return
+    }
+    if (mounted) {
+      const t = setTimeout(() => setMounted(false), 20)
+      return () => clearTimeout(t)
+    } else {
+      const t = setTimeout(() => { setBatch(b => b + 1); setMounted(true) }, 20)
+      return () => clearTimeout(t)
+    }
+  }, [batch, mounted])
+
+  return mounted ? <div>{fieldNames.map(n => <CleanupField key={n} name={n} />)}</div> : <div data-testid="cleanup-unmounted" />
+}
+
 // ==================== ASYNC PAGES ====================
 function makeNeutroAsyncForm(debounceMs: number) {
   return createForm({
@@ -501,6 +536,9 @@ export default function App() {
   if (path.startsWith('/cancel/')) {
     const lib = path.slice('/cancel/'.length)
     return CANCEL_PAGES[lib] ?? <div data-testid="not-found">Unknown: {lib}</div>
+  }
+  if (path === '/cleanup') {
+    return <CleanupPage />
   }
   if (path === '/array') {
     return (

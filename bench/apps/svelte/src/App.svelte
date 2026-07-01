@@ -14,6 +14,7 @@
   import NeutroArraySection from './NeutroArraySection.svelte'
   import TanStackArraySection from './TanStackArraySection.svelte'
   import FelteArraySection from './FelteArraySection.svelte'
+  import CleanupPage from './CleanupPage.svelte'
 
   const path = window.location.pathname
 
@@ -58,6 +59,8 @@
   <TanStackCancelPage />
 {:else if path === '/cancel/felte'}
   <FelteCancelPage />
+{:else if path === '/cleanup'}
+  <CleanupPage />
 {:else if path === '/array'}
   <NeutroArraySection />
   <TanStackArraySection />

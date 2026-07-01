@@ -9,6 +9,7 @@ import NeutroCancelPage from './NeutroCancelPage.vue'
 import VeeCancelPage from './VeeCancelPage.vue'
 import NeutroArraySection from './NeutroArraySection.vue'
 import VeeArraySection from './VeeArraySection.vue'
+import CleanupPage from './CleanupPage.vue'
 
 const path = window.location.pathname
 
@@ -42,6 +43,7 @@ useVeeForm()
   <VeeAsyncPage v-else-if="path === '/async/vee'" />
   <NeutroCancelPage v-else-if="path === '/cancel/neutro'" />
   <VeeCancelPage v-else-if="path === '/cancel/vee'" />
+  <CleanupPage v-else-if="path === '/cleanup'" />
 
   <div v-else-if="path === '/array'">
     <NeutroArraySection />
