@@ -1219,7 +1219,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   // registered descendants (so a subscriber on 'items.0.v' fires when 'items.0'
   // or 'items' is replaced wholesale). The descendant scan only runs when the
   // mutated value is itself an object/array — primitive leaf sets (the
-  // set-get/subscriptions benchmark hot path) skip it entirely, zero added cost.
+  // set-get/subscriptions benchmark hot path) skip the O(n) descendant scan entirely.
   //
   // All paths-to-notify across the whole flush are collected into one Set before
   // firing, so a subscriber reachable via two different mutated paths in the same
