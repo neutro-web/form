@@ -40,36 +40,36 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 | Library | array-state-integrity | async-race | dependency-trigger |
 |---|---|---|---|
 | felte | — N/A | — N/A | — N/A |
-| formik | <span title="rekey not exposed outside hook context">— N/A</span>[^array-state-integrity-formik] | <span title="no async cancellation API in vanilla usage">— N/A</span>[^async-race-formik] | <span title="no declarative dependency graph">— N/A</span>[^dependency-trigger-formik] |
-| react-hook-form | <span title="rekey not exposed outside hook context">— N/A</span>[^array-state-integrity-react-hook-form] | <span title="no async cancellation API in vanilla usage">— N/A</span>[^async-race-react-hook-form] | <span title="no declarative dependency graph">— N/A</span>[^dependency-trigger-react-hook-form] |
-| tanstack-form | <span title="no public rekey API outside React context">— N/A</span>[^array-state-integrity-tanstack-form] | <span title="no async cancellation API in vanilla usage">— N/A</span>[^async-race-tanstack-form] | <span title="no declarative dependency graph">— N/A</span>[^dependency-trigger-tanstack-form] |
+| formik | — N/A <abbr title="rekey not exposed outside hook context" style="cursor: help;">ⓘ</abbr>[^array-state-integrity-formik] | — N/A <abbr title="no async cancellation API in vanilla usage" style="cursor: help;">ⓘ</abbr>[^async-race-formik] | — N/A <abbr title="no declarative dependency graph" style="cursor: help;">ⓘ</abbr>[^dependency-trigger-formik] |
+| react-hook-form | — N/A <abbr title="rekey not exposed outside hook context" style="cursor: help;">ⓘ</abbr>[^array-state-integrity-react-hook-form] | — N/A <abbr title="no async cancellation API in vanilla usage" style="cursor: help;">ⓘ</abbr>[^async-race-react-hook-form] | — N/A <abbr title="no declarative dependency graph" style="cursor: help;">ⓘ</abbr>[^dependency-trigger-react-hook-form] |
+| tanstack-form | — N/A <abbr title="no public rekey API outside React context" style="cursor: help;">ⓘ</abbr>[^array-state-integrity-tanstack-form] | — N/A <abbr title="no async cancellation API in vanilla usage" style="cursor: help;">ⓘ</abbr>[^async-race-tanstack-form] | — N/A <abbr title="no declarative dependency graph" style="cursor: help;">ⓘ</abbr>[^dependency-trigger-tanstack-form] |
 | tanstack-form (React) | — N/A | — N/A | — N/A |
 | tanstack-form (Svelte) | — N/A | — N/A | — N/A |
-| vee-validate | <span title="rekey not exposed outside hook context">— N/A</span>[^array-state-integrity-vee-validate] | <span title="no async cancellation API in vanilla usage">— N/A</span>[^async-race-vee-validate] | <span title="no declarative dependency graph">— N/A</span>[^dependency-trigger-vee-validate] |
+| vee-validate | — N/A <abbr title="rekey not exposed outside hook context" style="cursor: help;">ⓘ</abbr>[^array-state-integrity-vee-validate] | — N/A <abbr title="no async cancellation API in vanilla usage" style="cursor: help;">ⓘ</abbr>[^async-race-vee-validate] | — N/A <abbr title="no declarative dependency graph" style="cursor: help;">ⓘ</abbr>[^dependency-trigger-vee-validate] |
 
 ### Performance
 
 | Library | re-renders/10 | re-renders/100 | async-latency | array-ops | async-cancellation |
 |---|---|---|---|---|---|
-| felte | <span title="900% faster">✅ Win</span>[^re-renders-10-felte] | <span title="9900% faster">✅ Win</span>[^re-renders-100-felte] | <span title="debounced 300ms by default">⚖️ Tradeoff</span>[^async-latency-felte] | <span title="124% faster">✅ Win</span>[^array-ops-felte] | <span title="both pass">➖ Tied</span> |
-| formik | <span title="1900% faster">✅ Win</span>[^re-renders-10-formik] | <span title="19900% faster">✅ Win</span>[^re-renders-100-formik] | <span title="debounced 300ms by default">⚖️ Tradeoff</span>[^async-latency-formik] | <span title="200% faster">✅ Win</span>[^array-ops-formik] | <span title="no async cancellation API">⚖️ Tradeoff</span>[^async-cancellation-formik] |
-| react-hook-form | <span title="within 10% (0%)">➖ Tied</span>[^re-renders-10-react-hook-form] | <span title="within 10% (0%)">➖ Tied</span>[^re-renders-100-react-hook-form] | <span title="debounced 300ms by default">⚖️ Tradeoff</span>[^async-latency-react-hook-form] | <span title="within 10% (0%)">➖ Tied</span>[^array-ops-react-hook-form] | <span title="both pass">➖ Tied</span> |
+| felte | ✅ Win <abbr title="900% faster" style="cursor: help;">ⓘ</abbr>[^re-renders-10-felte] | ✅ Win <abbr title="9900% faster" style="cursor: help;">ⓘ</abbr>[^re-renders-100-felte] | ⚖️ Tradeoff <abbr title="debounced 300ms by default" style="cursor: help;">ⓘ</abbr>[^async-latency-felte] | ✅ Win <abbr title="124% faster" style="cursor: help;">ⓘ</abbr>[^array-ops-felte] | ➖ Tied <abbr title="both pass" style="cursor: help;">ⓘ</abbr> |
+| formik | ✅ Win <abbr title="1900% faster" style="cursor: help;">ⓘ</abbr>[^re-renders-10-formik] | ✅ Win <abbr title="19900% faster" style="cursor: help;">ⓘ</abbr>[^re-renders-100-formik] | ⚖️ Tradeoff <abbr title="debounced 300ms by default" style="cursor: help;">ⓘ</abbr>[^async-latency-formik] | ✅ Win <abbr title="200% faster" style="cursor: help;">ⓘ</abbr>[^array-ops-formik] | ⚖️ Tradeoff <abbr title="no async cancellation API" style="cursor: help;">ⓘ</abbr>[^async-cancellation-formik] |
+| react-hook-form | ➖ Tied <abbr title="within 10% (0%)" style="cursor: help;">ⓘ</abbr>[^re-renders-10-react-hook-form] | ➖ Tied <abbr title="within 10% (0%)" style="cursor: help;">ⓘ</abbr>[^re-renders-100-react-hook-form] | ⚖️ Tradeoff <abbr title="debounced 300ms by default" style="cursor: help;">ⓘ</abbr>[^async-latency-react-hook-form] | ➖ Tied <abbr title="within 10% (0%)" style="cursor: help;">ⓘ</abbr>[^array-ops-react-hook-form] | ➖ Tied <abbr title="both pass" style="cursor: help;">ⓘ</abbr> |
 | tanstack-form | — N/A | — N/A | — N/A | — N/A | — N/A |
-| tanstack-form (React) | <span title="within 10% (0%)">➖ Tied</span>[^re-renders-10-tanstack-form-react] | <span title="within 10% (0%)">➖ Tied</span>[^re-renders-100-tanstack-form-react] | <span title="debounced 300ms by default">⚖️ Tradeoff</span>[^async-latency-tanstack-form-react] | <span title="33% faster">✅ Win</span>[^array-ops-tanstack-form-react] | <span title="both pass">➖ Tied</span> |
-| tanstack-form (Svelte) | <span title="within 10% (0%)">➖ Tied</span>[^re-renders-10-tanstack-form-svelte] | <span title="within 10% (0%)">➖ Tied</span>[^re-renders-100-tanstack-form-svelte] | <span title="debounced 300ms by default">⚖️ Tradeoff</span>[^async-latency-tanstack-form-svelte] | <span title="TanStack's own Svelte render counter never gets wired up">⚖️ Tradeoff</span>[^array-ops-tanstack-form-svelte] | <span title="both pass">➖ Tied</span> |
-| vee-validate | <span title="within 10% (0%)">➖ Tied</span>[^re-renders-10-vee-validate] | <span title="within 10% (0%)">➖ Tied</span>[^re-renders-100-vee-validate] | <span title="debounced 300ms by default">⚖️ Tradeoff</span>[^async-latency-vee-validate] | <span title="within 10% (0%)">➖ Tied</span>[^array-ops-vee-validate] | <span title="both pass">➖ Tied</span> |
+| tanstack-form (React) | ➖ Tied <abbr title="within 10% (0%)" style="cursor: help;">ⓘ</abbr>[^re-renders-10-tanstack-form-react] | ➖ Tied <abbr title="within 10% (0%)" style="cursor: help;">ⓘ</abbr>[^re-renders-100-tanstack-form-react] | ⚖️ Tradeoff <abbr title="debounced 300ms by default" style="cursor: help;">ⓘ</abbr>[^async-latency-tanstack-form-react] | ✅ Win <abbr title="33% faster" style="cursor: help;">ⓘ</abbr>[^array-ops-tanstack-form-react] | ➖ Tied <abbr title="both pass" style="cursor: help;">ⓘ</abbr> |
+| tanstack-form (Svelte) | ➖ Tied <abbr title="within 10% (0%)" style="cursor: help;">ⓘ</abbr>[^re-renders-10-tanstack-form-svelte] | ➖ Tied <abbr title="within 10% (0%)" style="cursor: help;">ⓘ</abbr>[^re-renders-100-tanstack-form-svelte] | ⚖️ Tradeoff <abbr title="debounced 300ms by default" style="cursor: help;">ⓘ</abbr>[^async-latency-tanstack-form-svelte] | ⚖️ Tradeoff <abbr title="TanStack's own Svelte render counter never gets wired up" style="cursor: help;">ⓘ</abbr>[^array-ops-tanstack-form-svelte] | ➖ Tied <abbr title="both pass" style="cursor: help;">ⓘ</abbr> |
+| vee-validate | ➖ Tied <abbr title="within 10% (0%)" style="cursor: help;">ⓘ</abbr>[^re-renders-10-vee-validate] | ➖ Tied <abbr title="within 10% (0%)" style="cursor: help;">ⓘ</abbr>[^re-renders-100-vee-validate] | ⚖️ Tradeoff <abbr title="debounced 300ms by default" style="cursor: help;">ⓘ</abbr>[^async-latency-vee-validate] | ➖ Tied <abbr title="within 10% (0%)" style="cursor: help;">ⓘ</abbr>[^array-ops-vee-validate] | ➖ Tied <abbr title="both pass" style="cursor: help;">ⓘ</abbr> |
 
 ### Size
 
 | Library | bundle-size |
 |---|---|
-| felte | <span title="125% faster">✅ Win</span>[^bundle-size-felte] |
-| formik | <span title="29% faster">✅ Win</span>[^bundle-size-formik] |
-| react-hook-form | <span title="within 10% (4%)">➖ Tied</span>[^bundle-size-react-hook-form] |
-| tanstack-form | <span title="71% faster">✅ Win</span>[^bundle-size-tanstack-form] |
+| felte | ✅ Win <abbr title="125% faster" style="cursor: help;">ⓘ</abbr>[^bundle-size-felte] |
+| formik | ✅ Win <abbr title="29% faster" style="cursor: help;">ⓘ</abbr>[^bundle-size-formik] |
+| react-hook-form | ➖ Tied <abbr title="within 10% (4%)" style="cursor: help;">ⓘ</abbr>[^bundle-size-react-hook-form] |
+| tanstack-form | ✅ Win <abbr title="71% faster" style="cursor: help;">ⓘ</abbr>[^bundle-size-tanstack-form] |
 | tanstack-form (React) | — N/A |
 | tanstack-form (Svelte) | — N/A |
-| vee-validate | <span title="within 10% (2%)">➖ Tied</span>[^bundle-size-vee-validate] |
+| vee-validate | ➖ Tied <abbr title="within 10% (2%)" style="cursor: help;">ⓘ</abbr>[^bundle-size-vee-validate] |
 
 ## Correctness
 

@@ -121,7 +121,8 @@ function scorecardTable(columns: string[]): string {
       const { brief, detail } = badgeText(c, r.library, cell)
       const label = BADGE_LABEL[cell.verdict]
       const citation = detail ? addFootnote(c, r.library, detail) : ''
-      return `<span title="${escapeAttr(brief)}">${label}</span>${citation}`
+      const infoIcon = ` <abbr title="${escapeAttr(brief)}" style="cursor: help;">ⓘ</abbr>`
+      return `${label}${infoIcon}${citation}`
     })
     return `| ${r.library} | ${cells.join(' | ')} |`
   }).join('\n')
