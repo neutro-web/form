@@ -51,13 +51,13 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 
 | Library | re-renders/10 | re-renders/100 | async-latency | array-ops | async-cancellation |
 |---|---|---|---|---|---|
-| felte | — N/A | — N/A | — N/A | ✅ Win | — N/A |
-| formik | — N/A | — N/A | — N/A | ✅ Win | — N/A |
-| react-hook-form | — N/A | — N/A | — N/A | ➖ Tied | — N/A |
+| felte | ✅ Win | ✅ Win | ⚖️ Tradeoff | ✅ Win | ➖ Tied |
+| formik | ✅ Win | ✅ Win | ⚖️ Tradeoff | ✅ Win | ⚖️ Tradeoff |
+| react-hook-form | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ➖ Tied | ➖ Tied |
 | tanstack-form | — N/A | — N/A | — N/A | — N/A | — N/A |
-| tanstack-form (React) | — N/A | — N/A | — N/A | ✅ Win | — N/A |
-| tanstack-form (Svelte) | — N/A | — N/A | — N/A | ❌ Behind | — N/A |
-| vee-validate | — N/A | — N/A | — N/A | ➖ Tied | — N/A |
+| tanstack-form (React) | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ✅ Win | ➖ Tied |
+| tanstack-form (Svelte) | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ❌ Behind | ➖ Tied |
+| vee-validate | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ➖ Tied | ➖ Tied |
 
 ### Size
 
@@ -121,11 +121,83 @@ _Note: render counts are not directly comparable across all libraries on this su
 | tanstack-form (Svelte) | 0 |
 | felte | 47 |
 
+### DOM Cleanup (connect/disconnect, neutro only)
+
+| Library | Connected after cleanup |
+|---|---|
+| neutro/form (React) | 0 |
+| neutro/form (Vue) | 0 |
+| neutro/form (Svelte) | 0 |
+
+### Re-renders per 20-keystroke sequence (10-field form)
+
+| Library | Renders |
+|---|---|
+| neutro/form (React) | 20 |
+| react-hook-form | 20 |
+| formik | 400 |
+| tanstack-form (React) | 20 |
+| neutro/form (Vue) | 20 |
+| vee-validate | 20 |
+| neutro/form (Svelte) | 20 |
+| tanstack-form (Svelte) | 20 |
+| felte | 200 |
+
+### Async Cancellation (stale-result race)
+
+| Library | Cancellation |
+|---|---|
+| neutro/form (React) | ✅ |
+| react-hook-form | ✅ |
+| formik | ❌[^async-cancellation-formik] |
+| tanstack-form (React) | ✅ |
+| neutro/form (Vue) | ✅ |
+| vee-validate | ✅ |
+| neutro/form (Svelte) | ✅ |
+| tanstack-form (Svelte) | ✅ |
+| felte | ✅ |
+
+### Re-renders per 20-keystroke sequence (100-field form)
+
+| Library | Renders |
+|---|---|
+| neutro/form (React) | 20 |
+| react-hook-form | 20 |
+| formik | 4000 |
+| tanstack-form (React) | 20 |
+| neutro/form (Vue) | 20 |
+| vee-validate | 20 |
+| neutro/form (Svelte) | 20 |
+| tanstack-form (Svelte) | 20 |
+| felte | 2000 |
+
+### Async Validation Latency
+
+| Library | p50 | p99 |
+|---|---|---|
+| neutro/form (React) | 302ms[^async-latency-neutro/form (React)] | 303ms |
+| react-hook-form | 202ms | 203ms |
+| formik | 202ms | 203ms |
+| tanstack-form (React) | 201ms | 202ms |
+| neutro/form (Vue) | 302ms[^async-latency-neutro/form (Vue)] | 303ms |
+| vee-validate | 203ms | 203ms |
+| neutro/form (Svelte) | 302ms[^async-latency-neutro/form (Svelte)] | 303ms |
+| tanstack-form (Svelte) | 201ms | 202ms |
+| felte | 202ms | 203ms |
+
+### Async Validation Latency — Debounce Floor (neutro only)
+
+| Library | p50 | p99 |
+|---|---|---|
+| neutro/form (React) [debounce=0] | 202ms | 203ms |
+| neutro/form (Vue) [debounce=0] | 202ms | 203ms |
+| neutro/form (Svelte) [debounce=0] | 202ms | 203ms |
+
 ## Bundle Size
 
 | Library | Gzip size |
 |---|---|
-| neutro/form | 10.0 KB |
+| neutro/form | 10.1 KB |
 | react-hook-form | 9.7 KB |
 | formik | 13.2 KB |
 | tanstack-form | 17.4 KB |
@@ -135,3 +207,10 @@ _Note: render counts are not directly comparable across all libraries on this su
 ## Architecture Notes
 
 **DOM cleanup** (`dom-cleanup` row above, neutro only): neutro/form's `connect`/`disconnect` lifecycle registers a `WeakRef` per connected field in an internal registry, pruned by a `MutationObserver` watching for node removal. The "Connected after cleanup" number confirms this registry returns to 0 after mount/unmount churn — competitor libraries have no equivalent connect/disconnect API to compare against, so this section has no comparison table.
+
+---
+
+[^async-cancellation-formik]: formik — no async cancellation API
+[^async-latency-neutro/form (React)]: neutro/form (React) — neutro debounces async validation 300ms by default (asyncDebounceMs) to avoid firing on every keystroke. See the debounce=0 column for the floor cost.
+[^async-latency-neutro/form (Vue)]: neutro/form (Vue) — same debounce policy as React — see debounce=0 column.
+[^async-latency-neutro/form (Svelte)]: neutro/form (Svelte) — same debounce policy as React — see debounce=0 column.
