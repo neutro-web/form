@@ -39,6 +39,7 @@ export interface BrowserResult {
   cancellationPass?: boolean            // async-cancellation surface: did the UI show the fresh result, not stale?
   connectedCountAfterCleanup?: number   // dom-cleanup surface only; 0 = pass
   mountMs?: number                      // mount-cost surface: time from navigation start to form interactive
+  heapDeltaBytes?: number               // memory-churn surface: JS heap growth across mount/unmount churn, post-GC
   error?: string
 }
 

@@ -293,6 +293,40 @@ function CleanupPage() {
   return mounted ? <div>{fieldNames.map(n => <CleanupField key={n} name={n} />)}</div> : <div data-testid="cleanup-unmounted" />
 }
 
+function RhfCleanupField({ name, register }: { name: string; register: ReturnType<typeof useRhfForm>['register'] }) {
+  return <input data-testid={`rhf-cleanup-${name}`} {...register(name)} />
+}
+
+function RhfCleanupPage() {
+  const { register } = useRhfForm({
+    defaultValues: Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`f${i}`, ''])),
+  })
+  const [batch, setBatch] = React.useState(0)
+  const [mounted, setMounted] = React.useState(true)
+  const fieldNames = Array.from({ length: 50 }, (_, i) => `f${i}`)
+
+  React.useEffect(() => {
+    if (mounted) {
+      const t = setTimeout(() => {
+        setMounted(false)
+        setBatch(b => b + 1)
+      }, 20)
+      return () => clearTimeout(t)
+    } else {
+      if (batch >= 10) {
+        ;(window as any).__rhfCleanupDone = true
+        return
+      }
+      const t = setTimeout(() => setMounted(true), 20)
+      return () => clearTimeout(t)
+    }
+  }, [batch, mounted])
+
+  return mounted
+    ? <div>{fieldNames.map(n => <RhfCleanupField key={n} name={n} register={register} />)}</div>
+    : <div data-testid="rhf-cleanup-unmounted" />
+}
+
 // ==================== ASYNC PAGES ====================
 function makeNeutroAsyncForm(debounceMs: number) {
   return createForm({
@@ -547,6 +581,9 @@ export default function App() {
   }
   if (path === '/cleanup') {
     return <CleanupPage />
+  }
+  if (path === '/cleanup-rhf') {
+    return <RhfCleanupPage />
   }
   if (path === '/array') {
     return (
