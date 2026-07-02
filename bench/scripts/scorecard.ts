@@ -1,17 +1,26 @@
 import { computeVerdict, computeBooleanVerdict, type Verdict } from '../lib/verdict.js'
 import type { BenchResults, BrowserResult, CorrectnessResult, BundleSizeResult } from '../types/schema.js'
 
+export interface BadgeCell {
+  verdict: Verdict
+  neutroValue?: number
+  competitorValue?: number
+  unit?: 'renders' | 'ms' | 'bytes'
+  higherIsBetter?: boolean
+  neutroLibrary?: string
+}
+
 export interface ScorecardRow {
   library: string
-  badges: Record<string, Verdict>
+  badges: Record<string, BadgeCell>
 }
 
 const CORRECTNESS_SURFACES = ['array-state-integrity', 'async-race', 'dependency-trigger']
-const BROWSER_NUMERIC_SURFACES: Array<{ key: string; metric: 'renderCount' | 'p50Ms'; higherIsBetter: boolean }> = [
-  { key: 're-renders/10', metric: 'renderCount', higherIsBetter: false },
-  { key: 're-renders/100', metric: 'renderCount', higherIsBetter: false },
-  { key: 'array-ops', metric: 'renderCount', higherIsBetter: false },
-  { key: 'async-latency', metric: 'p50Ms', higherIsBetter: false },
+const BROWSER_NUMERIC_SURFACES: Array<{ key: string; metric: 'renderCount' | 'p50Ms'; higherIsBetter: boolean; unit: 'renders' | 'ms' }> = [
+  { key: 're-renders/10', metric: 'renderCount', higherIsBetter: false, unit: 'renders' },
+  { key: 're-renders/100', metric: 'renderCount', higherIsBetter: false, unit: 'renders' },
+  { key: 'array-ops', metric: 'renderCount', higherIsBetter: false, unit: 'renders' },
+  { key: 'async-latency', metric: 'p50Ms', higherIsBetter: false, unit: 'ms' },
 ]
 
 // Bench apps are grouped by framework (React/Vue/Svelte each run behind their own dev server port,
@@ -48,7 +57,7 @@ export function buildScorecard(baseline: BenchResults): ScorecardRow[] {
 
   const rows: ScorecardRow[] = []
   for (const library of libraries) {
-    const badges: Record<string, Verdict> = {}
+    const badges: Record<string, BadgeCell> = {}
 
     for (const surface of CORRECTNESS_SURFACES) {
       const results = (baseline.correctness?.[surface] ?? []) as CorrectnessResult[]
@@ -60,17 +69,27 @@ export function buildScorecard(baseline: BenchResults): ScorecardRow[] {
         : competitorResult.status === 'na' ? undefined
         : false
       const status = competitorResult.status === 'na' ? 'na' : 'ok'
-      badges[surface] = computeBooleanVerdict(surface, library, neutroPass, competitorPass, status as any)
+      badges[surface] = {
+        verdict: computeBooleanVerdict(surface, library, neutroPass, competitorPass, status as any),
+        neutroLibrary: 'neutro/form',
+      }
     }
 
-    for (const { key, metric, higherIsBetter } of BROWSER_NUMERIC_SURFACES) {
+    for (const { key, metric, higherIsBetter, unit } of BROWSER_NUMERIC_SURFACES) {
       const results = (baseline.browser?.[key] ?? []) as BrowserResult[]
       if (!results.length) continue
       const neutroLib = findNeutroLibrary(results, library)
       const neutroResult = results.find(r => r.library === neutroLib)
       const competitorResult = results.find(r => r.library === library)
       if (!competitorResult) continue
-      badges[key] = computeVerdict(key, library, neutroResult?.[metric], competitorResult[metric], higherIsBetter, competitorResult.status, neutroLib)
+      badges[key] = {
+        verdict: computeVerdict(key, library, neutroResult?.[metric], competitorResult[metric], higherIsBetter, competitorResult.status, neutroLib),
+        neutroValue: neutroResult?.[metric],
+        competitorValue: competitorResult[metric],
+        unit,
+        higherIsBetter,
+        neutroLibrary: neutroLib,
+      }
     }
 
     {
@@ -79,9 +98,12 @@ export function buildScorecard(baseline: BenchResults): ScorecardRow[] {
       const neutroResult = results.find(r => r.library === neutroLib)
       const competitorResult = results.find(r => r.library === library)
       if (competitorResult) {
-        badges['async-cancellation'] = computeBooleanVerdict(
-          'async-cancellation', library, neutroResult?.cancellationPass, competitorResult.cancellationPass, competitorResult.status,
-        )
+        badges['async-cancellation'] = {
+          verdict: computeBooleanVerdict(
+            'async-cancellation', library, neutroResult?.cancellationPass, competitorResult.cancellationPass, competitorResult.status,
+          ),
+          neutroLibrary: neutroLib,
+        }
       }
     }
 
@@ -90,9 +112,16 @@ export function buildScorecard(baseline: BenchResults): ScorecardRow[] {
       const neutroResult = results.find(r => r.library === 'neutro/form')
       const competitorResult = results.find(r => r.library === library)
       if (competitorResult) {
-        badges['bundle-size'] = computeVerdict(
-          'bundle-size', library, neutroResult?.gzipBytes, competitorResult.gzipBytes, false, competitorResult.status,
-        )
+        badges['bundle-size'] = {
+          verdict: computeVerdict(
+            'bundle-size', library, neutroResult?.gzipBytes, competitorResult.gzipBytes, false, competitorResult.status,
+          ),
+          neutroValue: neutroResult?.gzipBytes,
+          competitorValue: competitorResult.gzipBytes,
+          unit: 'bytes',
+          higherIsBetter: false,
+          neutroLibrary: 'neutro/form',
+        }
       }
     }
 

@@ -20,46 +20,68 @@ export const PASS_REASONS: Record<string, string> = {
   'validation-scope-precision': 'set() on a field with 3 declared dependents validates exactly itself + those 3 (4 of 504 total fields), not the whole form — the O(1) precomputed dependency-graph claim, quantified',
 }
 
-// Hand-maintained map of surface -> library -> reason. This is the single source for both
-// Tradeoff badge tooltip text (verdict.ts) and N/A reason text shown inline on the generated page.
-export const ANNOTATIONS: Record<string, Record<string, string>> = {
+export interface Annotation {
+  brief: string
+  detail: string
+}
+
+// Hand-maintained map of surface -> library -> {brief, detail}. This is the single source for
+// scorecard badge tooltips/citations, browser-table detail-cell footnotes (verdict.ts's
+// hasAnnotation check just needs any truthy value, so this reshape doesn't affect it), and N/A
+// reason text shown inline on the generated page.
+export const ANNOTATIONS: Record<string, Record<string, Annotation>> = {
   'async-latency': {
-    'neutro/form (React)': 'neutro debounces async validation 300ms by default (asyncDebounceMs) to avoid firing on every keystroke. See the debounce=0 column for the floor cost.',
-    'neutro/form (Vue)': 'same debounce policy as React — see debounce=0 column.',
-    'neutro/form (Svelte)': 'same debounce policy as React — see debounce=0 column.',
+    'neutro/form (React)': {
+      brief: 'debounced 300ms by default',
+      detail: 'neutro debounces async validation 300ms by default (asyncDebounceMs) to avoid firing on every keystroke. See the debounce=0 column for the floor cost.',
+    },
+    'neutro/form (Vue)': {
+      brief: 'debounced 300ms by default',
+      detail: 'same debounce policy as React — see debounce=0 column.',
+    },
+    'neutro/form (Svelte)': {
+      brief: 'debounced 300ms by default',
+      detail: 'same debounce policy as React — see debounce=0 column.',
+    },
   },
   'async-cancellation': {
-    'react-hook-form': 'no async cancellation API; a slow stale validation can overwrite a fresh result',
-    'formik': 'no async cancellation API',
-    'tanstack-form (React)': 'no async cancellation API',
-    'tanstack-form (Svelte)': 'no async cancellation API',
-    'vee-validate': 'no async cancellation API',
-    'felte': 'no async cancellation API',
+    'react-hook-form': { brief: 'no async cancellation API', detail: 'no async cancellation API; a slow stale validation can overwrite a fresh result' },
+    'formik': { brief: 'no async cancellation API', detail: 'no async cancellation API' },
+    'tanstack-form (React)': { brief: 'no async cancellation API', detail: 'no async cancellation API' },
+    'tanstack-form (Svelte)': { brief: 'no async cancellation API', detail: 'no async cancellation API' },
+    'vee-validate': { brief: 'no async cancellation API', detail: 'no async cancellation API' },
+    'felte': { brief: 'no async cancellation API', detail: 'no async cancellation API' },
   },
   'array-state-integrity': {
-    'tanstack-form': 'no public API to rekey per-field error/touched state on array splice outside React context',
-    'react-hook-form': 'state-map rekey on splice not exposed outside hook context',
-    'formik': 'state-map rekey on splice not exposed outside hook context',
-    'vee-validate': 'state-map rekey on splice not exposed outside hook context',
+    'tanstack-form': { brief: 'no public rekey API outside React context', detail: 'no public API to rekey per-field error/touched state on array splice outside React context' },
+    'react-hook-form': { brief: 'rekey not exposed outside hook context', detail: 'state-map rekey on splice not exposed outside hook context' },
+    'formik': { brief: 'rekey not exposed outside hook context', detail: 'state-map rekey on splice not exposed outside hook context' },
+    'vee-validate': { brief: 'rekey not exposed outside hook context', detail: 'state-map rekey on splice not exposed outside hook context' },
   },
   'async-race': {
     // Node-level correctness suite (bench/suites/correctness/async-race.test.ts), distinct from the
     // browser 'async-cancellation' surface above — same underlying capability, different test mechanism.
-    'tanstack-form': 'no async cancellation API in vanilla usage',
-    'react-hook-form': 'no async cancellation API in vanilla usage',
-    'formik': 'no async cancellation API in vanilla usage',
-    'vee-validate': 'no async cancellation API in vanilla usage',
+    'tanstack-form': { brief: 'no async cancellation API in vanilla usage', detail: 'no async cancellation API in vanilla usage' },
+    'react-hook-form': { brief: 'no async cancellation API in vanilla usage', detail: 'no async cancellation API in vanilla usage' },
+    'formik': { brief: 'no async cancellation API in vanilla usage', detail: 'no async cancellation API in vanilla usage' },
+    'vee-validate': { brief: 'no async cancellation API in vanilla usage', detail: 'no async cancellation API in vanilla usage' },
   },
   'dependency-trigger': {
-    'tanstack-form': 'requires per-field validators; no declarative cross-field dependency graph',
-    'react-hook-form': 'no declarative dependency graph; cross-field validation is manual',
-    'formik': 'no declarative dependency graph; cross-field validation is manual',
-    'vee-validate': 'no declarative dependency graph; cross-field validation is manual',
+    'tanstack-form': { brief: 'no declarative dependency graph', detail: 'requires per-field validators; no declarative cross-field dependency graph' },
+    'react-hook-form': { brief: 'no declarative dependency graph', detail: 'no declarative dependency graph; cross-field validation is manual' },
+    'formik': { brief: 'no declarative dependency graph', detail: 'no declarative dependency graph; cross-field validation is manual' },
+    'vee-validate': { brief: 'no declarative dependency graph', detail: 'no declarative dependency graph; cross-field validation is manual' },
   },
   'bundle-size': {
-    'tanstack-form': "neutro/form's createForm is a single closure factory (array ops, DOM bridge, persistence, computed fields, and devtools hooks all in one function body) so nothing is tree-shakeable; tanstack-form's modular file structure lets esbuild drop unused code paths despite a larger raw source size.",
+    'tanstack-form': {
+      brief: "neutro's single-closure design isn't tree-shakeable",
+      detail: "neutro/form's createForm is a single closure factory (array ops, DOM bridge, persistence, computed fields, and devtools hooks all in one function body) so nothing is tree-shakeable; tanstack-form's modular file structure lets esbuild drop unused code paths despite a larger raw source size.",
+    },
   },
   'array-ops': {
-    'tanstack-form (Svelte)': "TanStack's own Svelte bench harness never defines window.__resetArrayRenders, so its render counter (window.__tanstackArrayRenders) stays permanently empty and reports an artificial 0 — not a real absence of render work. Confirmed by direct inspection during this project's own v0.5.0 verification; not a neutro/form architectural gap.",
+    'tanstack-form (Svelte)': {
+      brief: "TanStack's own Svelte render counter never gets wired up",
+      detail: "TanStack's own Svelte bench harness never defines window.__resetArrayRenders, so its render counter (window.__tanstackArrayRenders) stays permanently empty and reports an artificial 0 — not a real absence of render work. Confirmed by direct inspection during this project's own v0.5.0 verification; not a neutro/form architectural gap.",
+    },
   },
 }

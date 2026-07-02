@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import type { BenchResults, CorrectnessResult, BrowserResult, BundleSizeResult } from '../types/schema.js'
 import { ANNOTATIONS, PASS_REASONS, COMPETITOR_VERSIONS } from '../annotations.js'
 import { buildScorecard } from './scorecard.js'
+import { badgeText } from './badge-text.js'
 import type { Verdict } from '../lib/verdict.js'
 
 const baseline = JSON.parse(readFileSync('results/baseline.json', 'utf8')) as BenchResults
@@ -41,7 +42,7 @@ function addFootnote(surface: string, library: string, reason: string): string {
 
 function reasonMarker(surface: string, library: string): string {
   const reason = ANNOTATIONS[surface]?.[library]
-  return reason ? addFootnote(surface, library, reason) : ''
+  return reason ? addFootnote(surface, library, reason.detail) : ''
 }
 
 function correctnessTable(surface: string, results: CorrectnessResult[]): string {
@@ -52,7 +53,7 @@ function correctnessTable(surface: string, results: CorrectnessResult[]): string
       : '— N/A'
     const why = r.status === 'pass'
       ? (PASS_REASONS[surface] ?? '')
-      : (ANNOTATIONS[surface]?.[r.library] ?? '')
+      : (ANNOTATIONS[surface]?.[r.library]?.detail ?? '')
     return `| ${r.library} | ${badge} | ${why} |`
   }).join('\n')
   return `| Library | Result | Why |\n|---|---|---|\n${rows}`
@@ -101,12 +102,23 @@ function bundleSizeTable(results: BundleSizeResult[]): string {
   return `| Library | Gzip size |\n|---|---|\n${rows}`
 }
 
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/\|/g, '&#124;')
+}
+
 function scorecardTable(columns: string[]): string {
   const rows = buildScorecard(baseline)
   const header = `| Library | ${columns.join(' | ')} |`
   const divider = `|---|${columns.map(() => '---').join('|')}|`
   const body = rows.map(r => {
-    const cells = columns.map(c => BADGE_LABEL[r.badges[c] ?? 'na'])
+    const cells = columns.map(c => {
+      const cell = r.badges[c]
+      if (!cell) return BADGE_LABEL['na']
+      const { brief, detail } = badgeText(c, r.library, cell)
+      const label = BADGE_LABEL[cell.verdict]
+      const citation = detail ? addFootnote(c, r.library, detail) : ''
+      return `<span title="${escapeAttr(brief)}">${label}</span>${citation}`
+    })
     return `| ${r.library} | ${cells.join(' | ')} |`
   }).join('\n')
   return `${header}\n${divider}\n${body}`
