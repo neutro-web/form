@@ -5104,6 +5104,26 @@ describe('computed field — path subscriber notifications', () => {
     expect(received).toContain(8);
   });
 
+  test('computed field nested under an object-valued set() target fires exactly once with the fresh value', () => {
+    // Regression guard: setFieldValue's non-batch computed branch used to call
+    // notifyPathSubscribers([path]) and notifyPathSubscribers(changedComputedPaths)
+    // separately. Once notifyPathSubscribers cascades to descendant subscribers, the
+    // first call could reach a computed field nested under `path` with a stale
+    // pre-computed value, then the second call would fire it again with the fresh
+    // value — a double-fire with a transient stale read. Both calls are now merged
+    // into one, after runComputedPass(), so this must fire exactly once, correctly.
+    type Form = { pricing: { qty: number; vat: number } };
+    const form = createForm<Form>({
+      initialValues: { pricing: { qty: 1, vat: 2 } },
+      computed: { pricing: { vat: { fn: (v) => v.pricing.qty * 2 } } },
+    });
+    const received: number[] = [];
+    form.subscribeToPath('pricing.vat', (v) => received.push(v as number));
+    received.length = 0; // clear the immediate call subscribeToPath fires on attach
+    form.set('pricing', { qty: 5, vat: 999 });
+    expect(received).toEqual([10]);
+  });
+
   test('subscribeToPath for computed field does NOT fire when source mutation does not change the computed value', () => {
     type Form = { mode: string; other: string; label: string };
     const form = createForm<Form>({

@@ -1510,13 +1510,14 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         pendingPaths.add(path);
         for (const cp of changedComputedPaths) pendingPaths.add(cp);
       } else {
-        // Outside any batch: fire path subscribers immediately for controlled-input UX,
-        // then run computed pass and notify once for computed changes + global state.
-        notifyPathSubscribers([path]);
+        // Outside any batch: run the computed pass first, then notify path and computed
+        // subscribers in one call. A single call means notifyPathSubscribers' dedup Set
+        // covers both — a descendant subscriber under `path` (e.g. a computed field nested
+        // inside an object-valued set() target) fires exactly once, with the post-computed
+        // value, instead of once (stale, pre-computed) from a `[path]`-only call and again
+        // (fresh) from a separate `changedComputedPaths` call.
         const changedComputedPaths = runComputedPass();
-        if (changedComputedPaths.length > 0) {
-          notifyPathSubscribers(changedComputedPaths);
-        }
+        notifyPathSubscribers([path, ...changedComputedPaths]);
         if (globalSubscribers.size > 0) {
           notifyGlobalSubscribers(getState());
         }
