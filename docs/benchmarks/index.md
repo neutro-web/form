@@ -57,7 +57,7 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 | tanstack-form | — N/A | — N/A | — N/A | — N/A | — N/A |
 | tanstack-form (React) | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ✅ Win | ➖ Tied |
 | tanstack-form (Svelte) | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ❌ Behind | ➖ Tied |
-| vee-validate | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ➖ Tied | ➖ Tied |
+| vee-validate | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ✅ Win | ➖ Tied |
 
 ### Size
 

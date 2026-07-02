@@ -14,7 +14,26 @@ const BROWSER_NUMERIC_SURFACES: Array<{ key: string; metric: 'renderCount' | 'p5
   { key: 'async-latency', metric: 'p50Ms', higherIsBetter: false },
 ]
 
-function findNeutroLibrary(results: Array<{ library: string }>): string | undefined {
+// Bench apps are grouped by framework (React/Vue/Svelte each run behind their own dev server port,
+// with several libraries mounted side by side in the same app). A numeric comparison must pair a
+// competitor with the neutro/form variant that ran in the SAME app, not just whichever neutro entry
+// happens to appear first in the results array — otherwise e.g. vee-validate (Vue) gets compared
+// against neutro/form (React)'s numbers, which is an apples-to-oranges mismatch.
+const FRAMEWORK_BY_LIBRARY: Record<string, string> = {
+  'react-hook-form': 'React',
+  formik: 'React',
+  'tanstack-form (React)': 'React',
+  'vee-validate': 'Vue',
+  'tanstack-form (Svelte)': 'Svelte',
+  felte: 'Svelte',
+}
+
+function findNeutroLibrary(results: Array<{ library: string }>, competitorLibrary?: string): string | undefined {
+  const framework = competitorLibrary ? FRAMEWORK_BY_LIBRARY[competitorLibrary] : undefined
+  if (framework) {
+    const sameFrameworkMatch = results.find(r => r.library === `neutro/form (${framework})`)
+    if (sameFrameworkMatch) return sameFrameworkMatch.library
+  }
   return results.find(r => r.library.startsWith('neutro/form'))?.library
 }
 
@@ -47,7 +66,7 @@ export function buildScorecard(baseline: BenchResults): ScorecardRow[] {
     for (const { key, metric, higherIsBetter } of BROWSER_NUMERIC_SURFACES) {
       const results = (baseline.browser?.[key] ?? []) as BrowserResult[]
       if (!results.length) continue
-      const neutroLib = findNeutroLibrary(results)
+      const neutroLib = findNeutroLibrary(results, library)
       const neutroResult = results.find(r => r.library === neutroLib)
       const competitorResult = results.find(r => r.library === library)
       if (!competitorResult) continue
@@ -56,7 +75,7 @@ export function buildScorecard(baseline: BenchResults): ScorecardRow[] {
 
     {
       const results = (baseline.browser?.['async-cancellation'] ?? []) as BrowserResult[]
-      const neutroLib = findNeutroLibrary(results)
+      const neutroLib = findNeutroLibrary(results, library)
       const neutroResult = results.find(r => r.library === neutroLib)
       const competitorResult = results.find(r => r.library === library)
       if (competitorResult) {
