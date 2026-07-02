@@ -108,7 +108,7 @@ async function main() {
     const body = [
       '## Benchmark Regression Detected',
       '',
-      `> Threshold: 15%. Median of ${inputFiles.length} samples per surface; entries with rme > 10% or fewer than ${MIN_VALID_SAMPLES} valid samples are skipped.`,
+      `> Threshold: ${(REGRESSION_THRESHOLD * 100).toFixed(0)}%. Median of ${inputFiles.length} samples per surface; entries with rme > 10% or fewer than ${MIN_VALID_SAMPLES} valid samples are skipped.`,
       '',
       '| Surface | Baseline (ops/s) | Current (ops/s, median) | Delta |',
       '|---|---|---|---|',
