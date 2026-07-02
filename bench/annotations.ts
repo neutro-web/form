@@ -55,4 +55,7 @@ export const ANNOTATIONS: Record<string, Record<string, string>> = {
     'formik': 'no declarative dependency graph; cross-field validation is manual',
     'vee-validate': 'no declarative dependency graph; cross-field validation is manual',
   },
+  'bundle-size': {
+    'tanstack-form': "neutro/form's createForm is a single closure factory (array ops, DOM bridge, persistence, computed fields, and devtools hooks all in one function body) so nothing is tree-shakeable; tanstack-form's modular file structure lets esbuild drop unused code paths despite a larger raw source size.",
+  },
 }
