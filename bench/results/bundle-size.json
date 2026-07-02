@@ -1,0 +1,34 @@
+{
+  "bundle-size": [
+    {
+      "library": "neutro/form",
+      "status": "ok",
+      "gzipBytes": 10414
+    },
+    {
+      "library": "react-hook-form",
+      "status": "ok",
+      "gzipBytes": 9946
+    },
+    {
+      "library": "formik",
+      "status": "ok",
+      "gzipBytes": 13477
+    },
+    {
+      "library": "tanstack-form",
+      "status": "ok",
+      "gzipBytes": 17792
+    },
+    {
+      "library": "vee-validate",
+      "status": "ok",
+      "gzipBytes": 10596
+    },
+    {
+      "library": "felte",
+      "status": "ok",
+      "gzipBytes": 23399
+    }
+  ]
+}
