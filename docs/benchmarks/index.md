@@ -1,6 +1,6 @@
 # Benchmarks
 
-*Last updated 2026-07-01 — neutro/form v0.4.3*
+*Last updated 2026-07-02 — neutro/form v0.4.4*
 
 ## Environment
 
@@ -179,9 +179,9 @@ _Note: render counts are not directly comparable across all libraries on this su
 | react-hook-form | 200ms | 201ms |
 | formik | 200ms | 201ms |
 | tanstack-form (React) | 200ms | 200ms |
-| neutro/form (Vue) | 300ms[^async-latency-neutro/form (Vue)] | 300ms |
+| neutro/form (Vue) | 300ms[^async-latency-neutro/form (Vue)] | 301ms |
 | vee-validate | 200ms | 200ms |
-| neutro/form (Svelte) | 300ms[^async-latency-neutro/form (Svelte)] | 300ms |
+| neutro/form (Svelte) | 300ms[^async-latency-neutro/form (Svelte)] | 301ms |
 | tanstack-form (Svelte) | 200ms | 200ms |
 | felte | 200ms | 200ms |
 
@@ -189,7 +189,7 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 | Library | p50 | p99 |
 |---|---|---|
-| neutro/form (React) [debounce=0] | 200ms | 201ms |
+| neutro/form (React) [debounce=0] | 200ms | 200ms |
 | neutro/form (Vue) [debounce=0] | 200ms | 200ms |
 | neutro/form (Svelte) [debounce=0] | 200ms | 200ms |
 
