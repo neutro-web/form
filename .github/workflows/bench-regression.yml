@@ -25,11 +25,13 @@ jobs:
 
       - run: pnpm --dir bench install --frozen-lockfile --ignore-workspace
 
-      - run: pnpm --dir bench run bench:core
+      - run: BENCH_OUTPUT_FILE=results/core-1.json pnpm --dir bench run bench:core:sample
+      - run: BENCH_OUTPUT_FILE=results/core-2.json pnpm --dir bench run bench:core:sample
+      - run: BENCH_OUTPUT_FILE=results/core-3.json pnpm --dir bench run bench:core:sample
 
       - run: pnpm --dir bench run bench:compare
         env:
-          BENCH_INPUT_FILE: results/core.json
+          BENCH_INPUT_FILES: results/core-1.json,results/core-2.json,results/core-3.json
           BENCH_HARD_FAIL: ${{ vars.BENCH_HARD_FAIL }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}

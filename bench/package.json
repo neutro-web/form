@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "bench:core":            "cross-env BENCH_OUTPUT_FILE=results/core.json vitest bench suites/core --reporter=./reporters/json-bench.ts",
+    "bench:core:sample":     "vitest bench suites/core --reporter=./reporters/json-bench.ts",
     "bench:correctness":     "vitest run suites/correctness --reporter=json --outputFile=results/correctness.json",
     "bench:browser":         "playwright test suites/browser",
     "bench:bundle-size":      "tsx suites/bundle/measure.ts",
