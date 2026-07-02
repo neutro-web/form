@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.4](https://github.com/neutro-web/form/compare/v0.4.3...v0.4.4) (2026-07-02)
+
+
+### Bug Fixes
+
+* **core:** merge computed-field set() notify calls to avoid double-fire ([5da42ac](https://github.com/neutro-web/form/commit/5da42acafb77639163aa6f2e34ae26194f419ace))
+* **core:** notify() cascades to descendant path subscribers, not just ancestors ([2b3a095](https://github.com/neutro-web/form/commit/2b3a095dd10f43ca194afee8103345a0648b0652))
+
+
+### Documentation
+
+* add notify() cascade correctness fix design spec ([1f0da09](https://github.com/neutro-web/form/commit/1f0da0937a8da7f2cd84d39ecab1a0119b5c1d0c))
+* commit notify-cascade-fix plan; remove leftover release-as override ([32208f5](https://github.com/neutro-web/form/commit/32208f5c9561e72f80db1a42d4f45359b9839115))
+* fix internal-consistency gaps in v0.5.0 spec ([8244679](https://github.com/neutro-web/form/commit/8244679661548464db59fa597db8d6cdfa20a0df))
+* fix technical inaccuracy in notify-cascade-fix spec ([cd97981](https://github.com/neutro-web/form/commit/cd97981aa06bf4b64572798b9ab217f61d3d0561))
+* soften overstated comment on notifyPathSubscribers hot path ([b5ccab8](https://github.com/neutro-web/form/commit/b5ccab8a8e97a506a33b6908ab6bdfece5a00e95))
+
 ## [0.4.3](https://github.com/neutro-web/form/compare/v0.4.2...v0.4.3) (2026-07-01)
 
 
