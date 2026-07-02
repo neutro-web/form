@@ -33,4 +33,32 @@ describe('buildScorecard', () => {
     expect(rhfRow!.badges['re-renders/10']).toBe('tied')
     expect(rhfRow!.badges['bundle-size']).toBe('win') // neutro 3000 vs competitor 9000 -> competitor much worse (higher gzip = worse)
   })
+
+  test('compares a framework-specific competitor against its own-framework neutro variant, not whichever neutro entry is listed first', () => {
+    // Regression guard for the framework-mismatch bug: findNeutroLibrary used to just take
+    // the FIRST neutro/form-prefixed entry in the results array, with no regard for which
+    // framework the competitor being compared actually ran in. vee-validate is Vue-only, so
+    // it must be scored against neutro/form (Vue), never neutro/form (React) - even when the
+    // React entry is listed first in the results array (as it is here, deliberately, to catch
+    // a regression to first-match behavior).
+    const baseline: BenchResults = {
+      meta: { generatedAt: '2026-06-30T00:00:00.000Z', neutroVersion: '0.5.0', nodeVersion: 'v22.0.0', platform: 'linux', runner: 'github-actions' },
+      core: {},
+      correctness: {},
+      browser: {
+        'array-ops': [
+          { library: 'neutro/form (React)', status: 'ok', renderCount: 18 }, // listed first, wrong framework for vee-validate
+          { library: 'neutro/form (Vue)', status: 'ok', renderCount: 9 },
+          { library: 'vee-validate', status: 'ok', renderCount: 18 },
+        ],
+      },
+      bundleSize: {},
+    }
+    const rows = buildScorecard(baseline)
+    const veeRow = rows.find(r => r.library === 'vee-validate')
+    expect(veeRow).toBeDefined()
+    // Correct: vee-validate (18) vs neutro/form (Vue) (9) -> competitor markedly worse -> win.
+    // The bug's behavior would have compared vee-validate (18) vs neutro/form (React) (18) -> tied.
+    expect(veeRow!.badges['array-ops']).toBe('win')
+  })
 })
