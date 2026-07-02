@@ -1,6 +1,6 @@
 # Benchmarks
 
-*Last updated 2026-07-02 — neutro/form v0.4.3*
+*Last updated 2026-07-02 — neutro/form v0.4.4*
 
 ## Environment
 

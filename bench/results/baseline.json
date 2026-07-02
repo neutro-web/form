@@ -1,7 +1,7 @@
 {
   "meta": {
-    "generatedAt": "2026-07-02T15:35:14.099Z",
-    "neutroVersion": "0.4.3",
+    "generatedAt": "2026-07-02T15:47:28.099Z",
+    "neutroVersion": "0.4.4",
     "nodeVersion": "v18.20.8",
     "platform": "darwin",
     "runner": "local"
