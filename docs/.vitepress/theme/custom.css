@@ -1,0 +1,30 @@
+/* Widen the reading column so wide comparison tables (e.g. /benchmarks/) have room to
+   fit on one line at typical laptop widths, instead of wrapping every multi-word cell
+   onto 2-3 lines. VitePress's default theme caps the doc content column at 688px when
+   the right-hand "On this page" aside is present - too narrow for a 5+ column table. */
+.VPDoc.has-aside .content-container {
+  /* !important needed: the default theme's rule carries a scoped data-v-* attribute
+     selector, which outranks this selector's specificity regardless of CSS source order. */
+  max-width: 1200px !important;
+}
+
+/* Safety net first: if a table is still wider than the (now much wider) reading column
+   on a smaller viewport, scroll horizontally instead of silently overflowing the page. */
+.vp-doc table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.vp-doc th,
+.vp-doc td {
+  padding: 14px 20px;
+  white-space: nowrap;
+}
+
+/* Allow multi-line wrapping only for the Library column and any prose-heavy cells that
+   would otherwise force the table wider than the viewport even at the widened column. */
+.vp-doc td:first-child,
+.vp-doc th:first-child {
+  white-space: normal;
+}
