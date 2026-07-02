@@ -57,7 +57,7 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 | tanstack-form | — N/A | — N/A | — N/A | — N/A | — N/A |
 | tanstack-form (React) | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ✅ Win | ➖ Tied |
 | tanstack-form (Svelte) | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ❌ Behind | ➖ Tied |
-| vee-validate | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ✅ Win | ➖ Tied |
+| vee-validate | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ➖ Tied | ➖ Tied |
 
 ### Size
 
@@ -115,7 +115,7 @@ _Note: render counts are not directly comparable across all libraries on this su
 | react-hook-form | 18 |
 | formik | 54 |
 | tanstack-form (React) | 24 |
-| neutro/form (Vue) | 9 |
+| neutro/form (Vue) | 18 |
 | vee-validate | 18 |
 | neutro/form (Svelte) | 21 |
 | tanstack-form (Svelte) | 0 |
@@ -175,10 +175,10 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 | Library | p50 | p99 |
 |---|---|---|
-| neutro/form (React) | 302ms[^async-latency-neutro/form (React)] | 303ms |
-| react-hook-form | 202ms | 203ms |
-| formik | 202ms | 203ms |
-| tanstack-form (React) | 201ms | 203ms |
+| neutro/form (React) | 301ms[^async-latency-neutro/form (React)] | 302ms |
+| react-hook-form | 202ms | 202ms |
+| formik | 202ms | 202ms |
+| tanstack-form (React) | 201ms | 201ms |
 | neutro/form (Vue) | 302ms[^async-latency-neutro/form (Vue)] | 303ms |
 | vee-validate | 202ms | 203ms |
 | neutro/form (Svelte) | 302ms[^async-latency-neutro/form (Svelte)] | 303ms |
@@ -189,15 +189,15 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 | Library | p50 | p99 |
 |---|---|---|
-| neutro/form (React) [debounce=0] | 203ms | 203ms |
+| neutro/form (React) [debounce=0] | 202ms | 203ms |
 | neutro/form (Vue) [debounce=0] | 202ms | 203ms |
-| neutro/form (Svelte) [debounce=0] | 203ms | 203ms |
+| neutro/form (Svelte) [debounce=0] | 202ms | 203ms |
 
 ## Bundle Size
 
 | Library | Gzip size |
 |---|---|
-| neutro/form | 10.1 KB |
+| neutro/form | 10.2 KB |
 | react-hook-form | 9.7 KB |
 | formik | 13.2 KB |
 | tanstack-form | 17.4 KB |

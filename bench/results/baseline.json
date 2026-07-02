@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generatedAt": "2026-07-02T03:11:58.583Z",
+    "generatedAt": "2026-07-02T05:38:06.865Z",
     "neutroVersion": "0.4.3",
     "nodeVersion": "v18.20.8",
     "platform": "darwin",
@@ -11,99 +11,99 @@
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 80490.41547367886,
-        "median": 0.01133418083190918,
-        "rme": 0.7242832562268302,
+        "opsPerSec": 77274.96831606701,
+        "median": 0.011667013168334961,
+        "rme": 0.908652970895572,
         "highVariance": false,
-        "samples": 40259
+        "samples": 38640
       }
     ],
     "array-ops/move": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 149345.1831118605,
-        "median": 0.006125211715698242,
-        "rme": 1.2952792331834178,
+        "opsPerSec": 139336.5489984066,
+        "median": 0.0064580440521240234,
+        "rme": 1.483340044235465,
         "highVariance": false,
-        "samples": 74673
+        "samples": 69669
       }
     ],
     "computed-fields/simple": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 4976597.577601257,
+        "opsPerSec": 5029738.903946552,
         "median": 0.0002079010009765625,
-        "rme": 0.3580186450640414,
+        "rme": 0.27012358819591725,
         "highVariance": false,
-        "samples": 2488299
+        "samples": 2514870
       }
     ],
     "dependency-scopes/dependent": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 1463719.21410187,
-        "median": 0.0006248950958251953,
-        "rme": 1.1661695587462997,
+        "opsPerSec": 1331569.781579969,
+        "median": 0.0006668567657470703,
+        "rme": 1.343611017945823,
         "highVariance": false,
-        "samples": 731860
+        "samples": 665785
       }
     ],
     "nested-set": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 1803904.7389925253,
-        "median": 0.0005409717559814453,
-        "rme": 1.9737642760871386,
+        "opsPerSec": 1813071.3273880517,
+        "median": 0.0005419254302978516,
+        "rme": 0.12441966482191842,
         "highVariance": false,
-        "samples": 901953
+        "samples": 906536
       }
     ],
     "set-get/small": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 2911401.190563755,
+        "opsPerSec": 2979876.472515484,
         "median": 0.0003330707550048828,
-        "rme": 0.16359873797986926,
+        "rme": 0.37282451474023137,
         "highVariance": false,
-        "samples": 1455704
+        "samples": 1489939
       }
     ],
     "set-get/large": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 3033203.0700008515,
-        "median": 0.0003330707550048828,
-        "rme": 0.11485676622773414,
+        "opsPerSec": 2762224.1691877386,
+        "median": 0.00033402442932128906,
+        "rme": 1.3429838406671422,
         "highVariance": false,
-        "samples": 1516602
+        "samples": 1381113
       }
     ],
     "subscriptions/small": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 4681835.459741506,
-        "median": 0.00020813941955566406,
-        "rme": 0.38803604785923407,
+        "opsPerSec": 4907778.415677077,
+        "median": 0.0002079010009765625,
+        "rme": 0.2920962390265992,
         "highVariance": false,
-        "samples": 2340918
+        "samples": 2453890
       }
     ],
     "subscriptions/large": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 4677405.5561582055,
+        "opsPerSec": 4645787.840499532,
         "median": 0.00020813941955566406,
-        "rme": 0.22499552450579635,
+        "rme": 0.28930519734783267,
         "highVariance": false,
-        "samples": 2338703
+        "samples": 2322894
       }
     ]
   },
@@ -200,7 +200,7 @@
       {
         "library": "neutro/form (Vue)",
         "status": "ok",
-        "renderCount": 9
+        "renderCount": 18
       },
       {
         "library": "vee-validate",
@@ -385,26 +385,26 @@
       {
         "library": "neutro/form (React)",
         "status": "ok",
-        "p50Ms": 302,
-        "p99Ms": 303
+        "p50Ms": 301,
+        "p99Ms": 302
       },
       {
         "library": "react-hook-form",
         "status": "ok",
         "p50Ms": 202,
-        "p99Ms": 203
+        "p99Ms": 202
       },
       {
         "library": "formik",
         "status": "ok",
         "p50Ms": 202,
-        "p99Ms": 203
+        "p99Ms": 202
       },
       {
         "library": "tanstack-form (React)",
         "status": "ok",
         "p50Ms": 201,
-        "p99Ms": 203
+        "p99Ms": 201
       },
       {
         "library": "neutro/form (Vue)",
@@ -441,7 +441,7 @@
       {
         "library": "neutro/form (React) [debounce=0]",
         "status": "ok",
-        "p50Ms": 203,
+        "p50Ms": 202,
         "p99Ms": 203
       },
       {
@@ -453,7 +453,7 @@
       {
         "library": "neutro/form (Svelte) [debounce=0]",
         "status": "ok",
-        "p50Ms": 203,
+        "p50Ms": 202,
         "p99Ms": 203
       }
     ]
@@ -463,7 +463,7 @@
       {
         "library": "neutro/form",
         "status": "ok",
-        "gzipBytes": 10308
+        "gzipBytes": 10398
       },
       {
         "library": "react-hook-form",
