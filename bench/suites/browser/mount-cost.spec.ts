@@ -27,9 +27,19 @@ const COMBOS: Array<{ name: string; port: number; readyTestId: string; library: 
   { name: 'felte',               port: 4175, readyTestId: 'felte-form',  library: 'felte' },
 ]
 
+const warmedPorts = new Set<number>()
+
+async function warmUp(page: Page, port: number) {
+  if (warmedPorts.has(port)) return
+  warmedPorts.add(port)
+  await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' })
+  await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' })
+}
+
 test.describe('mount-cost', () => {
   for (const c of COMBOS) {
     test(c.name, async ({ page }, testInfo) => {
+      await warmUp(page, c.port)
       const mountMs = await measureMountCost(page, `http://localhost:${c.port}/`, c.readyTestId)
       await attach(testInfo, c.library, mountMs)
       expect(mountMs).toBeGreaterThanOrEqual(0)
