@@ -394,6 +394,17 @@ describe('Array — arrayInsert', () => {
     expect(cb2).toHaveBeenCalled();
     expect(cb2.mock.calls[cb2.mock.calls.length - 1][0]).toBe('b');
   });
+
+  it('arrayInsert notifies a bare array-root subscriber even with no child subscriptions', () => {
+    const form = createForm({
+      initialValues: { items: [{ v: 'a' }, { v: 'b' }, { v: 'c' }] },
+    });
+    const calls: unknown[] = [];
+    form.subscribeToPath('items', (v) => calls.push(v));
+    calls.length = 0;
+    form.arrayInsert('items', 1, { v: 'X' });
+    expect(calls.length).toBeGreaterThanOrEqual(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -445,6 +456,17 @@ describe('Array — arrayRemove', () => {
     expect(cb0).not.toHaveBeenCalled();
     expect(cb1).toHaveBeenCalled();
     expect(cb1.mock.calls[cb1.mock.calls.length - 1][0]).toBe('c');
+  });
+
+  it('arrayRemove notifies a bare array-root subscriber even with no child subscriptions', () => {
+    const form = createForm({
+      initialValues: { items: [{ v: 'a' }, { v: 'b' }, { v: 'c' }] },
+    });
+    const calls: unknown[] = [];
+    form.subscribeToPath('items', (v) => calls.push(v));
+    calls.length = 0;
+    form.arrayRemove('items', 0);
+    expect(calls.length).toBeGreaterThanOrEqual(1);
   });
 });
 

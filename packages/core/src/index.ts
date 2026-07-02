@@ -1044,6 +1044,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   // Bug #7: depth counter instead of boolean so nested batch() calls don't flush early.
   let batchDepth = 0;
   const pendingPaths = new Set<string | undefined>();
+  // Paths queued via notify(path, { exact: true }) — see notifyPathSubscribers: these
+  // still walk ancestors (so a subscriber on the path itself, or any ancestor, fires)
+  // but skip the descendant scan, so sibling entries under the same parent are not
+  // re-notified. Used by arrayRemove to reach an array-root subscriber without
+  // re-triggering every unaffected item's per-field subscriber.
+  const pendingExactPaths = new Set<string>();
 
   let asyncEpoch = 0;
   // Bug #8: no shared asyncDebounceTimer — each runValidation invocation manages its own.
@@ -1225,7 +1231,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   // firing, so a subscriber reachable via two different mutated paths in the same
   // batch (e.g. arrayRemove's shifted-key notify plus its whole-array notify)
   // fires exactly once, not once per path that reaches it.
-  const notifyPathSubscribers = (paths: string[]) => {
+  const notifyPathSubscribers = (paths: string[], exactPaths: string[] = []) => {
     const toNotify = new Set<string>();
     for (const mutatedPath of paths) {
       toNotify.add('*');
@@ -1245,6 +1251,19 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
       }
     }
+    // Exact-only paths: walk ancestors (so the path itself and its ancestors are
+    // notified) but deliberately skip the descendant scan above — this is what lets
+    // arrayRemove reach a subscriber on the array path itself without re-notifying
+    // every unaffected sibling item registered under it.
+    for (const mutatedPath of exactPaths) {
+      toNotify.add('*');
+      const parts = mutatedPath.split('.');
+      let accum = '';
+      for (const part of parts) {
+        accum = accum ? `${accum}.${part}` : part;
+        toNotify.add(accum);
+      }
+    }
     for (const p of toNotify) {
       const listeners = pathSubscribers.get(p);
       if (!listeners) continue;
@@ -1260,25 +1279,37 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   // Called when a batch flushes: notifies global subscribers once, then replays each path.
-  const _flushNotifications = (paths: Array<string | undefined>) => {
+  const _flushNotifications = (paths: Array<string | undefined>, exactPaths: string[] = []) => {
     if (globalSubscribers.size > 0) {
       notifyGlobalSubscribers(getState());
     }
     const unique = [...new Set(paths.filter((p): p is string => p !== undefined))];
-    notifyPathSubscribers(unique);
+    const uniqueExact = [...new Set(exactPaths)];
+    notifyPathSubscribers(unique, uniqueExact);
   };
 
   // Bug #9: guard getState() behind globalSubscribers.size > 0.
   // Rule: notify(path) for field-data mutations; notify() with no arg for flag-only changes.
-  const notify = (mutatedPath?: string) => {
+  // Pass { exact: true } to notify a subscriber registered on mutatedPath itself (and its
+  // ancestors) WITHOUT the descendant scan — i.e. without re-notifying sibling entries
+  // registered under the same path. See arrayRemove.
+  const notify = (mutatedPath?: string, options?: { exact?: boolean }) => {
+    const exact = options?.exact ?? false;
     if (batchDepth > 0) {
-      pendingPaths.add(mutatedPath);
+      if (exact && mutatedPath) {
+        pendingExactPaths.add(mutatedPath);
+      } else {
+        pendingPaths.add(mutatedPath);
+      }
       return;
     }
     if (globalSubscribers.size > 0) {
       notifyGlobalSubscribers(getState());
     }
-    if (mutatedPath) notifyPathSubscribers([mutatedPath]);
+    if (mutatedPath) {
+      if (exact) notifyPathSubscribers([], [mutatedPath]);
+      else notifyPathSubscribers([mutatedPath]);
+    }
   };
 
   const batch = (fn: () => void) => {
@@ -1287,10 +1318,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       fn();
     } finally {
       batchDepth--;
-      if (batchDepth === 0 && pendingPaths.size > 0) {
+      if (batchDepth === 0 && (pendingPaths.size > 0 || pendingExactPaths.size > 0)) {
         const paths = [...pendingPaths];
+        const exactPaths = [...pendingExactPaths];
         pendingPaths.clear();
-        _flushNotifications(paths);
+        pendingExactPaths.clear();
+        _flushNotifications(paths, exactPaths);
       }
     }
   };
@@ -2325,6 +2358,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const shifted = shiftStateIndices(targetPath, index, 'insert', index);
         for (const k of shifted) notify(k);
         notify(`${targetPath}.${index}`);
+        // Belt-and-braces: also reach an array-root subscriber explicitly via the
+        // exact-only path (skips the descendant scan, so unaffected siblings aren't
+        // re-notified). In practice notify(`${targetPath}.${index}`) above already walks
+        // 'targetPath' as an ancestor, but this makes the root-subscriber guarantee
+        // independent of that incidental path shape — see arrayRemove for the case where
+        // it isn't incidental.
+        notify(targetPath, { exact: true });
       });
       runValidation([targetPath]);
       dispatchAction({ type: 'ARRAY_INSERT', path: targetPath, index, item });
@@ -2341,12 +2381,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         setNestedValue(values, targetPath, copy);
         const shifted = shiftStateIndices(targetPath, index, 'remove');
         for (const k of shifted) notify(k);
-        // Ensure the batch flushes (global subscribers fire) even when nothing shifted
-        // (e.g. removing the last element with no touched/error/subscriber state below
-        // it). Uses the flag-only no-arg notify() — NOT notify(targetPath) — so it doesn't
-        // trigger notifyPathSubscribers' descendant scan and re-fire every unaffected
-        // sibling item under the array root.
-        notify();
+        // Always reach a subscriber registered on the array path itself (e.g.
+        // subscribeToPath('items', cb)), regardless of whether anything shifted below
+        // it. Uses the exact-only notify — NOT a plain notify(targetPath) — so it does
+        // NOT trigger notifyPathSubscribers' descendant scan, which would re-fire every
+        // unaffected sibling item's per-field subscriber under the array root.
+        notify(targetPath, { exact: true });
       });
       runValidation([targetPath]);
       dispatchAction({ type: 'ARRAY_REMOVE', path: targetPath, index });
