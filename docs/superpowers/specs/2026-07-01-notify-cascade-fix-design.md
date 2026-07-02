@@ -19,7 +19,7 @@ form.arrayRemove/arrayInsert/arrayMove/arraySwap                   → same gap 
 
 `reset()` (whole-form reset) is **not** affected — it already works around the gap with its own brute-force call: `notifyPathSubscribers([...pathSubscribers.keys()]...)`, unconditionally notifying every registered path. This is a useful precedent: the codebase already has one place that solves "notify everyone under this mutation," just not generalized.
 
-**Impact:** any consumer using idiomatic per-field subscriptions on a nested/array value (the pattern the docs recommend, e.g. `useFormPath(form, `items.${i}.name`)` in a per-item child component) gets silently stale UI after a parent-level mutation — `set()` on the object, or any array op — unless something else outside the engine happens to force a re-render (as the browser bench harnesses' React/Vue whole-array-subscribing parent components accidentally do).
+**Impact:** any consumer using idiomatic per-field subscriptions on a nested/array value (the pattern the docs recommend, e.g. `useFormPath(form, `items.${i}.name`)` in a per-item child component) gets silently stale UI after a parent-level mutation — `set()` on the object, any array op, or `resetField()` called on an object-valued path (`Path<T>` permits targeting `items.0` as a whole, not just its leaves, e.g. `resetField('items.0')`) — unless something else outside the engine happens to force a re-render (as the browser bench harnesses' React/Vue whole-array-subscribing parent components accidentally do).
 
 **No existing test encodes the current behavior as intentional.** Every `subscribeToPath` + mutation test in `packages/core/test/form.test.ts` that asserts "does NOT fire" covers *sibling* paths (`a` vs `b`), never parent/child. This is a fixable gap, not a documented contract.
 
@@ -93,7 +93,11 @@ Two deliberate guards:
 
 They already call `notify()`/`notifyPathSubscribers()` at some ancestor-or-equal path for every mutation. The shared helper fix alone makes all of them cascade correctly. No call-site changes needed for correctness.
 
-**Known, accepted side effect:** array ops' existing `notify(targetPath)` (the whole array root) will now cascade to *every* item's descendant subscribers, not just the ones that actually shifted — e.g. `arrayRemove` at index 5 of a 10-item array will re-fire subscribers for items 0-4 too, even though their values didn't move. This is correct-but-imprecise, and is explicitly **out of scope for this fix** — tightening array ops to notify only the exact shifted paths (extending `shiftStateIndices`/`rekeyArrayState` to cover `pathSubscribers` keys, not just error/touched/dirty state) is deferred to v0.5.0's array-ops-vs-tanstack-form(Svelte) perf task, which depends on this correctness fix landing first.
+**Known, accepted side effect — `arrayRemove`/`arrayInsert` only:** these two call `notify(targetPath)` on the whole array in addition to their shifted-key notifies (`arrayRemove`: `for (const k of shifted) notify(k); notify(targetPath);`; `arrayInsert`: same shape). Once `notify()` cascades downward, that whole-array notify will now reach *every* item's descendant subscribers, not just the ones that actually shifted — e.g. `arrayRemove` at index 5 of a 10-item array will re-fire subscribers for items 0-4 too, even though their values didn't move. This is correct-but-imprecise, and is explicitly **out of scope for this fix**.
+
+`arrayMove` and `arraySwap` do **not** have this side effect — verified in source, neither calls `notify(targetPath)` on the whole array. `arrayMove` only notifies `${targetPath}.${i}` for `i` in `[min(from,to), max(from,to)]`; `arraySwap` only notifies the two swapped indices. Both are already precisely scoped, so this fix gives them fully correct, fully precise cascading with no imprecision to defer.
+
+Tightening `arrayRemove`/`arrayInsert` to notify only the exact shifted paths (extending `shiftStateIndices` to cover `pathSubscribers` keys, not just error/touched/dirty state, instead of falling back to the whole-array `notify(targetPath)`) is deferred to v0.5.0's array-ops-vs-tanstack-form(Svelte) perf task, which depends on this correctness fix landing first.
 
 ## Benchmark Coverage for the Scan Path
 
@@ -120,7 +124,7 @@ Add to `packages/core/test/form.test.ts` (or a new focused describe block):
 
 1. **Cascade correctness:** `set()` on a parent object path fires a subscriber registered at a descendant leaf path, with the correct final value.
 2. **Sibling isolation preserved:** a descendant subscriber under a *different* parent does not fire (regression guard for the existing "sibling paths don't fire" behavior).
-3. **Array ops cascade:** `arrayRemove`/`arrayInsert`/`arrayMove`/`arraySwap` each fire per-item descendant subscribers with the correct post-mutation value — asserted on **value correctness**, not exact call count (call counts will change once the v0.5.0 array-ops task tightens precision; locking counts down now would make these tests immediately stale).
+3. **Array ops cascade:** `arrayRemove`/`arrayInsert`/`arrayMove`/`arraySwap` each fire per-item descendant subscribers with the correct post-mutation value. Assert on **value correctness** for all four; additionally, for `arrayRemove`/`arrayInsert` specifically, assert only "fires at least once" rather than an exact call count, since the v0.5.0 array-ops task will reduce their over-broad whole-array cascade to only the shifted paths (see Fix Design §2) — locking an exact count down now would make those two tests immediately stale. `arrayMove`/`arraySwap` are already precisely scoped by this fix (no future precision work planned for them), so their tests may assert exact call counts.
 4. **No double-fire:** a subscriber reachable via two different mutated paths in one `batch()` fires exactly once (regression guard for the dedup fix).
 5. **Existing full suite stays green** — all 9132 existing tests, unmodified expectations, since no test encoded the buggy behavior as intentional (confirmed during investigation).
 
@@ -142,6 +146,6 @@ The unit tests (see Testing Strategy above) are what validate correctness — a 
 
 ## Out of Scope
 
-- Tightening array ops to notify only exact shifted paths instead of the whole array root — deferred to v0.5.0's array-ops-vs-tanstack-form(Svelte) perf task, which builds on top of this fix.
+- Tightening `arrayRemove`/`arrayInsert` to notify only exact shifted paths instead of falling back to the whole array root — deferred to v0.5.0's array-ops-vs-tanstack-form(Svelte) perf task, which builds on top of this fix. (`arrayMove`/`arraySwap` need no such follow-up — already precisely scoped.)
 - Any change to `reset()` — already correct.
 - A trie/index structure for faster descendant lookup — the type guard already excludes the hot path (primitive leaf sets) from paying any scan cost, and object/array mutations are infrequent enough that a linear `Map.keys()` scan is acceptable; a fancier data structure would add complexity and bug surface without a demonstrated need.
