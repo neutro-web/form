@@ -179,6 +179,37 @@ describe('Async validation', () => {
     vi.useRealTimers();
   });
 
+  test('validate() with asyncDebounceMs: 0 resolves without an extra setTimeout macrotask', async () => {
+    const form = createForm({
+      initialValues: { email: '' },
+      asyncDebounceMs: 0,
+      validator: async (values) => (values.email ? {} : { email: 'required' }),
+    });
+
+    // A bare setTimeout(fn, 0) is clamped by Node to ~1ms and forces a full
+    // event-loop timer-phase cycle. A microtask-based resolution completes
+    // within the same tick family as a chain of Promise.resolve()s, which is
+    // reliably faster. Race validate() against a burst of 50 chained
+    // microtasks: if validate() still goes through a real timer, the
+    // microtask burst - which never yields to the timer phase - finishes
+    // first every time. If validate() is microtask-based, the two resolve in
+    // comparable order (either could win, since both are microtask-driven).
+    let microtaskBurstDone = false;
+    const microtaskBurst = (async () => {
+      for (let i = 0; i < 50; i++) await Promise.resolve();
+      microtaskBurstDone = true;
+    })();
+
+    await form.validate();
+
+    // If this fails, validate() finished strictly after 50 chained microtasks
+    // completed, which only happens if it was waiting on a real timer (macrotask).
+    // Check state immediately, before awaiting the burst to completion below
+    // (which would trivially make it `true` regardless of validate()'s timing).
+    expect(microtaskBurstDone).toBe(false);
+    await microtaskBurst;
+  });
+
   it("concurrent paths do not cancel each other's timers — bug #8 regression", async () => {
     vi.useFakeTimers();
     const results: string[] = [];

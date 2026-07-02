@@ -1422,18 +1422,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         if (validationResult instanceof Promise) {
           // Bug #8: per-invocation debounce — uses a local timer, not a shared one.
           const resolvedErrors = await new Promise<Record<string, string>>((resolve) => {
-            let localTimer: any;
-            const onAbort = () => {
-              clearTimeout(localTimer);
-              resolve(errors);
-            };
-            abortController?.signal.addEventListener('abort', onAbort, { once: true });
-            localTimer = setTimeout(async () => {
-              abortController?.signal.removeEventListener('abort', onAbort);
-              if (abortController?.signal.aborted) {
-                resolve(errors);
-                return;
-              }
+            const runValidator = async () => {
               try {
                 const result = await validationResult;
                 if (!isValidatorReturn(result)) {
@@ -1447,7 +1436,39 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
               } catch {
                 resolve({ _global: 'Asynchronous validation transaction failed.' });
               }
-            }, asyncDebounceMs);
+            };
+
+            if (!asyncDebounceMs) {
+              // Bug #8 fix: with no debounce window to wait through, skip the
+              // setTimeout macrotask entirely. A bare setTimeout(fn, 0) still
+              // forces a full event-loop timer-phase cycle on every call -
+              // ~300x slower than resolving via microtask scheduling (proven
+              // during v0.5.0 schema-validator-overhead bench work: a sync
+              // validator sharing this same AbortController/epoch machinery
+              // ran ~300x faster than the async path, isolating the
+              // setTimeout call itself as the dominant cost, not the
+              // AbortController/epoch bookkeeping).
+              if (abortController?.signal.aborted) {
+                resolve(errors);
+                return;
+              }
+              runValidator();
+            } else {
+              let localTimer: any;
+              const onAbort = () => {
+                clearTimeout(localTimer);
+                resolve(errors);
+              };
+              abortController?.signal.addEventListener('abort', onAbort, { once: true });
+              localTimer = setTimeout(() => {
+                abortController?.signal.removeEventListener('abort', onAbort);
+                if (abortController?.signal.aborted) {
+                  resolve(errors);
+                  return;
+                }
+                runValidator();
+              }, asyncDebounceMs);
+            }
           });
 
           if (activeEpoch === asyncEpoch && !abortController?.signal.aborted) {
