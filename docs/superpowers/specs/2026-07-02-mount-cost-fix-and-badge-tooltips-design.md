@@ -175,8 +175,12 @@ export function badgeText(surface: string, library: string, cell: BadgeCell): Ba
     }
   }
 
-  // Boolean-verdict surfaces (correctness pass/fail, cancellation) with tied/win and no numeric delta.
-  return { brief: cell.verdict === 'tied' ? 'both pass' : 'neutro passes, this library does not' }
+  // Boolean-verdict surfaces (correctness pass/fail, cancellation) with no numeric delta.
+  // All three verdicts are possible here (tied/win/behind) - 'win' means neutro passes and the
+  // competitor doesn't; 'behind' (no annotation) is the reverse, and must not share 'win's text.
+  if (cell.verdict === 'tied') return { brief: 'both pass' }
+  if (cell.verdict === 'win') return { brief: 'neutro passes, this library does not' }
+  return { brief: 'this library passes, neutro does not' } // 'behind', no annotation
 }
 ```
 
