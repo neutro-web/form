@@ -1213,28 +1213,50 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   // Shared path fan-out logic used by notify(), _flushNotifications(), and reset().
+  //
+  // Walks both directions from each mutated path: upward to ancestors (so a
+  // subscriber on 'items' fires when 'items.0.v' changes) and downward to
+  // registered descendants (so a subscriber on 'items.0.v' fires when 'items.0'
+  // or 'items' is replaced wholesale). The descendant scan only runs when the
+  // mutated value is itself an object/array — primitive leaf sets (the
+  // set-get/subscriptions benchmark hot path) skip it entirely, zero added cost.
+  //
+  // All paths-to-notify across the whole flush are collected into one Set before
+  // firing, so a subscriber reachable via two different mutated paths in the same
+  // batch (e.g. arrayRemove's shifted-key notify plus its whole-array notify)
+  // fires exactly once, not once per path that reaches it.
   const notifyPathSubscribers = (paths: string[]) => {
-    paths.forEach((mutatedPath) => {
+    const toNotify = new Set<string>();
+    for (const mutatedPath of paths) {
+      toNotify.add('*');
       const parts = mutatedPath.split('.');
-      const candidatePaths: string[] = ['*'];
       let accum = '';
       for (const part of parts) {
         accum = accum ? `${accum}.${part}` : part;
-        candidatePaths.push(accum);
+        toNotify.add(accum);
       }
-      for (const p of candidatePaths) {
-        const listeners = pathSubscribers.get(p);
-        if (!listeners) continue;
-        const val = p === '*' ? deepClone(values) : deepClone(getNestedValue(values, p));
-        for (const cb of listeners) {
-          try {
-            cb(val, { error: errors[p], touched: touched[p], dirty: dirty[p] });
-          } catch (err) {
-            console.error('[NeutroForm] path subscriber threw:', err);
+      const currentVal = getNestedValue(values, mutatedPath);
+      if (currentVal !== null && typeof currentVal === 'object') {
+        const descendantPrefix = `${mutatedPath}.`;
+        for (const registered of pathSubscribers.keys()) {
+          if (registered !== '*' && registered.startsWith(descendantPrefix)) {
+            toNotify.add(registered);
           }
         }
       }
-    });
+    }
+    for (const p of toNotify) {
+      const listeners = pathSubscribers.get(p);
+      if (!listeners) continue;
+      const val = p === '*' ? deepClone(values) : deepClone(getNestedValue(values, p));
+      for (const cb of listeners) {
+        try {
+          cb(val, { error: errors[p], touched: touched[p], dirty: dirty[p] });
+        } catch (err) {
+          console.error('[NeutroForm] path subscriber threw:', err);
+        }
+      }
+    }
   };
 
   // Called when a batch flushes: notifies global subscribers once, then replays each path.

@@ -2811,6 +2811,116 @@ describe('subscribeToPath — cleanup and nested paths', () => {
 });
 
 // ---------------------------------------------------------------------------
+// notifyPathSubscribers — downward cascade to descendant paths
+// ---------------------------------------------------------------------------
+
+describe('notifyPathSubscribers — downward cascade to descendant paths', () => {
+  it('set() on a parent object path fires a subscriber registered at a descendant leaf path', () => {
+    const form = createForm({ initialValues: { items: [{ v: 'a' }, { v: 'b' }] } });
+    const cb = vi.fn();
+    form.subscribeToPath('items.0.v', cb);
+    cb.mockClear();
+    form.set('items.0', { v: 'ZZZ' }, { validate: false });
+    expect(cb).toHaveBeenCalled();
+    expect(cb.mock.calls[cb.mock.calls.length - 1][0]).toBe('ZZZ');
+  });
+
+  it('does not fire a descendant subscriber under a different parent', () => {
+    const form = createForm({
+      initialValues: { items: [{ v: 'a' }], other: { v: 'z' } },
+    });
+    const cb = vi.fn();
+    form.subscribeToPath('other.v', cb);
+    cb.mockClear();
+    form.set('items.0', { v: 'ZZZ' }, { validate: false });
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it("arrayRemove notifies a shifted item's descendant value subscriber with its new value", () => {
+    const form = createForm({
+      initialValues: { items: [{ v: 'a' }, { v: 'b' }, { v: 'c' }, { v: 'd' }] },
+    });
+    const cb = vi.fn();
+    // index 1 will hold 'c' (shifted down from index 2) after removing index 1's original item 'b'
+    form.subscribeToPath('items.1.v', cb);
+    cb.mockClear();
+    form.arrayRemove('items', 1);
+    expect(cb).toHaveBeenCalled();
+    expect(cb.mock.calls[cb.mock.calls.length - 1][0]).toBe('c');
+  });
+
+  it("arrayInsert notifies a shifted item's descendant value subscriber with its new value", () => {
+    const form = createForm({
+      initialValues: { items: [{ v: 'a' }, { v: 'b' }, { v: 'c' }] },
+    });
+    const cb = vi.fn();
+    // index 2 will hold 'b' (shifted down from index 1) after inserting a new item at index 1
+    form.subscribeToPath('items.2.v', cb);
+    cb.mockClear();
+    form.arrayInsert('items', 1, { v: 'X' });
+    expect(cb).toHaveBeenCalled();
+    expect(cb.mock.calls[cb.mock.calls.length - 1][0]).toBe('b');
+  });
+
+  it("arrayMove notifies only the affected range's descendant subscribers, not siblings outside it", () => {
+    const form = createForm({
+      initialValues: {
+        items: [{ v: 'a' }, { v: 'b' }, { v: 'c' }, { v: 'd' }, { v: 'e' }],
+      },
+    });
+    const cb1 = vi.fn();
+    const cb3 = vi.fn();
+    const cb4 = vi.fn(); // index 4 is outside the [1,3] move range — must not fire
+    form.subscribeToPath('items.1.v', cb1);
+    form.subscribeToPath('items.3.v', cb3);
+    form.subscribeToPath('items.4.v', cb4);
+    cb1.mockClear();
+    cb3.mockClear();
+    cb4.mockClear();
+    form.arrayMove('items', 1, 3); // [a,b,c,d,e] -> [a,c,d,b,e]
+    expect(cb1).toHaveBeenCalledTimes(1);
+    expect(cb1.mock.calls[0][0]).toBe('c');
+    expect(cb3).toHaveBeenCalledTimes(1);
+    expect(cb3.mock.calls[0][0]).toBe('b');
+    expect(cb4).not.toHaveBeenCalled();
+  });
+
+  it('arraySwap notifies exactly the two swapped descendant subscribers with correct values', () => {
+    const form = createForm({
+      initialValues: { items: [{ v: 'a' }, { v: 'b' }, { v: 'c' }, { v: 'd' }] },
+    });
+    const cb0 = vi.fn();
+    const cb3 = vi.fn();
+    const cb1 = vi.fn(); // unaffected sibling — must not fire
+    form.subscribeToPath('items.0.v', cb0);
+    form.subscribeToPath('items.3.v', cb3);
+    form.subscribeToPath('items.1.v', cb1);
+    cb0.mockClear();
+    cb3.mockClear();
+    cb1.mockClear();
+    form.arraySwap('items', 0, 3);
+    expect(cb0).toHaveBeenCalledTimes(1);
+    expect(cb0.mock.calls[0][0]).toBe('d');
+    expect(cb3).toHaveBeenCalledTimes(1);
+    expect(cb3.mock.calls[0][0]).toBe('a');
+    expect(cb1).not.toHaveBeenCalled();
+  });
+
+  it('does not double-fire a subscriber reachable via two different mutated paths in the same batch', () => {
+    const form = createForm({ initialValues: { items: [{ v: 'a' }] } });
+    const cb = vi.fn();
+    form.subscribeToPath('items.0.v', cb);
+    cb.mockClear();
+    form.batch(() => {
+      form.set('items.0', { v: 'X' }, { validate: false }); // descendant scan reaches items.0.v
+      form.set('items.0.v', 'Y', { validate: false }); // direct set also reaches items.0.v
+    });
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb.mock.calls[0][0]).toBe('Y');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // getConnectedCount
 // ---------------------------------------------------------------------------
 
