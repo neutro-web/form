@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-02
 **Status:** Draft — pending user review
-**Scope:** `bench/suites/browser/mount-cost.spec.ts` (Part 1); `bench/scripts/scorecard.ts`, `bench/lib/verdict.ts`, `bench/annotations.ts`, `bench/scripts/generate-page.ts` (Part 2)
+**Scope:** `bench/suites/browser/mount-cost.spec.ts` (Part 1); `bench/scripts/scorecard.ts`, `bench/scripts/scorecard.test.ts`, `bench/annotations.ts`, `bench/scripts/generate-page.ts` (Part 2). `bench/lib/verdict.ts` needs **zero code changes** (see Part 2, point 6) — its `Boolean(ANNOTATIONS[...])` checks stay correct against the reshaped annotation objects since any non-null object is truthy — but is worth re-reading during implementation to confirm that hasn't changed.
 
 ---
 
@@ -18,9 +18,9 @@
 RHF running first:     domInteractive=32.5ms, responseEnd=14.1ms
 neutro running second: domInteractive=4.2ms,  responseEnd=1.6ms
 ```
-Swapping the order flips which one shows the high number. Reordering `mount-cost.spec.ts`'s `COMBOS` array (moving `neutro/form (React)` to the last position for port 4173, with a genuinely cold server — port killed and rebuilt beforehand) reproduced this: neutro's number did NOT move with it in that particular run, which momentarily looked contradictory, but the discrepancy traced to Playwright's `webServer` health-check absorbing the cold-boot cost into pre-test setup time in that specific invocation, not into any page's in-page navigation timing — the clean, isolated A/B above is the decisive evidence, and it's unambiguous.
+Swapping the order flips which one shows the high number. **This is the decisive evidence and it's unambiguous on its own.** A separate reproduction attempt — reordering `mount-cost.spec.ts`'s actual `COMBOS` array (moving `neutro/form (React)` to the last position for port 4173, with a genuinely cold server — port killed and rebuilt beforehand) — did NOT show the same flip in that run; neutro's number stayed high even though it ran last. That result is not fully explained (the working theory is that Playwright's `webServer` health-check absorbed the cold-boot cost into pre-test setup time in that specific invocation, outside any page's in-page navigation timing, which would mean it wasn't testing the same thing as the clean A/B) — but this is a theory, not something independently confirmed. **Given this unresolved discrepancy, the fix below should not be treated as proven correct until the Verification step is actually run and shown to close the gap** — the isolated A/B is strong evidence for the mechanism, but the full-suite reproduction attempt leaves a loose end worth being honest about rather than explaining away.
 
-`neutro/form` happens to be declared first in `COMBOS` for **every** framework (React, Vue, Svelte) — matching neutro's section also being first in DOM order in all three bench apps (a pre-existing convention from earlier surfaces, not something new). So neutro is systematically the one eating the cold-connection cost on every framework, every run, while every competitor is measured against an already-warm connection. This is a real measurement-validity bug in the benchmark, not a neutro/form defect.
+`neutro/form` happens to be declared first in `COMBOS` for **every** framework (React, Vue, Svelte) — matching neutro's section also being first in DOM order in all three bench apps (a pre-existing convention from earlier surfaces, not something new). So neutro is systematically the one eating the cold-connection cost on every framework, every run, while every competitor is measured against an already-warm connection (or, per the unresolved discrepancy above, whichever less-clean mechanism is really at play) — either way, this is a real measurement-validity concern in the benchmark, not a confirmed neutro/form defect.
 
 ### Design
 
@@ -53,11 +53,13 @@ test.describe('mount-cost', () => {
 })
 ```
 
-`warmedPorts` is module-level state shared across all `test()` calls in the file — safe here because Playwright runs this file's tests sequentially within a single worker by default (no `test.describe.configure({ mode: 'parallel' })` in this file), so there's no race on the `Set`. The warm-up navigation reuses the same `page` fixture the real measurement will use next, so the *connection* (not just DNS/OS-level state) is warm for the subsequent measured `page.goto()` to the same origin.
+`warmedPorts` is module-level state shared across all `test()` calls in the file — safe here because Playwright runs this file's tests sequentially within a single worker by default (verified against `bench/playwright.config.ts`: no `workers`, no `fullyParallel`, and this file has no `test.describe.configure({ mode: 'parallel' })`), so there's no race on the `Set`. The warm-up navigation reuses the same `page` fixture the real measurement will use next, so the *connection* (not just DNS/OS-level state) is warm for the subsequent measured `page.goto()` to the same origin.
+
+**One wrinkle, not a correctness problem:** `bench/playwright.config.ts` sets `retries: 2`. A retried test runs in a fresh worker process, which resets `warmedPorts` for that worker — meaning a retry pays one extra (harmless, unmeasured) warm-up navigation. This doesn't affect correctness, just worth knowing if warm-up-navigation counts ever look higher than expected during debugging.
 
 ### Verification
 
-After the fix, re-run the same A/B-style check used to diagnose this: run `mount-cost.spec.ts` for React with `neutro/form (React)` first in `COMBOS` (current order), then with it moved to last, and confirm the reported `mountMs` values are now close to identical regardless of position (within normal run-to-run noise, not a 6-9x swing). Then run the full suite and confirm `neutro/form (React)`, `(Vue)`, and `(Svelte)` all land in the same rough neighborhood as their competitors (single-digit-to-low-double-digit ms), not systematically 6-9x higher.
+**This step is not optional polish — given the Problem section's unresolved discrepancy, treat this as the actual proof the fix works, not a formality.** After the fix, re-run the same A/B-style check used to diagnose this: run `mount-cost.spec.ts` for React with `neutro/form (React)` first in `COMBOS` (current order), then with it moved to last, and confirm the reported `mountMs` values are now close to identical regardless of position (within normal run-to-run noise, not a 6-9x swing). Then run the full suite and confirm `neutro/form (React)`, `(Vue)`, and `(Svelte)` all land in the same rough neighborhood as their competitors (single-digit-to-low-double-digit ms), not systematically 6-9x higher. If either check doesn't hold, the fix has not actually addressed the root cause and needs further diagnosis before being committed — do not commit on the strength of the A/B evidence alone.
 
 ### Out of scope
 
@@ -87,14 +89,15 @@ export interface BadgeCell {
   competitorValue?: number
   unit?: 'renders' | 'ms' | 'bytes'
   higherIsBetter?: boolean
+  neutroLibrary?: string // the same-framework neutro/form variant this cell was compared against
 }
 ```
 
-`buildScorecard` already computes `neutroResult`/`competitorResult` internally for every cell before calling `computeVerdict`/`computeBooleanVerdict` — it currently discards that after extracting the verdict. Concretely, per existing call site:
+`buildScorecard` already computes `neutroResult`/`competitorResult`/`neutroLib` (via `findNeutroLibrary`) internally for every cell before calling `computeVerdict`/`computeBooleanVerdict` — it currently discards all of that after extracting the verdict. **`neutroLibrary` is included specifically so render-time code never needs to re-derive it** (see point 4 below — this is what replaces the earlier unresolved `findNeutroLibrary(/* ... */)` placeholder). Concretely, per existing call site:
 
-- `BROWSER_NUMERIC_SURFACES`'s array (`re-renders/10`, `re-renders/100`, `array-ops` — all `renderCount`; `async-latency` — `p50Ms`) gets a `unit` field added to each entry: `'renders'` for the three `renderCount`-metric surfaces, `'ms'` for `async-latency`. The existing loop's `badges[key] = computeVerdict(...)` becomes `badges[key] = { verdict: computeVerdict(...), neutroValue: neutroResult?.[metric], competitorValue: competitorResult[metric], unit, higherIsBetter }`.
-- The `bundle-size` block (`badges['bundle-size'] = computeVerdict('bundle-size', library, neutroResult?.gzipBytes, competitorResult.gzipBytes, false, competitorResult.status)`) becomes `badges['bundle-size'] = { verdict: computeVerdict(...), neutroValue: neutroResult?.gzipBytes, competitorValue: competitorResult.gzipBytes, unit: 'bytes', higherIsBetter: false }`.
-- The `async-cancellation` block and the `CORRECTNESS_SURFACES` loop (both boolean-verdict, via `computeBooleanVerdict`) become `badges[key] = { verdict: computeBooleanVerdict(...) }` — `neutroValue`/`competitorValue`/`unit` all omitted (`BadgeCell`'s fields are optional) since there's no meaningful numeric delta to show; their brief/detail text comes entirely from `ANNOTATIONS`/a fixed pass/fail phrase, not a computed percentage.
+- `BROWSER_NUMERIC_SURFACES`'s array (`re-renders/10`, `re-renders/100`, `array-ops` — all `renderCount`; `async-latency` — `p50Ms`) gets a `unit` field added to each entry: `'renders'` for the three `renderCount`-metric surfaces, `'ms'` for `async-latency`. The existing loop's `badges[key] = computeVerdict(...)` becomes `badges[key] = { verdict: computeVerdict(...), neutroValue: neutroResult?.[metric], competitorValue: competitorResult[metric], unit, higherIsBetter, neutroLibrary: neutroLib }` (`neutroLib` is the variable this loop already computes via `findNeutroLibrary` before calling `computeVerdict` — just stop discarding it).
+- The `bundle-size` block (`badges['bundle-size'] = computeVerdict('bundle-size', library, neutroResult?.gzipBytes, competitorResult.gzipBytes, false, competitorResult.status)`) becomes `badges['bundle-size'] = { verdict: computeVerdict(...), neutroValue: neutroResult?.gzipBytes, competitorValue: competitorResult.gzipBytes, unit: 'bytes', higherIsBetter: false, neutroLibrary: 'neutro/form' }` (bundle-size has no per-framework variants — `neutroResult` is always looked up by the single literal `'neutro/form'` key already).
+- The `async-cancellation` block and the `CORRECTNESS_SURFACES` loop (both boolean-verdict, via `computeBooleanVerdict`) become `badges[key] = { verdict: computeBooleanVerdict(...), neutroLibrary: neutroLib }` — `neutroValue`/`competitorValue`/`unit` all omitted (`BadgeCell`'s fields are optional) since there's no meaningful numeric delta to show; their brief/detail text comes entirely from `ANNOTATIONS`/a fixed pass/fail phrase, not a computed percentage. `neutroLibrary` is still populated so the annotation fallback lookup (point 3 below) works the same way as the numeric surfaces.
 
 **2. `ANNOTATIONS` entries become `{ brief, detail }` pairs.**
 
@@ -131,8 +134,8 @@ function formatValue(v: number, unit?: string): string {
   return `${v}${unit === 'renders' ? ' renders' : ''}`
 }
 
-export function badgeText(surface: string, library: string, neutroLibrary: string | undefined, cell: BadgeCell): BadgeText {
-  const annotation = ANNOTATIONS[surface]?.[library] ?? (neutroLibrary ? ANNOTATIONS[surface]?.[neutroLibrary] : undefined)
+export function badgeText(surface: string, library: string, cell: BadgeCell): BadgeText {
+  const annotation = ANNOTATIONS[surface]?.[library] ?? (cell.neutroLibrary ? ANNOTATIONS[surface]?.[cell.neutroLibrary] : undefined)
 
   if (cell.verdict === 'tradeoff' || cell.verdict === 'behind') {
     if (annotation) return { brief: annotation.brief, detail: annotation.detail }
@@ -178,6 +181,10 @@ export function badgeText(surface: string, library: string, neutroLibrary: strin
 **4. Rendering: `generate-page.ts`'s `scorecardTable` wraps each badge in a `title` span and attaches a footnote when `detail` is present.**
 
 ```ts
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/\|/g, '&#124;')
+}
+
 function scorecardTable(columns: string[]): string {
   const rows = buildScorecard(baseline)
   const header = `| Library | ${columns.join(' | ')} |`
@@ -186,11 +193,10 @@ function scorecardTable(columns: string[]): string {
     const cells = columns.map(c => {
       const cell = r.badges[c]
       if (!cell) return BADGE_LABEL['na']
-      const neutroLib = findNeutroLibrary(/* ... */) // same helper already used in scorecard.ts's build step
-      const { brief, detail } = badgeText(c, r.library, neutroLib, cell)
+      const { brief, detail } = badgeText(c, r.library, cell)
       const label = BADGE_LABEL[cell.verdict]
       const citation = detail ? addFootnote(c, r.library, detail) : ''
-      return `<span title="${brief.replace(/"/g, '&quot;')}">${label}</span>${citation}`
+      return `<span title="${escapeAttr(brief)}">${label}</span>${citation}`
     })
     return `| ${r.library} | ${cells.join(' | ')} |`
   }).join('\n')
@@ -198,7 +204,63 @@ function scorecardTable(columns: string[]): string {
 }
 ```
 
-`addFootnote`/the existing footnote-key-dedup logic in `generate-page.ts` is reused as-is (already keys by `${surface}-${library}`, already dedupes). `findNeutroLibrary` currently lives in `scorecard.ts` as a module-private function — this design promotes it to an exported function so `generate-page.ts` can call it too (needed to look up the `neutroLibrary`-keyed annotation fallback, matching `verdict.ts`'s existing `hasAnnotation` check).
+`escapeAttr` handles both HTML-attribute safety (`&`, `"`, `<`) and markdown-table safety (`|`, which would otherwise split the row if it ever appeared in a `brief` string) — the earlier draft only escaped `"`, which was incomplete. No current `ANNOTATIONS`/computed brief text contains `|` or `<`, so this is defensive against future text, not a fix for an existing broken case.
+
+`addFootnote`/the existing footnote-key-dedup logic in `generate-page.ts` is reused as-is (already keys by `${surface}-${library}`, already dedupes) — **including for cells `reasonMarker` also annotates** (see point 5 below): `scorecardTable` runs before the browser-table loop that calls `reasonMarker`, so for a surface/library pair that appears in both places, the scorecard's `detail`-sourced footnote is pushed first and `reasonMarker`'s later call for the same key is a no-op dedup hit — this only stays textually consistent once `reasonMarker` itself is updated to read `.detail` too (point 5), otherwise the two call sites would (harmlessly, since dedup means only the first write wins) just have one path's text silently take precedence — worth knowing, not a bug once point 5 is fixed.
+
+The earlier draft called an unresolved `findNeutroLibrary(/* ... */)` placeholder here — that gap is now closed by `BadgeCell.neutroLibrary` (point 1 above) already carrying the answer `buildScorecard` computed at data-build time, so `scorecardTable` needs no additional lookup and `findNeutroLibrary` does NOT need to be exported from `scorecard.ts` after all — `badgeText` reads `cell.neutroLibrary` directly.
+
+**5. Two existing `ANNOTATIONS`-as-string consumers in `generate-page.ts` must be updated for the `{brief, detail}` reshape, or they render `[object Object]`.**
+
+Both currently treat `ANNOTATIONS[surface]?.[library]` as a plain string — after the reshape it's an object, so both need a `.detail` read:
+
+```ts
+// reasonMarker — currently:
+function reasonMarker(surface: string, library: string): string {
+  const reason = ANNOTATIONS[surface]?.[library]
+  return reason ? addFootnote(surface, library, reason) : ''
+}
+// becomes:
+function reasonMarker(surface: string, library: string): string {
+  const reason = ANNOTATIONS[surface]?.[library]
+  return reason ? addFootnote(surface, library, reason.detail) : ''
+}
+```
+
+```ts
+// correctnessTable's Why column — currently:
+const why = r.status === 'pass'
+  ? (PASS_REASONS[surface] ?? '')
+  : (ANNOTATIONS[surface]?.[r.library] ?? '')
+// becomes:
+const why = r.status === 'pass'
+  ? (PASS_REASONS[surface] ?? '')
+  : (ANNOTATIONS[surface]?.[r.library]?.detail ?? '')
+```
+
+`reasonMarker` is called from `browserTable`'s latency and cancellation cells (`bench/scripts/generate-page.ts`, the `hasLatency`/`hasCancellation`/`hasRender` branches) — every one of those call sites is unaffected by this change since they only ever read `reasonMarker`'s return value, never the raw `ANNOTATIONS` entry directly.
+
+**6. `bench/scripts/scorecard.test.ts` asserts directly against the old `Record<string, Verdict>` shape and must be updated, or `pnpm test` breaks.**
+
+Confirmed via direct read: this file has assertions like `expect(rhfRow!.badges['array-state-integrity']).toBe('na')`, `.toBe('tied')`, and `expect(veeRow!.badges['array-ops']).toBe('win')`. Under the `BadgeCell` change, `badges['x']` is now an object, not a string, so every one of these `.toBe(string)` assertions needs to become `.toBe... ` against `.verdict`:
+
+```ts
+// before:
+expect(rhfRow!.badges['array-state-integrity']).toBe('na')
+expect(rhfRow!.badges['re-renders/10']).toBe('tied')
+expect(rhfRow!.badges['bundle-size']).toBe('win')
+// ...
+expect(veeRow!.badges['array-ops']).toBe('win')
+
+// after:
+expect(rhfRow!.badges['array-state-integrity'].verdict).toBe('na')
+expect(rhfRow!.badges['re-renders/10'].verdict).toBe('tied')
+expect(rhfRow!.badges['bundle-size'].verdict).toBe('win')
+// ...
+expect(veeRow!.badges['array-ops'].verdict).toBe('win')
+```
+
+Every assertion in the file needs this same `.verdict` suffix added — read the current file in full during implementation and update each one; do not assume the four quoted above are exhaustive.
 
 ### Scale note
 
@@ -206,7 +268,7 @@ This adds roughly 30-45 new footnotes to the page (9 competitors × 5 performanc
 
 ### Verification
 
-After implementation, regenerate the page and directly inspect: every badge cell has a `title` attribute with non-empty text; every cell whose `brief` differs from a trivial restatement (i.e., every Win/Tied/Behind/Tradeoff/annotated-N/A cell) has a corresponding numbered footnote reference that resolves to real text in the footnotes list; hovering a badge in an actual browser (VitePress dev server) shows the native tooltip; clicking a citation number jumps to the correct footnote.
+Run `pnpm exec vitest run bench/scripts/scorecard.test.ts` (or the equivalent from within `bench/`) after updating the test file (point 6) — this must pass before anything else, since it's the fastest signal that the type change didn't silently break existing consumers. Then regenerate the page and directly inspect: every badge cell has a `title` attribute with non-empty text; every cell whose `brief` differs from a trivial restatement (i.e., every Win/Tied/Behind/Tradeoff/annotated-N/A cell) has a corresponding numbered footnote reference that resolves to real text in the footnotes list — specifically grep the generated page for the literal string `[object Object]` and confirm zero matches, which is exactly what the two unfixed `ANNOTATIONS`-string consumers (point 5) would have produced; hovering a badge in an actual browser (VitePress dev server) shows the native tooltip; clicking a citation number jumps to the correct footnote. Finally run the full monorepo sweep (`pnpm test`, `pnpm exec tsc --noEmit`, `pnpm lint`) to catch anything else the type change touches.
 
 ### Out of scope
 
