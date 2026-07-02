@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generatedAt": "2026-07-02T15:14:17.419Z",
+    "generatedAt": "2026-07-02T15:35:14.099Z",
     "neutroVersion": "0.4.3",
     "nodeVersion": "v18.20.8",
     "platform": "darwin",
@@ -297,7 +297,7 @@
     ],
     "validation-scope-precision": [
       {
-        "library": "set() on a field with 3 declared dependents validates exactly itself + those 3, not the whole form",
+        "library": "neutro/form",
         "status": "pass"
       }
     ]

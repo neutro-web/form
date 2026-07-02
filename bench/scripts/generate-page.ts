@@ -17,6 +17,8 @@ const SURFACE_TITLES: Record<string, string> = {
   'array-ops': 'Array Operations (remove + move, render count)',
   'async-cancellation': 'Async Cancellation (stale-result race)',
   'dom-cleanup': 'DOM Cleanup (connect/disconnect, neutro only)',
+  'mount-cost': 'Mount Cost (time to interactive, Navigation Timing API)',
+  'memory-churn': 'Memory Churn (heap delta across mount/unmount cycles, post-GC)',
 }
 
 const BADGE_LABEL: Record<Verdict, string> = {
@@ -61,16 +63,20 @@ function browserTable(surface: string, results: BrowserResult[]): string {
   const hasLatency = results.some(r => r.p50Ms != null)
   const hasCancellation = results.some(r => r.cancellationPass != null)
   const hasCleanup = results.some(r => r.connectedCountAfterCleanup != null)
+  const hasMount = results.some(r => r.mountMs != null)
+  const hasHeap = results.some(r => r.heapDeltaBytes != null)
 
   const headers: string[] = ['Library']
   if (hasRender) headers.push('Renders')
   if (hasLatency) headers.push('p50', 'p99')
   if (hasCancellation) headers.push('Cancellation')
   if (hasCleanup) headers.push('Connected after cleanup')
+  if (hasMount) headers.push('Time to interactive')
+  if (hasHeap) headers.push('Heap delta (post-GC)')
 
   const rows = results.map(r => {
     const cells: string[] = [r.library]
-    if (hasRender) cells.push(r.renderCount != null ? String(r.renderCount) : '—')
+    if (hasRender) cells.push(r.renderCount != null ? `${r.renderCount}${reasonMarker(surface, r.library)}` : '—')
     if (hasLatency) cells.push(
       r.p50Ms != null ? `${r.p50Ms}ms${reasonMarker(surface, r.library)}` : '—',
       r.p99Ms != null ? `${r.p99Ms}ms` : '—',
@@ -79,6 +85,8 @@ function browserTable(surface: string, results: BrowserResult[]): string {
       r.cancellationPass == null ? '—' : r.cancellationPass ? '✅' : `❌${reasonMarker(surface, r.library)}`,
     )
     if (hasCleanup) cells.push(r.connectedCountAfterCleanup != null ? String(r.connectedCountAfterCleanup) : '—')
+    if (hasMount) cells.push(r.mountMs != null ? `${r.mountMs.toFixed(1)}ms` : '—')
+    if (hasHeap) cells.push(r.heapDeltaBytes != null ? `${(r.heapDeltaBytes / 1024).toFixed(1)} KB` : '—')
     return `| ${cells.join(' | ')} |`
   }).join('\n')
 

@@ -17,6 +17,7 @@ export const PASS_REASONS: Record<string, string> = {
   'array-state-integrity': 'errors/touched/dirty state is rekeyed by index on every array splice/move/swap',
   'async-race': 'each async validation run gets its own AbortController; stale results are discarded by epoch',
   'dependency-trigger': 'a static dependency graph is precompiled at form init, so dependent fields re-validate automatically',
+  'validation-scope-precision': 'set() on a field with 3 declared dependents validates exactly itself + those 3 (4 of 504 total fields), not the whole form — the O(1) precomputed dependency-graph claim, quantified',
 }
 
 // Hand-maintained map of surface -> library -> reason. This is the single source for both
@@ -57,5 +58,8 @@ export const ANNOTATIONS: Record<string, Record<string, string>> = {
   },
   'bundle-size': {
     'tanstack-form': "neutro/form's createForm is a single closure factory (array ops, DOM bridge, persistence, computed fields, and devtools hooks all in one function body) so nothing is tree-shakeable; tanstack-form's modular file structure lets esbuild drop unused code paths despite a larger raw source size.",
+  },
+  'array-ops': {
+    'tanstack-form (Svelte)': "TanStack's own Svelte bench harness never defines window.__resetArrayRenders, so its render counter (window.__tanstackArrayRenders) stays permanently empty and reports an artificial 0 — not a real absence of render work. Confirmed by direct inspection during this project's own v0.5.0 verification; not a neutro/form architectural gap.",
   },
 }

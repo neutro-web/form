@@ -56,7 +56,7 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 | react-hook-form | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ➖ Tied | ➖ Tied |
 | tanstack-form | — N/A | — N/A | — N/A | — N/A | — N/A |
 | tanstack-form (React) | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ✅ Win | ➖ Tied |
-| tanstack-form (Svelte) | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ❌ Behind | ➖ Tied |
+| tanstack-form (Svelte) | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ⚖️ Tradeoff | ➖ Tied |
 | vee-validate | ➖ Tied | ➖ Tied | ⚖️ Tradeoff | ➖ Tied | ➖ Tied |
 
 ### Size
@@ -107,23 +107,23 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 
 | Library | Result | Why |
 |---|---|---|
-| set() on a field with 3 declared dependents validates exactly itself + those 3, not the whole form | ✅ PASS |  |
+| neutro/form | ✅ PASS | set() on a field with 3 declared dependents validates exactly itself + those 3 (4 of 504 total fields), not the whole form — the O(1) precomputed dependency-graph claim, quantified |
 
 ## Browser (Chromium / Playwright, production build, no StrictMode)
 
-### mount-cost
+### Mount Cost (time to interactive, Navigation Timing API)
 
-| Library |
-|---|
-| neutro/form (React) |
-| react-hook-form |
-| formik |
-| tanstack-form (React) |
-| neutro/form (Vue) |
-| vee-validate |
-| neutro/form (Svelte) |
-| tanstack-form (Svelte) |
-| felte |
+| Library | Time to interactive |
+|---|---|
+| neutro/form (React) | 35.0ms |
+| react-hook-form | 5.7ms |
+| formik | 4.2ms |
+| tanstack-form (React) | 4.0ms |
+| neutro/form (Vue) | 7.5ms |
+| vee-validate | 3.8ms |
+| neutro/form (Svelte) | 7.3ms |
+| tanstack-form (Svelte) | 4.7ms |
+| felte | 4.0ms |
 
 ### Array Operations (remove + move, render count)
 
@@ -138,7 +138,7 @@ _Note: render counts are not directly comparable across all libraries on this su
 | neutro/form (Vue) | 18 |
 | vee-validate | 18 |
 | neutro/form (Svelte) | 21 |
-| tanstack-form (Svelte) | 0 |
+| tanstack-form (Svelte) | 0[^array-ops-tanstack-form (Svelte)] |
 | felte | 47 |
 
 ### DOM Cleanup (connect/disconnect, neutro only)
@@ -149,12 +149,12 @@ _Note: render counts are not directly comparable across all libraries on this su
 | neutro/form (Vue) | 0 |
 | neutro/form (Svelte) | 0 |
 
-### memory-churn
+### Memory Churn (heap delta across mount/unmount cycles, post-GC)
 
-| Library |
-|---|
-| neutro/form (React) |
-| react-hook-form |
+| Library | Heap delta (post-GC) |
+|---|---|
+| neutro/form (React) | 591.7 KB |
+| react-hook-form | 636.0 KB |
 
 ### Async Cancellation (stale-result race)
 
@@ -237,6 +237,7 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 ---
 
+[^array-ops-tanstack-form (Svelte)]: tanstack-form (Svelte) — TanStack's own Svelte bench harness never defines window.__resetArrayRenders, so its render counter (window.__tanstackArrayRenders) stays permanently empty and reports an artificial 0 — not a real absence of render work. Confirmed by direct inspection during this project's own v0.5.0 verification; not a neutro/form architectural gap.
 [^async-cancellation-formik]: formik — no async cancellation API
 [^async-latency-neutro/form (React)]: neutro/form (React) — neutro debounces async validation 300ms by default (asyncDebounceMs) to avoid firing on every keystroke. See the debounce=0 column for the floor cost.
 [^async-latency-neutro/form (Vue)]: neutro/form (Vue) — same debounce policy as React — see debounce=0 column.

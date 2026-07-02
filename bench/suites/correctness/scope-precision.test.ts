@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest'
 import { createForm } from '@neutro/form-core'
 
 describe('validation-scope-precision', () => {
-  test('set() on a field with 3 declared dependents validates exactly itself + those 3, not the whole form', async () => {
+  test('neutro/form', async () => {
     const totalFields = 504 // trigger + 3 dependents + 500 unrelated
     const initialValues: Record<string, number> = { trigger: 0, dependent1: 0, dependent2: 0, dependent3: 0 }
     for (let i = 0; i < 500; i++) initialValues[`unrelated${i}`] = 0
