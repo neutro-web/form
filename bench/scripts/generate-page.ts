@@ -33,7 +33,11 @@ const BADGE_LABEL: Record<Verdict, string> = {
 
 const footnotes: string[] = []
 function addFootnote(surface: string, library: string, reason: string): string {
-  const key = `${surface}-${library}`
+  // markdown-it-footnote's [^id] reference syntax does not tolerate whitespace or punctuation
+  // like parentheses/slashes in the identifier - library names such as "tanstack-form (React)"
+  // and surface keys like "re-renders/10" break it, leaving the raw [^...] text unrendered on
+  // the page. Sanitize to a clean slug; the human-readable text still lives in the footnote body.
+  const key = `${surface}-${library}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
   const idx = footnotes.findIndex(f => f.startsWith(`[^${key}]:`))
   if (idx >= 0) return `[^${key}]`
   footnotes.push(`[^${key}]: ${library} — ${reason}`)
