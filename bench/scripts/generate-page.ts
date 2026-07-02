@@ -120,7 +120,7 @@ const lines: string[] = [
   ``,
   `| | |`,
   `|---|---|`,
-  `| CI | GitHub Actions ubuntu-latest |`,
+  `| Runner | ${baseline.meta.runner === 'github-actions' ? 'GitHub Actions ubuntu-latest' : `local (${baseline.meta.platform})`} |`,
   `| Node | ${baseline.meta.nodeVersion} |`,
   `| Browser | Chromium (Playwright) |`,
   ``,

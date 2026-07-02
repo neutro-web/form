@@ -6,7 +6,7 @@
 
 | | |
 |---|---|
-| CI | GitHub Actions ubuntu-latest |
+| Runner | local (darwin) |
 | Node | v18.20.8 |
 | Browser | Chromium (Playwright) |
 
