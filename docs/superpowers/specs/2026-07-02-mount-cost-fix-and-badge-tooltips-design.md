@@ -80,7 +80,7 @@ Scorecard badges (`✅ Win`, `➖ Tied`, `❌ Behind`, `⚖️ Tradeoff`, `— N
 
 **1. `ScorecardRow` carries the raw comparison, not just the verdict.**
 
-`bench/scripts/scorecard.ts`'s `ScorecardRow.badges` changes from `Record<string, Verdict>` to `Record<string, BadgeCell>`:
+`bench/scripts/scorecard.ts`'s `ScorecardRow.badges` changes from `Record<string, Verdict>` to `Record<string, BadgeCell>`. This also means the function body's own local `const badges: Record<string, Verdict> = {}` (inside `buildScorecard`'s per-library loop) must be re-typed to `Record<string, BadgeCell>` — easy to miss since it's a local variable, not the exported interface, but `tsc` will catch it immediately if skipped:
 
 ```ts
 export interface BadgeCell {
@@ -97,7 +97,9 @@ export interface BadgeCell {
 
 - `BROWSER_NUMERIC_SURFACES`'s array (`re-renders/10`, `re-renders/100`, `array-ops` — all `renderCount`; `async-latency` — `p50Ms`) gets a `unit` field added to each entry: `'renders'` for the three `renderCount`-metric surfaces, `'ms'` for `async-latency`. The existing loop's `badges[key] = computeVerdict(...)` becomes `badges[key] = { verdict: computeVerdict(...), neutroValue: neutroResult?.[metric], competitorValue: competitorResult[metric], unit, higherIsBetter, neutroLibrary: neutroLib }` (`neutroLib` is the variable this loop already computes via `findNeutroLibrary` before calling `computeVerdict` — just stop discarding it).
 - The `bundle-size` block (`badges['bundle-size'] = computeVerdict('bundle-size', library, neutroResult?.gzipBytes, competitorResult.gzipBytes, false, competitorResult.status)`) becomes `badges['bundle-size'] = { verdict: computeVerdict(...), neutroValue: neutroResult?.gzipBytes, competitorValue: competitorResult.gzipBytes, unit: 'bytes', higherIsBetter: false, neutroLibrary: 'neutro/form' }` (bundle-size has no per-framework variants — `neutroResult` is always looked up by the single literal `'neutro/form'` key already).
-- The `async-cancellation` block and the `CORRECTNESS_SURFACES` loop (both boolean-verdict, via `computeBooleanVerdict`) become `badges[key] = { verdict: computeBooleanVerdict(...), neutroLibrary: neutroLib }` — `neutroValue`/`competitorValue`/`unit` all omitted (`BadgeCell`'s fields are optional) since there's no meaningful numeric delta to show; their brief/detail text comes entirely from `ANNOTATIONS`/a fixed pass/fail phrase, not a computed percentage. `neutroLibrary` is still populated so the annotation fallback lookup (point 3 below) works the same way as the numeric surfaces.
+- The `async-cancellation` block (which already computes a `neutroLib` variable, same as the numeric loop) becomes `badges['async-cancellation'] = { verdict: computeBooleanVerdict(...), neutroLibrary: neutroLib }`.
+- The `CORRECTNESS_SURFACES` loop is different: read directly, it has **no `neutroLib` variable at all** — it hardcodes `results.find(r => r.library === 'neutro/form')` (no framework variants for these Node-level correctness surfaces, same situation as bundle-size). So this loop becomes `badges[surface] = { verdict: computeBooleanVerdict(...), neutroLibrary: 'neutro/form' }` — the literal string, not a `neutroLib` variable reference (there isn't one to reference here; do not introduce one just to match the async-cancellation block's shape).
+- All three of these boolean-verdict cases omit `neutroValue`/`competitorValue`/`unit` (`BadgeCell`'s fields are optional) since there's no meaningful numeric delta to show; their brief/detail text comes entirely from `ANNOTATIONS`/a fixed pass/fail phrase, not a computed percentage. `neutroLibrary` is still populated in all three so the annotation fallback lookup (point 3 below) works the same way as the numeric surfaces.
 
 **2. `ANNOTATIONS` entries become `{ brief, detail }` pairs.**
 
