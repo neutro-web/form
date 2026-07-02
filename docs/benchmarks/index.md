@@ -103,7 +103,27 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 | formik | — N/A | no declarative dependency graph; cross-field validation is manual |
 | vee-validate | — N/A | no declarative dependency graph; cross-field validation is manual |
 
+### validation-scope-precision
+
+| Library | Result | Why |
+|---|---|---|
+| set() on a field with 3 declared dependents validates exactly itself + those 3, not the whole form | ✅ PASS |  |
+
 ## Browser (Chromium / Playwright, production build, no StrictMode)
+
+### mount-cost
+
+| Library |
+|---|
+| neutro/form (React) |
+| react-hook-form |
+| formik |
+| tanstack-form (React) |
+| neutro/form (Vue) |
+| vee-validate |
+| neutro/form (Svelte) |
+| tanstack-form (Svelte) |
+| felte |
 
 ### Array Operations (remove + move, render count)
 
@@ -129,19 +149,12 @@ _Note: render counts are not directly comparable across all libraries on this su
 | neutro/form (Vue) | 0 |
 | neutro/form (Svelte) | 0 |
 
-### Re-renders per 20-keystroke sequence (10-field form)
+### memory-churn
 
-| Library | Renders |
-|---|---|
-| neutro/form (React) | 20 |
-| react-hook-form | 20 |
-| formik | 400 |
-| tanstack-form (React) | 20 |
-| neutro/form (Vue) | 20 |
-| vee-validate | 20 |
-| neutro/form (Svelte) | 20 |
-| tanstack-form (Svelte) | 20 |
-| felte | 200 |
+| Library |
+|---|
+| neutro/form (React) |
+| react-hook-form |
 
 ### Async Cancellation (stale-result race)
 
@@ -156,6 +169,20 @@ _Note: render counts are not directly comparable across all libraries on this su
 | neutro/form (Svelte) | ✅ |
 | tanstack-form (Svelte) | ✅ |
 | felte | ✅ |
+
+### Re-renders per 20-keystroke sequence (10-field form)
+
+| Library | Renders |
+|---|---|
+| neutro/form (React) | 20 |
+| react-hook-form | 20 |
+| formik | 400 |
+| tanstack-form (React) | 20 |
+| neutro/form (Vue) | 20 |
+| vee-validate | 20 |
+| neutro/form (Svelte) | 20 |
+| tanstack-form (Svelte) | 20 |
+| felte | 200 |
 
 ### Re-renders per 20-keystroke sequence (100-field form)
 
@@ -175,14 +202,14 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 | Library | p50 | p99 |
 |---|---|---|
-| neutro/form (React) | 301ms[^async-latency-neutro/form (React)] | 302ms |
-| react-hook-form | 202ms | 202ms |
-| formik | 202ms | 202ms |
-| tanstack-form (React) | 201ms | 201ms |
-| neutro/form (Vue) | 302ms[^async-latency-neutro/form (Vue)] | 303ms |
+| neutro/form (React) | 302ms[^async-latency-neutro/form (React)] | 303ms |
+| react-hook-form | 202ms | 204ms |
+| formik | 203ms | 203ms |
+| tanstack-form (React) | 201ms | 203ms |
+| neutro/form (Vue) | 303ms[^async-latency-neutro/form (Vue)] | 303ms |
 | vee-validate | 202ms | 203ms |
 | neutro/form (Svelte) | 302ms[^async-latency-neutro/form (Svelte)] | 303ms |
-| tanstack-form (Svelte) | 201ms | 202ms |
+| tanstack-form (Svelte) | 201ms | 203ms |
 | felte | 202ms | 203ms |
 
 ### Async Validation Latency — Debounce Floor (neutro only)
@@ -190,8 +217,8 @@ _Note: render counts are not directly comparable across all libraries on this su
 | Library | p50 | p99 |
 |---|---|---|
 | neutro/form (React) [debounce=0] | 202ms | 203ms |
-| neutro/form (Vue) [debounce=0] | 202ms | 203ms |
-| neutro/form (Svelte) [debounce=0] | 202ms | 203ms |
+| neutro/form (Vue) [debounce=0] | 201ms | 202ms |
+| neutro/form (Svelte) [debounce=0] | 201ms | 202ms |
 
 ## Bundle Size
 
