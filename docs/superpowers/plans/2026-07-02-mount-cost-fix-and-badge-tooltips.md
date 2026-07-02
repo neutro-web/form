@@ -87,7 +87,8 @@ const warmedPorts = new Set<number>()
 async function warmUp(page: Page, port: number) {
   if (warmedPorts.has(port)) return
   warmedPorts.add(port)
-  await page.goto(`http://localhost:${port}/`)
+  await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' })
+  await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' })
 }
 
 test.describe('mount-cost', () => {
@@ -104,7 +105,11 @@ test.describe('mount-cost', () => {
 
 `warmedPorts` is module-level state, safe because this file's tests run sequentially in a single worker (no `workers`/`fullyParallel` override in `bench/playwright.config.ts`, no `test.describe.configure({ mode: 'parallel' })` in this file).
 
+**Why two `networkidle` navigations, not one `page.goto(url)` with the default `waitUntil`:** empirically tested during this plan's design. A single default-wait navigation reduced the gap (35ms → ~17-18ms for whichever combo ran first) but did not close it — some residual "first navigation on this port" cost survived. Two `networkidle` waits closed it completely in repeated tests (all four React combos landing at ~3.7-4.7ms regardless of position). Do not simplify this to a single navigation or a weaker `waitUntil` without re-running the full Step 3 A/B check below.
+
 - [ ] **Step 3: Rebuild the React app and run an A/B check — this is the actual proof the fix works, not a formality**
+
+**Critical: do not pass `--reporter=list` (or any other `--reporter` flag) to any `playwright test` command in this step.** This project's `bench/playwright.config.ts` configures a JSON reporter (`reporter: [['./reporters/json-playwright.ts']]`) that writes `results/browser.json` — passing `--reporter=list` on the command line silently REPLACES that reporter, so the JSON file is never rewritten and a later read returns stale data from whatever run last used the real reporter. This produced a false "the fix doesn't work" result during this plan's own design investigation — a genuinely working fix looked broken because the check kept reading an old file. Delete `results/browser.json` before each run below so a missing file after the run is an unmissable "nothing was written" signal, rather than a silent stale-read.
 
 First, confirm the fix closes the gap with `neutro/form (React)` in its current (first) position:
 
@@ -114,7 +119,13 @@ cd bench
 pkill -f "vite preview" 2>/dev/null; sleep 1
 rm -rf apps/react/dist
 pnpm run bench:apps:build:react
-pnpm exec playwright test suites/browser/mount-cost.spec.ts -g "React|hook-form|formik|tanstack-form \(React\)" --reporter=list
+rm -f results/browser.json
+pnpm exec playwright test suites/browser/mount-cost.spec.ts -g "React|hook-form|formik|tanstack-form \(React\)"
+```
+
+Confirm the reporter actually ran (look for `[json-playwright] wrote results/browser.json` in the output above — if you don't see this line, something is wrong with the invocation; stop and fix it before reading the JSON file). Then:
+
+```bash
 cat results/browser.json | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
@@ -124,9 +135,9 @@ for r in d['mount-cost']:
 "
 ```
 
-Expected: `neutro/form (React)`'s `mountMs` is now in the same rough neighborhood as the other three (single-digit-to-low-double-digit ms), not ~6-9x higher.
+Expected: all four values are close together, single-digit ms (roughly 3-5ms each) — not 35ms for neutro and 4-6ms for the others.
 
-Then confirm the fix is order-independent by temporarily moving `neutro/form (React)` to the last position among the four React entries in `COMBOS`, killing the server, rebuilding, and re-running the same command:
+Then confirm the fix is order-independent by temporarily moving `neutro/form (React)` to the last position among the four React entries in `COMBOS`, killing the server, and re-running (no rebuild needed — the dist is unchanged, only the test file's array order changes):
 
 ```bash
 pkill -f "vite preview" 2>/dev/null; sleep 1
@@ -135,7 +146,8 @@ pkill -f "vite preview" 2>/dev/null; sleep 1
 Edit `COMBOS` to reorder (swap `neutro/form (React)` to after `tanstack-form (React)`), then:
 
 ```bash
-pnpm exec playwright test suites/browser/mount-cost.spec.ts -g "React|hook-form|formik|tanstack-form \(React\)" --reporter=list
+rm -f results/browser.json
+pnpm exec playwright test suites/browser/mount-cost.spec.ts -g "React|hook-form|formik|tanstack-form \(React\)"
 cat results/browser.json | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
@@ -145,7 +157,7 @@ for r in d['mount-cost']:
 "
 ```
 
-Expected: values stay close to what Step 3's first run showed, regardless of position — no combo shows a 6-9x outlier now, whichever order they run in. **If this doesn't hold, the fix has not actually addressed the root cause — stop and re-diagnose before proceeding to Step 4, do not commit a fix that doesn't pass its own A/B check.**
+Expected: values stay close to what the first run showed (all four still single-digit ms), regardless of position — whichever combo is now first (`react-hook-form`) should NOT show an inflated number, and `neutro/form (React)` (now last) should be normal. **If this doesn't hold, the fix has not actually addressed the root cause — stop and re-diagnose before proceeding to Step 4, do not commit a fix that doesn't pass its own A/B check.**
 
 Revert the temporary reorder (`git diff bench/suites/browser/mount-cost.spec.ts` should show only the Step 2 warm-up addition, not a reordered `COMBOS`):
 
@@ -160,7 +172,13 @@ If the reorder edit is still present, undo it manually so only the warm-up logic
 ```bash
 pkill -f "vite preview" 2>/dev/null; sleep 1
 pnpm run bench:apps:build
-pnpm exec playwright test suites/browser/mount-cost.spec.ts --reporter=list
+rm -f results/browser.json
+pnpm exec playwright test suites/browser/mount-cost.spec.ts
+```
+
+Confirm `[json-playwright] wrote results/browser.json` appeared in the output before reading the file:
+
+```bash
 cat results/browser.json | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
@@ -193,8 +211,15 @@ PerformanceNavigationTiming.responseEnd, set before any app JS runs) -
 verified with a controlled A/B where swapping declaration order flips
 which combo shows the inflated number. This systematically penalized
 neutro on every framework while every competitor measured against an
-already-warm connection. Adds one throwaway, unmeasured warm-up
-navigation per port before that port's real measured combos run."
+already-warm connection. Adds two networkidle warm-up navigations per
+port (a single default-wait navigation reduced but didn't fully close
+the gap) before that port's real measured combos run.
+
+Note for anyone re-verifying this: do not pass --reporter=list to any
+ad-hoc playwright test invocation used to check results/browser.json -
+it silently replaces the configured JSON reporter and produces a false
+negative by reading stale data from a prior run, exactly as happened
+during this fix's own investigation."
 ```
 
 ---

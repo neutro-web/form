@@ -24,7 +24,9 @@ Swapping the order flips which one shows the high number. **This is the decisive
 
 ### Design
 
-Add one throwaway, unmeasured warm-up navigation to each distinct port before that port's real measured combos run, so every combo (including neutro) measures against an equally-warm connection.
+Add throwaway, unmeasured warm-up navigation(s) to each distinct port before that port's real measured combos run, so every combo (including neutro) measures against an equally-warm connection.
+
+**Revised after empirical testing found a single default-`waitUntil` warm-up navigation insufficient.** A first draft using one `page.goto(url)` (default `waitUntil: 'load'`) reduced the gap (35ms → ~17-18ms for whichever combo ran first) but did not close it — the first *measured* navigation after the warm-up still paid a smaller residual cost. Testing `page.goto(url, { waitUntil: 'networkidle' })`, called **twice**, before the first measured navigation on a port fully closed the gap: repeated runs with both `neutro/form (React)` first and last in `COMBOS` showed all four React combos landing at ~3.7-4.7ms in every configuration — order-independent and within normal noise, not the earlier 35ms/6-9x outlier or the intermediate ~15-18ms residual. A single `networkidle` wait was not separately tested in isolation (the double-wait was validated directly); if reproducing the fix, don't reduce to a single wait without re-running the same order-independence check.
 
 ```ts
 // bench/suites/browser/mount-cost.spec.ts
@@ -38,7 +40,8 @@ const warmedPorts = new Set<number>()
 async function warmUp(page: Page, port: number) {
   if (warmedPorts.has(port)) return
   warmedPorts.add(port)
-  await page.goto(`http://localhost:${port}/`)
+  await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' })
+  await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' })
 }
 
 test.describe('mount-cost', () => {
@@ -53,13 +56,17 @@ test.describe('mount-cost', () => {
 })
 ```
 
+**A critical methodology trap surfaced during this empirical work, worth carrying into the plan's Verification step explicitly:** running `pnpm exec playwright test ... --reporter=list` on the command line **silently overrides** this project's configured JSON reporter (`bench/playwright.config.ts`'s `reporter: [['./reporters/json-playwright.ts']]`), so `results/browser.json` is never rewritten — any check that reads that file after such a run is reading **stale data from a previous run**, not the real result. This produced a false "the fix doesn't work" conclusion earlier in this investigation (the reordering genuinely worked, but the check kept reading an old, unchanged file). Any verification step that inspects `results/browser.json` after an ad-hoc `playwright test` invocation must NOT pass `--reporter=list` (or any other `--reporter` override) — run without a `--reporter` flag (using the config's default) if the JSON output needs to be trustworthy, and use Playwright's own console/exit-code output only for pass/fail, never `--reporter=list`, when the next step depends on reading the JSON file.
+
 `warmedPorts` is module-level state shared across all `test()` calls in the file — safe here because Playwright runs this file's tests sequentially within a single worker by default (verified against `bench/playwright.config.ts`: no `workers`, no `fullyParallel`, and this file has no `test.describe.configure({ mode: 'parallel' })`), so there's no race on the `Set`. The warm-up navigation reuses the same `page` fixture the real measurement will use next, so the *connection* (not just DNS/OS-level state) is warm for the subsequent measured `page.goto()` to the same origin.
 
 **One wrinkle, not a correctness problem:** `bench/playwright.config.ts` sets `retries: 2`. A retried test runs in a fresh worker process, which resets `warmedPorts` for that worker — meaning a retry pays one extra (harmless, unmeasured) warm-up navigation. This doesn't affect correctness, just worth knowing if warm-up-navigation counts ever look higher than expected during debugging.
 
 ### Verification
 
-**This step is not optional polish — given the Problem section's unresolved discrepancy, treat this as the actual proof the fix works, not a formality.** After the fix, re-run the same A/B-style check used to diagnose this: run `mount-cost.spec.ts` for React with `neutro/form (React)` first in `COMBOS` (current order), then with it moved to last, and confirm the reported `mountMs` values are now close to identical regardless of position (within normal run-to-run noise, not a 6-9x swing). Then run the full suite and confirm `neutro/form (React)`, `(Vue)`, and `(Svelte)` all land in the same rough neighborhood as their competitors (single-digit-to-low-double-digit ms), not systematically 6-9x higher. If either check doesn't hold, the fix has not actually addressed the root cause and needs further diagnosis before being committed — do not commit on the strength of the A/B evidence alone.
+**This step is not optional polish — treat this as the actual proof the fix works, not a formality.** After the fix, re-run the same A/B-style check used to diagnose this: run `mount-cost.spec.ts` for React with `neutro/form (React)` first in `COMBOS` (current order), then with it moved to last, and confirm the reported `mountMs` values are now close to identical regardless of position (within normal run-to-run noise, not a 6-9x swing). Then run the full suite and confirm `neutro/form (React)`, `(Vue)`, and `(Svelte)` all land in the same rough neighborhood as their competitors (single-digit ms, not systematically higher). If either check doesn't hold, the fix has not actually addressed the root cause and needs further diagnosis before being committed — do not commit on the strength of the A/B evidence alone.
+
+**Do not run this check with `--reporter=list` or any other `--reporter` override on the command line** — it silently replaces the project's configured JSON reporter, so `results/browser.json` is never rewritten and any subsequent read of that file returns stale data from whatever run last used the real reporter. This exact mistake produced a false negative during this spec's own investigation (a genuinely working fix looked like it "didn't work" because the check kept reading an old file). Run `pnpm exec playwright test suites/browser/mount-cost.spec.ts -g "..."` with no `--reporter` flag, and read `results/browser.json` fresh after each run (consider `rm -f results/browser.json` before each run so a missing file after the run is an unmissable signal that nothing was written, rather than a silent stale-read).
 
 ### Out of scope
 
