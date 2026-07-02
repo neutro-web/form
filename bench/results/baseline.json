@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generatedAt": "2026-07-02T03:01:08.040Z",
+    "generatedAt": "2026-07-02T03:11:58.583Z",
     "neutroVersion": "0.4.3",
     "nodeVersion": "v18.20.8",
     "platform": "darwin",
@@ -11,99 +11,99 @@
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 78969.92404826316,
-        "median": 0.011542081832885742,
-        "rme": 0.6869457628381095,
+        "opsPerSec": 80490.41547367886,
+        "median": 0.01133418083190918,
+        "rme": 0.7242832562268302,
         "highVariance": false,
-        "samples": 39485
+        "samples": 40259
       }
     ],
     "array-ops/move": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 142175.25921008235,
-        "median": 0.006250143051147461,
-        "rme": 1.4765284628451114,
+        "opsPerSec": 149345.1831118605,
+        "median": 0.006125211715698242,
+        "rme": 1.2952792331834178,
         "highVariance": false,
-        "samples": 71088
+        "samples": 74673
       }
     ],
     "computed-fields/simple": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 5019883.3704656,
+        "opsPerSec": 4976597.577601257,
         "median": 0.0002079010009765625,
-        "rme": 0.42538192219578236,
+        "rme": 0.3580186450640414,
         "highVariance": false,
-        "samples": 2509942
+        "samples": 2488299
       }
     ],
     "dependency-scopes/dependent": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 1416390.8167206235,
-        "median": 0.0006251335144042969,
-        "rme": 1.0499632301880297,
+        "opsPerSec": 1463719.21410187,
+        "median": 0.0006248950958251953,
+        "rme": 1.1661695587462997,
         "highVariance": false,
-        "samples": 708196
+        "samples": 731860
       }
     ],
     "nested-set": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 1819645.2833008748,
+        "opsPerSec": 1803904.7389925253,
         "median": 0.0005409717559814453,
-        "rme": 0.20975272147262672,
+        "rme": 1.9737642760871386,
         "highVariance": false,
-        "samples": 909823
+        "samples": 901953
       }
     ],
     "set-get/small": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 3025111.996387213,
+        "opsPerSec": 2911401.190563755,
         "median": 0.0003330707550048828,
-        "rme": 0.4002791924199967,
+        "rme": 0.16359873797986926,
         "highVariance": false,
-        "samples": 1512557
+        "samples": 1455704
       }
     ],
     "set-get/large": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 2765117.2589970115,
+        "opsPerSec": 3033203.0700008515,
         "median": 0.0003330707550048828,
-        "rme": 1.7529254842501916,
+        "rme": 0.11485676622773414,
         "highVariance": false,
-        "samples": 1382559
+        "samples": 1516602
       }
     ],
     "subscriptions/small": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 4259614.247124149,
-        "median": 0.0002090930938720703,
-        "rme": 0.2886294097377234,
+        "opsPerSec": 4681835.459741506,
+        "median": 0.00020813941955566406,
+        "rme": 0.38803604785923407,
         "highVariance": false,
-        "samples": 2129808
+        "samples": 2340918
       }
     ],
     "subscriptions/large": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 4213467.867396889,
-        "median": 0.0002498626708984375,
-        "rme": 0.40383771565407206,
+        "opsPerSec": 4677405.5561582055,
+        "median": 0.00020813941955566406,
+        "rme": 0.22499552450579635,
         "highVariance": false,
-        "samples": 2106734
+        "samples": 2338703
       }
     ]
   },
@@ -404,7 +404,7 @@
         "library": "tanstack-form (React)",
         "status": "ok",
         "p50Ms": 201,
-        "p99Ms": 202
+        "p99Ms": 203
       },
       {
         "library": "neutro/form (Vue)",
@@ -415,7 +415,7 @@
       {
         "library": "vee-validate",
         "status": "ok",
-        "p50Ms": 203,
+        "p50Ms": 202,
         "p99Ms": 203
       },
       {
@@ -441,7 +441,7 @@
       {
         "library": "neutro/form (React) [debounce=0]",
         "status": "ok",
-        "p50Ms": 202,
+        "p50Ms": 203,
         "p99Ms": 203
       },
       {
@@ -453,7 +453,7 @@
       {
         "library": "neutro/form (Svelte) [debounce=0]",
         "status": "ok",
-        "p50Ms": 202,
+        "p50Ms": 203,
         "p99Ms": 203
       }
     ]
