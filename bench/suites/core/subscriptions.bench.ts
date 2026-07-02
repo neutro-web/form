@@ -2,6 +2,7 @@ import { bench, describe } from 'vitest'
 import { createAdapter as neutroAdapter } from '../../adapters/neutro.js'
 import { smallFixture } from '../../fixtures/small.js'
 import { largeFixture } from '../../fixtures/large.js'
+import { xlargeFixture } from '../../fixtures/xlarge.js'
 
 function wireSubscribers(adapter: ReturnType<typeof neutroAdapter>, fixture: Parameters<typeof neutroAdapter>[0]) {
   const unsubscribes: Array<() => void> = []
@@ -15,13 +16,19 @@ describe('subscriptions/small', () => {
   const a = neutroAdapter(smallFixture)
   const cleanup = wireSubscribers(a, smallFixture)
   bench(a.name, () => { a.set('field0', 'x') })
-  // cleanup kept in scope to prevent GC
   void cleanup
 })
 
 describe('subscriptions/large', () => {
   const a = neutroAdapter(largeFixture)
   const cleanup = wireSubscribers(a, largeFixture)
+  bench(a.name, () => { a.set('field0', 'x') })
+  void cleanup
+})
+
+describe('subscriptions/xlarge', () => {
+  const a = neutroAdapter(xlargeFixture)
+  const cleanup = wireSubscribers(a, xlargeFixture)
   bench(a.name, () => { a.set('field0', 'x') })
   void cleanup
 })
