@@ -26,7 +26,11 @@
 
 Reuse the existing `large` (100-field) fixture's bench-app routes if they exist, or add a dedicated `/mount` route per app rendering a 100-field form fresh (matching `set-get/large`'s size, for consistency across specs). Each library's existing bench-app section already exists for other surfaces (`re-renders`, `array-ops`) — this reuses the same mounted components, just measures time-to-first-paint-interactive instead of post-mount interaction.
 
-**2. SSR hydration cost (Node-only, core surface, neutro-specific claim verification).** This isn't really a cross-library race — most of these libraries (RHF, Formik, TanStack, vee-validate) are equally SSR-agnostic (they're all just React/Vue hooks with no module-level state either, generally). The interesting question is narrower: **does neutro/form's specific design (closure factory, DOM bridge with WeakRef registry) have any SSR-specific gotcha or cost** that the community-doc claim glosses over? A Node-based benchmark:
+**2. SSR hydration cost (Node-only, core surface, neutro-specific claim verification).** This isn't really a cross-library race — most of these libraries (RHF, Formik, TanStack, vee-validate) are equally SSR-agnostic (they're all just React/Vue hooks with no module-level state either, generally). The interesting question is narrower: **does neutro/form's specific design (closure factory, DOM bridge with WeakRef registry) have any SSR-specific gotcha or cost** that the community-doc claim glosses over?
+
+**Calibration check against actual source (done during spec review, not left as an open question):** the SSR-safety claim already holds up well under inspection. Every `window`/`document` reference in `packages/core/src/index.ts` is guarded by a `typeof window === 'undefined'` / `typeof document === 'undefined'` check, and the only place that does real DOM work at all — `initMutationObserver()` — is called exclusively from inside `connect()`, which itself early-returns before reaching it if `window` is undefined. `createForm()`'s own top-level body never touches `window`/`document` eagerly. So this surface should be read as **confirming and quantifying** an already-solid design, not as a live bug hunt — don't overstate the odds of finding a real defect here; the value is in having a real number and a real "zero errors" assertion backing a claim that's currently just prose in `docs/community.md`, not in expecting a surprise.
+
+A Node-based benchmark:
 
 ```ts
 // bench/suites/core/ssr-mount.bench.ts
@@ -43,7 +47,7 @@ No changes — `mount-cost` fits the existing `BrowserResult` shape (add a `moun
 
 ## Expected outcome / hypothesis
 
-Mount cost across libraries is likely to be dominated by framework rendering cost (React/Vue/Svelte's own mount overhead for 100 DOM nodes), not form-library overhead — so this surface likely shows near-parity, similar to `re-renders`. Its value isn't "expect to win," it's **closing a gap in coverage**: today there's zero data backing the SSR-safety and fast-mount claims neutro's docs already make. If the SSR Node-only surface reveals any accidental `window`/`document` access, that's a real, actionable bug find, not just a benchmark number — worth treating this spec's SSR half as correctness-adjacent, not purely performance-adjacent.
+Mount cost across libraries is likely to be dominated by framework rendering cost (React/Vue/Svelte's own mount overhead for 100 DOM nodes), not form-library overhead — so this surface likely shows near-parity, similar to `re-renders`. Its value isn't "expect to win," it's **closing a gap in coverage**: today there's zero data backing the SSR-safety and fast-mount claims neutro's docs already make. As noted above, the SSR half of this spec should be expected to *confirm* the existing guard-based design (zero errors, a real instantiation-cost number) rather than uncover a defect — the code review already done for this spec found the guards to be comprehensive. Treat a clean pass as the expected, valuable outcome (turning a prose claim into a tested one), not an anticlimax.
 
 ## Verification
 

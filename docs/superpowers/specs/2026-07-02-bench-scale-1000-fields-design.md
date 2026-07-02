@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-02
 **Status:** Draft — pending user review
-**Scope:** `bench/fixtures/`, `bench/suites/core/`, `bench/adapters/*.ts`, `bench/results/schema.ts` additions
+**Scope:** `bench/fixtures/`, `bench/suites/core/`. No `bench/adapters/*.ts` changes needed — the existing `neutroAdapter` (`bench/adapters/neutro.ts`) already passes `fixture.dependencies` through to `createForm` unmodified, so new fixtures alone are sufficient. (No schema type changes needed either — see "Schema addition" below; the file is `bench/types/schema.ts`, not `bench/results/schema.ts` as an earlier draft of this line said.)
 
 ---
 
@@ -46,7 +46,9 @@ export const dependencyChainFixture: FormFixture = {
 }
 ```
 
-Competitor adapters need a real equivalent — this is the hard part. React Hook Form and Formik have no declarative dependency graph (already documented in `bench/annotations.ts`'s `dependency-trigger` entries), so a "chain" for them means manually wiring 199 `watch()`/`useEffect` calls, which is a fair reflection of what a real consumer would have to do, not a strawman. TanStack Form requires per-field validators; a chain there means 199 field-level validators each reading the previous field's value. Only neutro/form and vee-validate (whose comparison already exists on the `dependency-trigger` boolean surface) can express this declaratively — the others get an honest "no equivalent API, benchmark reflects the escape-hatch cost."
+**Correction from initial draft: this must be a neutro-only core surface, not a competitor throughput race.** The initial draft proposed measuring competitor equivalents (199 manually-wired `watch()`/`useEffect` calls for RHF, per-field validators for TanStack) at what implied a core/Node-level throughput comparison. That conflicts with an established, deliberate project decision: commit `3da9090` ("strip Node.js competitor shims; core suites are now neutro-only") removed Node-level competitor adapters specifically because they couldn't faithfully exercise RHF/Formik/etc.'s real hook machinery outside a component render context, with the explicit policy "real competitor comparisons live in browser Playwright tests." Every existing `bench/suites/core/` surface (`set-get`, `subscriptions`, `dependency-scopes`, `computed-fields`, `array-ops`) is neutro-only for this reason, and `dependency-graph/deep-chain` should follow the same convention: measure neutro/form's own chain-depth scaling, don't try to race competitors at the core level.
+
+If a competitor comparison for deep dependency chains is wanted later, it belongs in the browser suite (real `watch()`/`useEffect` wiring inside `bench/apps/react/src/App.tsx`, a real vee-validate composable chain in the Vue app, etc.) as its own follow-on spec — the existing `dependency-trigger` correctness surface already gives the qualitative capability comparison (declarative graph vs. no declarative graph); this spec's job is to quantify neutro's own scaling behavior, which stands on its own without a competitor number.
 
 ### Schema addition
 
@@ -55,7 +57,7 @@ Competitor adapters need a real equivalent — this is the hard part. React Hook
 ## Expected outcome / hypothesis
 
 - `set-get/xlarge`, `subscriptions/xlarge`: neutro/form should scale linearly with the same constant factor as `large` (100 fields) — flat Map operations don't care about total form size beyond the specific key touched. If this ISN'T linear, that's a real bug worth finding (e.g. an accidental O(n) scan somewhere in `set()`'s dirty/touched bookkeeping).
-- `dependency-graph/deep-chain`: this is where the architecture story should show up. neutro's O(1) precomputed-scope lookup means `set(f0)` triggers exactly the validation work for the chain, no more — the cost should be O(chain length touched), not O(total form size) and not O(chain length²). Competitors using manual `watch()`/`useEffect` wiring for the same behavior likely pay React re-render + effect-scheduling overhead per hop, which could show real, meaningful daylight — this is the best candidate among all six specs for demonstrating an actual architectural advantage, not just parity.
+- `dependency-graph/deep-chain`: this is where the architecture story should show up. neutro's O(1) precomputed-scope lookup means `set(f0)` triggers exactly the validation work for the chain, no more — the cost should be O(chain length touched), not O(total form size) and not O(chain length²), and this surface (neutro-only, per the correction above) directly quantifies that. The competitive angle — whether a competitor's manual `watch()`/`useEffect` wiring pays real, meaningful additional overhead per hop — is a real and worthwhile question, but belongs in the browser-suite follow-on described above, not this spec's neutro-only core surface.
 
 ## Verification
 

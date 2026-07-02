@@ -14,17 +14,20 @@
 
 ### Reframe the surface: not "does neutro clean up" but "does memory grow across mount/unmount churn," measured identically for every library
 
-Use the Chrome DevTools Protocol's heap-size sampling (Playwright exposes this via `page.metrics()` for `JSHeapUsedSize`, or a manual `performance.memory` read where available) rather than each library's own internal bookkeeping — this is the one way to compare libraries that don't share a comparable internal API, and it's a fairer test anyway (a library could report "0 leaked" by its own internal counter while still retaining memory elsewhere).
+Use the Chrome DevTools Protocol's heap-size sampling rather than each library's own internal bookkeeping — this is the one way to compare libraries that don't share a comparable internal API, and it's a fairer test anyway (a library could report "0 leaked" by its own internal counter while still retaining memory elsewhere).
+
+**Correction from initial draft:** `page.metrics()` is a Puppeteer API — it does not exist on Playwright's `Page` type (confirmed against `playwright-core`'s type definitions; no `metrics()` method). Playwright's real equivalent is a raw CDP session: `const client = await page.context().newCDPSession(page)`, then `client.send('Performance.getMetrics')` for heap/metric snapshots, and `client.send('HeapProfiler.collectGarbage')` to force GC (no special browser launch flags needed — this is a CDP command, not a JS-exposed `window.gc()`, which is the Node/`--js-flags=--expose-gc` pattern and a different mechanism entirely).
 
 ```ts
 // bench/suites/browser/memory-churn.spec.ts (shape)
 // For each library: navigate to a mount/unmount-churn page (reuse the existing
 // dom-cleanup route's churn pattern - mount 50 fields, unmount, repeat 10x - already
 // built for neutro's own dom-cleanup surface), then:
-// 1. Force GC if the browser exposes it (Chromium with --js-flags=--expose-gc, already
-//    controllable via Playwright's launch args)
-// 2. Read page.metrics().JSHeapUsedSize before churn and after churn+GC
-// 3. Report the delta
+// 1. const client = await page.context().newCDPSession(page)
+// 2. Read a baseline via client.send('Performance.getMetrics') -> find the 'JSHeapUsedSize' entry
+// 3. Run the churn sequence
+// 4. await client.send('HeapProfiler.collectGarbage') to force GC
+// 5. Read Performance.getMetrics() again, report the JSHeapUsedSize delta
 ```
 
 The existing `dom-cleanup` bench-app churn pattern (mount 50 fields → unmount → repeat 10× — see `bench/apps/react/src/App.tsx`'s `CleanupPage`) is already the right shape for this; this spec reuses that page structure but adds equivalent churn pages for RHF/Formik/vee-validate/etc. (currently `dom-cleanup` has no competitor routes at all — this spec is what builds them) and switches the measurement from "neutro's own connected-count" to "browser-reported heap size," so the same churn page serves double duty: neutro's existing exact-count assertion stays as a correctness check, and heap-size becomes the new comparative metric layered on top.
@@ -39,7 +42,7 @@ This is the spec most likely to require honest annotation rather than a clean wi
 
 ## Verification
 
-Requires Playwright launched with `--js-flags=--expose-gc` (or equivalent) for forced-GC support — confirm this is compatible with the existing `playwright.config.ts` setup and CI environment before committing to this measurement approach; if forced GC isn't reliably available in CI, fall back to "heap size after N churns without GC, repeated 5× for variance" as a noisier but always-available substitute, and say so explicitly in the methodology.
+`HeapProfiler.collectGarbage` via CDP is available on any Chromium page reachable through `context.newCDPSession(page)` — no special browser launch flags required, unlike the Node-side `--expose-gc` pattern this draft originally (incorrectly) assumed. Confirm `newCDPSession` works cleanly alongside the existing `playwright.config.ts` webServer/project setup before implementation (should be uneventful — CDP sessions are a standard Playwright capability, not a special mode), but if for some reason forced GC proves unreliable in CI, fall back to "heap size after N churns without GC, repeated 5× for variance" as a noisier but always-available substitute, and say so explicitly in the methodology.
 
 ## Out of Scope
 

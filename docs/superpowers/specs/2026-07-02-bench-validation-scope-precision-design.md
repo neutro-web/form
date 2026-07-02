@@ -16,7 +16,9 @@ This is a natural companion to the large-form scale spec (`2026-07-02-bench-scal
 
 ### New surface: `dependency-graph/scoped-validate-count`
 
-Not a speed benchmark — a **count** benchmark. Instrument `runValidation` (or wrap it in the bench adapter) to count how many field validators actually execute when a single upstream field changes, in a fixture where only a few fields depend on the changed one out of a much larger total form.
+Not a speed benchmark — a **count** benchmark. **Axiom note: this must be measured entirely from `bench/`-side code, never by adding instrumentation to `packages/core/src/index.ts` itself** — the shipped package should never carry bench-only counting/tracing code.
+
+**Correction from initial draft on the mechanism.** The initial draft assumed the validator gets invoked once per field, and proposed counting invocations. That's not how it works: per `createForm`'s `validator` config signature (`(values: T, scopePaths?: string[], signal?: AbortSignal) => ...`), the validator is called **once per validation trigger**, and receives the *already-resolved* dependency scope as `scopePaths` — the precomputed-graph expansion (`expandedScope`) is passed in as an argument, not inferred by counting calls. This is actually a simpler and more direct measurement than originally proposed: wrap the fixture's `validator` function (bench-side only) to record `scopePaths?.length` on each invocation — that length *is* the "how many fields got included in this validation scope" number directly, with no need to count separate per-field invocations at all. Zero changes to `runValidation` or any other core engine code required; `scopePaths` is already an externally-observable argument at the exact boundary a bench-side wrapper needs.
 
 ```ts
 // bench/fixtures/sparse-deps.ts
@@ -31,7 +33,7 @@ export const sparseDepsFixture: FormFixture = {
 }
 ```
 
-Measurement: `set('trigger', 1)`, then count how many of the 503 other fields had their validator invoked. neutro/form should show exactly 3 (the three declared dependents) — this is what `preComputedScopes` is for. A library with no scoping (or coarse whole-form revalidation) would show up to 503.
+Measurement: `set('trigger', 1)`, then read the `scopePaths.length` the validator wrapper recorded (per the corrected mechanism above). **Verified against `compileDependencyScopes`'s actual traversal** (`resolveTransitiveClosure` adds the seed path itself to `visited` before resolving its dependents): `preComputedScopes['trigger']` includes `trigger` itself plus its three declared dependents, so the expected count is **4**, not 3 — `trigger` (the changed field) + `dependent1` + `dependent2` + `dependent3`, out of 504 total fields in the fixture. A library with no scoping (or coarse whole-form revalidation) would show up to 504.
 
 This is a **correctness-suite-shaped** surface (count-based, like `array-state-integrity`), not a `vitest bench` throughput surface — put it in `bench/suites/correctness/` alongside `dependency-trigger.test.ts`, reporting a `CorrectnessResult`-like structure but with a `count` field instead of `pass`/`fail`. Requires a small, additive extension to `bench/types/schema.ts`'s correctness result shape (or a new `CountResult` type) — this is the one schema change in this spec, kept minimal:
 
@@ -56,7 +58,7 @@ neutro/form shows a flat, small `validatedCount` (matching the number of *actual
 
 ## Verification
 
-New correctness-suite test, run via `bench:correctness`, reported alongside existing correctness surfaces. Needs a `Why` column entry (matching the pattern from the earlier benchmark-page-cleanup work) explaining the count for each row, since a raw number without the "what does 3 vs 503 mean" framing is not self-explanatory to a reader.
+New correctness-suite test, run via `bench:correctness`, reported alongside existing correctness surfaces. Needs a `Why` column entry (matching the pattern from the earlier benchmark-page-cleanup work) explaining the count for each row, since a raw number without the "what does 4 vs 504 mean" framing is not self-explanatory to a reader.
 
 ## Out of Scope
 
