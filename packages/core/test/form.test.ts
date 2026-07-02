@@ -378,6 +378,22 @@ describe('Array — arrayInsert', () => {
     form.arrayInsert('items', 5, 'X');
     expect(form.get('items')).toEqual(['a']);
   });
+
+  it('arrayInsert notifies only the shifted item, not unaffected siblings', () => {
+    const form = createForm({
+      initialValues: { items: [{ v: 'a' }, { v: 'b' }, { v: 'c' }] },
+    });
+    const cb0 = vi.fn(); // index 0, before the insert point — must not fire
+    const cb2 = vi.fn(); // index 2, holds the shifted item after insert at index 1
+    form.subscribeToPath('items.0.v', cb0);
+    form.subscribeToPath('items.2.v', cb2);
+    cb0.mockClear();
+    cb2.mockClear();
+    form.arrayInsert('items', 1, { v: 'X' });
+    expect(cb0).not.toHaveBeenCalled();
+    expect(cb2).toHaveBeenCalled();
+    expect(cb2.mock.calls[cb2.mock.calls.length - 1][0]).toBe('b');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -413,6 +429,22 @@ describe('Array — arrayRemove', () => {
     const form = createForm({ initialValues: { items: ['a'] } });
     form.arrayRemove('items', 5);
     expect(form.get('items')).toEqual(['a']);
+  });
+
+  it('arrayRemove notifies only the shifted item, not unaffected siblings', () => {
+    const form = createForm({
+      initialValues: { items: [{ v: 'a' }, { v: 'b' }, { v: 'c' }, { v: 'd' }] },
+    });
+    const cb0 = vi.fn(); // index 0, before the removed index — must not fire
+    const cb1 = vi.fn(); // index 1, holds the removed item — will be gone
+    form.subscribeToPath('items.0.v', cb0);
+    form.subscribeToPath('items.1.v', cb1);
+    cb0.mockClear();
+    cb1.mockClear();
+    form.arrayRemove('items', 1); // remove 'b'; 'c' shifts from index 2 to index 1
+    expect(cb0).not.toHaveBeenCalled();
+    expect(cb1).toHaveBeenCalled();
+    expect(cb1.mock.calls[cb1.mock.calls.length - 1][0]).toBe('c');
   });
 });
 

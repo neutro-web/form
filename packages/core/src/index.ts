@@ -1654,8 +1654,29 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
       validatedPaths.clear();
       for (const k of updatedValidated) validatedPaths.add(k);
+      // Also notify any actively-registered subscriber path under this array index whose
+      // slot content shifted, even when no error/touched/dirty/wasSet state exists there -
+      // otherwise arrayRemove/arrayInsert would have no way to reach a per-item VALUE
+      // subscriber except by falling back to notifying the whole array (which, since
+      // notify() cascades to descendants, re-fires every unaffected sibling too, not just
+      // the shifted items). Unlike the state maps above (which relocate data to a new key),
+      // subscriptions are registered against a fixed slot path - by the time this runs,
+      // `values` has already been mutated (splice happened before this call), so re-running
+      // notify() on the *same* key re-reads the new content that shifted into that slot.
+      for (const key of pathSubscribers.keys()) {
+        if (key === '*' || !key.startsWith(arrPrefix)) continue;
+        const remaining = key.substring(arrPrefix.length);
+        const match = remaining.match(/^(\d+)(.*)$/);
+        if (!match) continue;
+        const index = parseInt(match[1], 10);
+        if (action === 'remove') {
+          if (index >= fromIndex) shiftedKeys.push(key);
+        } else if (action === 'insert' && targetIndex !== undefined) {
+          if (index >= targetIndex) shiftedKeys.push(key);
+        }
+      }
     });
-    return shiftedKeys;
+    return [...new Set(shiftedKeys)];
   };
 
   const rekeyArrayState = (basePath: string, fromIndex: number, toIndex: number) => {
@@ -2304,7 +2325,6 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const shifted = shiftStateIndices(targetPath, index, 'insert', index);
         for (const k of shifted) notify(k);
         notify(`${targetPath}.${index}`);
-        notify(targetPath);
       });
       runValidation([targetPath]);
       dispatchAction({ type: 'ARRAY_INSERT', path: targetPath, index, item });
@@ -2321,9 +2341,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         setNestedValue(values, targetPath, copy);
         const shifted = shiftStateIndices(targetPath, index, 'remove');
         for (const k of shifted) notify(k);
-        // Always notify the parent array path so global subscribers fire even when
-        // no indices shifted (e.g. removing the last element with no touched/error state).
-        notify(targetPath);
+        // Ensure the batch flushes (global subscribers fire) even when nothing shifted
+        // (e.g. removing the last element with no touched/error/subscriber state below
+        // it). Uses the flag-only no-arg notify() — NOT notify(targetPath) — so it doesn't
+        // trigger notifyPathSubscribers' descendant scan and re-fire every unaffected
+        // sibling item under the array root.
+        notify();
       });
       runValidation([targetPath]);
       dispatchAction({ type: 'ARRAY_REMOVE', path: targetPath, index });

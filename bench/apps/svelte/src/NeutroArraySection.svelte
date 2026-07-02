@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createForm } from '@neutro/form-core'
   import { useSvelteFormPath } from '@neutro/form-svelte'
+  import NeutroArrayItem from './NeutroArrayItem.svelte'
 
   const ARRAY_ITEMS = Array.from({ length: 10 }, (_, i) => ({ v: `item${i}` }))
   const arrayForm = createForm({ initialValues: { items: ARRAY_ITEMS } })
@@ -8,23 +9,12 @@
 
   const renders: Record<string, number> = {}
   ;(window as any).__neutroArrayRenders = renders
-
-  $effect.pre(() => {
-    const items = $itemsField.value as Array<{ v: string }>
-    for (let i = 0; i < items.length; i++) {
-      renders[`item${i}`] = (renders[`item${i}`] ?? 0) + 1
-    }
-  })
 </script>
 
 <section data-testid="neutro-array">
-  {#each ($itemsField.value as Array<{ v: string }>) as item, i}
+  {#each ($itemsField.value as Array<{ v: string }>) as item, i (i)}
     <span>
-      <input
-        data-testid={`neutro-array-item-${i}`}
-        value={item.v}
-        oninput={(e) => arrayForm.set(`items.${i}.v` as any, (e.target as HTMLInputElement).value)}
-      />
+      <NeutroArrayItem form={arrayForm} index={i} {renders} />
       <button data-testid={`neutro-array-remove-${i}`} onclick={() => arrayForm.arrayRemove('items' as any, i)}>remove</button>
     </span>
   {/each}
