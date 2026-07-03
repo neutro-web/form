@@ -1616,6 +1616,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       return;
     }
     wasSet[path] = true;
+    indexKey(path);
     const currentVal = getNestedValue(values, path);
     if (isDeepEqual(currentVal, val)) return;
     batch(() => {
@@ -2441,6 +2442,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const arr = getNestedValue(values, targetPath) || [];
       if (!Array.isArray(arr) || index < 0 || index > arr.length) return;
       wasSet[targetPath] = true;
+      indexKey(targetPath);
       const copy = [...arr];
       copy.splice(index, 0, item);
       batch(() => {
@@ -2465,6 +2467,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const arr = getNestedValue(values, targetPath) || [];
       if (!Array.isArray(arr) || index < 0 || index >= arr.length) return;
       wasSet[targetPath] = true;
+      indexKey(targetPath);
       const copy = [...arr];
       copy.splice(index, 1);
       batch(() => {
@@ -2494,6 +2497,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       )
         return;
       wasSet[targetPath] = true;
+      indexKey(targetPath);
       const copy = [...arr];
       const [movedItem] = copy.splice(fromIndex, 1);
       copy.splice(toIndex, 0, movedItem);
@@ -2520,6 +2524,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       )
         return;
       wasSet[targetPath] = true;
+      indexKey(targetPath);
       const copy = [...arr];
       [copy[indexA], copy[indexB]] = [copy[indexB], copy[indexA]];
       batch(() => {
@@ -2687,7 +2692,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
             if (k === targetPath || k.startsWith(`${targetPath}.`)) delete dirty[k];
           }
           for (const k of Object.keys(wasSet)) {
-            if (k === targetPath || k.startsWith(`${targetPath}.`)) delete wasSet[k];
+            if (k === targetPath || k.startsWith(`${targetPath}.`)) {
+              delete wasSet[k];
+              unindexKey(k);
+            }
           }
         }
         // Always clear validatedPaths for the target path and its children.

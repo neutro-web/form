@@ -56,3 +56,24 @@ describe('pathIndex — indexKey/unindexKey', () => {
     expect(form._debugPathIndex().size).toBe(0);
   });
 });
+
+describe('pathIndex — wasSet call sites', () => {
+  it('setFieldValue indexes wasSet writes under the field prefix', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.set('items.0.name', 'b');
+    expect(candidates(form, 'items')).toContain('items.0.name');
+  });
+
+  it('resetField unindexes wasSet entries for the reset field', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.set('items.0.name', 'b');
+    form.resetField('items.0.name' as any);
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+
+  it('arrayInsert marks the array root as wasSet without desyncing pathIndex', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } });
+    expect(() => form.arrayInsert('items' as any, 1, { name: 'c' } as any)).not.toThrow();
+    expect(form.isFieldDirty('items' as any)).toBe(true);
+  });
+});
