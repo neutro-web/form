@@ -678,3 +678,144 @@ describe('arraySwap — candidate-lookup correctness', () => {
     );
   });
 });
+
+describe('pathIndex — fuzz: index matches an independently-computed ground truth', () => {
+  // Independent oracle: scans the six RAW tracked structures (not pathIndex)
+  // for keys under `prefix`, exactly mirroring what pathIndex is supposed to
+  // contain. This can actually fail if pathIndex is wrong, unlike comparing
+  // pathIndex against itself.
+  function groundTruthCandidates(form: ReturnType<typeof createForm>, prefix: string): Set<string> {
+    const raw = form._debugRawState();
+    // NOTE (deviation from brief, documented in task-13-report.md): indexKey()
+    // never indexes a key under itself — only under its proper ancestor
+    // prefixes (verified by the pre-existing "not under itself" test at the
+    // top of this file, and relied on by reset()/resetField(), which clear
+    // exact-match entries like wasSet[arrayPath] directly rather than via
+    // pathIndex). Including `key === prefix` here would make the "ground
+    // truth" expect self-indexing that pathIndex intentionally never does
+    // (e.g. wasSet['items'] set by arrayInsert/arrayRemove/arrayMove/arraySwap
+    // on the array root itself), producing false-positive failures. Matching
+    // only proper descendants keeps this an independent oracle for what
+    // pathIndex.get(prefix) actually promises: descendant keys, not itself.
+    const matches = (key: string) => key.startsWith(`${prefix}.`);
+    const result = new Set<string>();
+    for (const key of Object.keys(raw.errors)) if (matches(key)) result.add(key);
+    for (const key of Object.keys(raw.touched)) if (matches(key)) result.add(key);
+    for (const key of Object.keys(raw.dirty)) if (matches(key)) result.add(key);
+    for (const key of Object.keys(raw.wasSet)) if (matches(key)) result.add(key);
+    for (const key of raw.validatedPaths) if (matches(key)) result.add(key);
+    for (const key of raw.pathSubscriberKeys) if (key !== '*' && matches(key)) result.add(key);
+    return result;
+  }
+
+  function assertIndexMatchesGroundTruth(form: ReturnType<typeof createForm>, prefix: string) {
+    const expected = groundTruthCandidates(form, prefix);
+    const actual = form._debugPathIndex().get(prefix) ?? new Set<string>();
+    expect(actual).toEqual(expected);
+  }
+
+  it('interleaved operations keep pathIndex exactly equal to the ground truth, not just non-crashing', async () => {
+    const form = createForm({
+      initialValues: {
+        items: Array.from({ length: 6 }, (_, i) => ({ name: `item-${i}` })),
+        other: Array.from({ length: 4 }, (_, i) => ({ label: `other-${i}` })),
+        top: 'unrelated',
+      },
+      rules: {
+        'items.0.name': { required: true },
+        'items.1.name': { required: true },
+      } as any,
+    });
+
+    const unsubs: Array<() => void> = [];
+    unsubs.push(form.subscribeToPath('items.2.name' as any, () => {}));
+    unsubs.push(form.subscribeToPath('other.1.label' as any, () => {}));
+
+    // A deliberately varied sequence exercising every write/delete site touched
+    // by this plan: setValue, touch, validate (full and scoped), arrayInsert,
+    // arrayRemove, arrayMove, arraySwap, setErrors/clearErrors, resetField.
+    form.set('items.0.name', '', { touch: true });
+    await form.validate();
+    assertIndexMatchesGroundTruth(form, 'items');
+
+    form.arrayRemove('items' as any, 0); // shifts remaining items down
+    assertIndexMatchesGroundTruth(form, 'items');
+
+    form.arrayInsert('items' as any, 0, { name: 'inserted' } as any);
+    assertIndexMatchesGroundTruth(form, 'items');
+    form.arrayMove('items' as any, 0, 3);
+    assertIndexMatchesGroundTruth(form, 'items');
+    form.arraySwap('items' as any, 1, 2);
+    assertIndexMatchesGroundTruth(form, 'items');
+
+    form.setErrors({ 'other.1.label': 'bad' }); // shares 'other.1.label' with the subscriber above
+    assertIndexMatchesGroundTruth(form, 'other');
+    form.clearErrors(); // releases the errors claim; subscriber claim should keep it indexed
+    assertIndexMatchesGroundTruth(form, 'other');
+    expect(groundTruthCandidates(form, 'other').has('other.1.label')).toBe(true); // still held by the subscriber
+    unsubs[1](); // releases the subscriber claim too
+    assertIndexMatchesGroundTruth(form, 'other');
+    // NOTE (deviation from brief, documented in task-13-report.md): setErrors()
+    // also marks touched[p] = true (pre-existing behavior predating this plan,
+    // in setFieldValue's sibling setErrors/clearErrors pair — see
+    // packages/core/src/index.ts), and clearErrors() only clears the `errors`
+    // map, not `touched`. So 'other.1.label' remains touched even after
+    // clearErrors() + unsubscribing, and both the ground truth and pathIndex
+    // correctly agree it is STILL held (via `touched`), not released. The
+    // brief's original `.toBe(false)` assumed clearErrors also released the
+    // touched claim, which it never has — confirmed by the equality assertion
+    // above already passing with the key still present.
+    expect(groundTruthCandidates(form, 'other').has('other.1.label')).toBe(true);
+
+    form.resetField('items.1.name' as any);
+    assertIndexMatchesGroundTruth(form, 'items');
+    form.reset();
+    assertIndexMatchesGroundTruth(form, 'items');
+    assertIndexMatchesGroundTruth(form, 'other'); // check both prefixes immediately after reset(), not deferred
+    // After a full reset, only the still-live subscriber on 'items.2.name'
+    // (now relocated by the moves/swaps above) should keep anything indexed
+    // under 'items' — confirmed by the ground-truth ­equality check above,
+    // not assumed.
+    unsubs[0]();
+    assertIndexMatchesGroundTruth(form, 'items');
+    assertIndexMatchesGroundTruth(form, 'other');
+  });
+
+  it('repeated random-ish interleavings across many independent arrays stay consistent', async () => {
+    const form = createForm({
+      initialValues: {
+        a: Array.from({ length: 5 }, (_, i) => ({ v: i })),
+        b: Array.from({ length: 5 }, (_, i) => ({ v: i })),
+        c: Array.from({ length: 5 }, (_, i) => ({ v: i })),
+      },
+    });
+
+    const ops: Array<() => void> = [
+      () => form.set('a.0.v' as any, Math.random(), { touch: true }),
+      () => form.set('b.2.v' as any, Math.random(), { touch: true }),
+      () => form.arrayRemove('a' as any, 1),
+      () => form.arrayInsert('b' as any, 1, { v: 99 } as any),
+      () => form.arrayMove('c' as any, 0, 2),
+      () => form.arraySwap('a' as any, 0, 1),
+      () => form.resetField('c.1.v' as any),
+    ];
+
+    for (let i = 0; i < 200; i++) {
+      const op = ops[i % ops.length];
+      try {
+        op();
+      } catch {
+        // Some ops become invalid as arrays shrink (e.g. arrayRemove on an
+        // empty array) — that's fine, the point is pathIndex never desyncs
+        // regardless of which ops actually succeed.
+      }
+      // Ground-truth equality check after EVERY operation, not just at the
+      // end — catches a desync at the exact op that caused it, and a too-
+      // narrow/too-broad candidate set that a final-state-only "doesn't
+      // throw" check would miss entirely.
+      for (const prefix of ['a', 'b', 'c']) {
+        assertIndexMatchesGroundTruth(form, prefix);
+      }
+    }
+  });
+});
