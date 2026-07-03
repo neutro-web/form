@@ -150,8 +150,13 @@ describe('pathIndex — touched call sites', () => {
     input.dispatchEvent(new Event('blur'));
     expect(candidates(form, 'items')).toContain('items.0.name');
     form.resetField('items.0.name' as any);
-    expect(candidates(form, 'items')).not.toContain('items.0.name');
+    // Task 7 wired subscribeToPath's own first-subscribe indexKey call, and
+    // connect() internally holds a subscribeToPath subscription (for a11y sync)
+    // for as long as it stays connected — so the key remains indexed by that
+    // claim alone until disconnect() releases it.
+    expect(candidates(form, 'items')).toContain('items.0.name');
     disconnect();
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
   });
 
   it('setErrors touching paths indexes them', () => {
@@ -279,5 +284,39 @@ describe('pathIndex — validatedPaths call sites', () => {
     await form.validate();
     form.resetField('items.0.name' as any);
     expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+});
+
+describe('pathIndex — pathSubscribers call sites', () => {
+  it('subscribeToPath indexes the path on first subscriber', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    const unsub = form.subscribeToPath('items.0.name' as any, () => {});
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    unsub();
+  });
+
+  it('a second subscriber on the same path does not double-index (refcount stays correct)', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    const unsub1 = form.subscribeToPath('items.0.name' as any, () => {});
+    const unsub2 = form.subscribeToPath('items.0.name' as any, () => {});
+    unsub1(); // one subscriber removed, one remains -> still indexed
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    unsub2(); // last subscriber removed -> unindexed
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+
+  it('subscribeToPathDynamic indexes on first subscriber and unindexes on last unsubscribe', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    const unsub = form.subscribeToPathDynamic('items.0.name', () => {});
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    unsub();
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+
+  it('the wildcard "*" subscription is never indexed (no-dot key)', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    const unsub = form.subscribeToPath('*', () => {});
+    expect(form._debugPathIndex().size).toBe(0);
+    unsub();
   });
 });

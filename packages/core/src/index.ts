@@ -1921,6 +1921,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     if (!pathSet) {
       pathSet = new Set();
       pathSubscribers.set(path, pathSet);
+      indexKey(path);
     }
     pathSet.add(fn);
     const currentVal = path === '*' ? values : getNestedValue(values, path);
@@ -1937,7 +1938,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const listeners = pathSubscribers.get(path);
       if (listeners) {
         listeners.delete(fn);
-        if (listeners.size === 0) pathSubscribers.delete(path);
+        if (listeners.size === 0) {
+          pathSubscribers.delete(path);
+          unindexKey(path);
+        }
       }
     };
   };
@@ -2336,7 +2340,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         return () => {};
       }
       __warnUnknownPath(path);
-      if (!pathSubscribers.has(path)) pathSubscribers.set(path, new Set());
+      if (!pathSubscribers.has(path)) {
+        pathSubscribers.set(path, new Set());
+        indexKey(path);
+      }
       // PathSubscriber receives (value, fieldState) but fn only declares (value) — JS ignores extra args.
       const sub = fn as PathSubscriber;
       pathSubscribers.get(path)?.add(sub);
@@ -2350,7 +2357,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const listeners = pathSubscribers.get(path);
         if (listeners) {
           listeners.delete(sub);
-          if (listeners.size === 0) pathSubscribers.delete(path); // prune empty Set
+          if (listeners.size === 0) {
+            pathSubscribers.delete(path); // prune empty Set
+            unindexKey(path);
+          }
         }
       };
     },
