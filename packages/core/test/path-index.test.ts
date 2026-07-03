@@ -184,6 +184,10 @@ describe('pathIndex — errors call sites', () => {
     expect(candidates(form, 'items')).toContain('items.0.name');
     expect(form.getState().touched['items.0.name' as any]).toBeUndefined();
     form.clearErrors();
+    // Task 6 note: the validate() call above also adds a validatedPaths claim
+    // on this key (clearErrors only clears `errors`, not `validatedPaths`), so
+    // drain that claim too before asserting clearErrors' own contribution.
+    form._debugUnindexKey('items.0.name');
     expect(candidates(form, 'items')).not.toContain('items.0.name');
   });
 
@@ -207,10 +211,19 @@ describe('pathIndex — errors call sites', () => {
     // if runValidation's reindexErrors() call were deleted entirely, masked by
     // wasSet/dirty. Drain exactly those two known claims after validating, so
     // only reindexErrors' own unindexKey call can zero the remainder.
+    //
+    // Task 6 note: each full validate() call also unconditionally re-indexes
+    // every extracted path into `validatedPaths` (matching the existing
+    // unconditional-reindex pattern used by wasSet/dirty/touched), so the two
+    // validate() calls above (initial + post-fix) each add one more claim on
+    // top of the wasSet/dirty ones. Drain those two claims as well so the
+    // remaining count reflects reindexErrors' own unindexKey call alone.
     form.set('items.0.name', 'filled');
     await form.validate();
     form._debugUnindexKey('items.0.name'); // drains wasSet's claim
     form._debugUnindexKey('items.0.name'); // drains dirty's claim
+    form._debugUnindexKey('items.0.name'); // drains validatedPaths' claim from the 1st validate()
+    form._debugUnindexKey('items.0.name'); // drains validatedPaths' claim from the 2nd validate()
     expect(candidates(form, 'items')).not.toContain('items.0.name');
   });
 
@@ -227,11 +240,44 @@ describe('pathIndex — errors call sites', () => {
     expect(candidates(form, 'other')).toContain('other.0.label');
     // See the isolation note above: draining wasSet's and dirty's claims after
     // the scoped validate isolates reindexErrors' own unindexKey contribution.
+    // Task 6 note: the initial full validate() and the scoped validate() each
+    // add one more validatedPaths claim on 'items.0.name' (see the isolation
+    // note in the previous test), so drain those two as well.
     form.set('items.0.name', 'filled');
     await form.validate(['items.0.name'] as any);
     form._debugUnindexKey('items.0.name');
     form._debugUnindexKey('items.0.name');
+    form._debugUnindexKey('items.0.name'); // drains validatedPaths' claim from the full validate()
+    form._debugUnindexKey('items.0.name'); // drains validatedPaths' claim from the scoped validate()
     expect(candidates(form, 'items')).not.toContain('items.0.name');
     expect(candidates(form, 'other')).toContain('other.0.label'); // untouched by the scoped run
+  });
+});
+
+describe('pathIndex — validatedPaths call sites', () => {
+  it('a full validate() with no validator/rules indexes every extracted path', async () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    await form.validate();
+    expect(candidates(form, 'items')).toContain('items.0.name');
+  });
+
+  it('a scoped validate() indexes only the scoped path', async () => {
+    const form = createForm({
+      initialValues: { items: [{ name: 'a' }], other: [{ label: 'b' }] },
+      rules: { 'items.0.name': 'required' } as any,
+    });
+    await form.validate(['items.0.name'] as any);
+    expect(candidates(form, 'items')).toContain('items.0.name');
+  });
+
+  it('resetField unindexes a validatedPaths entry for the reset field', async () => {
+    // No validator/rules, so runValidation's early-return branch only ever
+    // calls validatedPaths.add()/indexKey() — no wasSet/dirty/touched/errors
+    // claim is placed on this path — so validatedPaths is the sole claimant
+    // and this absence check is not masked by another structure's claim.
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    await form.validate();
+    form.resetField('items.0.name' as any);
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
   });
 });

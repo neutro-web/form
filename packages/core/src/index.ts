@@ -1373,9 +1373,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     if (!config.validator && !config.rules) {
       if (!scopePaths) {
         hasValidated = true;
-        for (const p of extractAllPaths(values)) validatedPaths.add(p);
+        for (const p of extractAllPaths(values)) {
+          validatedPaths.add(p);
+          indexKey(p);
+        }
       } else {
-        for (const path of scopePaths) validatedPaths.add(path);
+        for (const path of scopePaths) {
+          validatedPaths.add(path);
+          indexKey(path);
+        }
       }
       return true;
     }
@@ -1535,10 +1541,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       // walk current values. (extractAllPaths is not called for scoped runs.)
       if (expandedScope) {
         if (activeEpoch === asyncEpoch && !abortController?.signal.aborted) {
-          for (const path of expandedScope) validatedPaths.add(path);
+          for (const path of expandedScope) {
+            validatedPaths.add(path);
+            indexKey(path);
+          }
         }
       } else if (activeEpoch === asyncEpoch) {
-        for (const p of extractAllPaths(values)) validatedPaths.add(p);
+        for (const p of extractAllPaths(values)) {
+          validatedPaths.add(p);
+          indexKey(p);
+        }
       }
       if (globalSubscribers.size > 0) {
         notifyGlobalSubscribers(getState());
@@ -2739,7 +2751,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const toDelete = [...validatedPaths].filter(
           (k) => k === targetPath || k.startsWith(`${targetPath}.`)
         );
-        for (const k of toDelete) validatedPaths.delete(k);
+        for (const k of toDelete) {
+          validatedPaths.delete(k);
+          unindexKey(k);
+        }
       });
 
       // DOM sync: update the connected element if one exists for this path
