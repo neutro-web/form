@@ -77,3 +77,27 @@ describe('pathIndex — wasSet call sites', () => {
     expect(form.isFieldDirty('items' as any)).toBe(true);
   });
 });
+
+describe('pathIndex — dirty call sites', () => {
+  it('setFieldValue indexes a dirty write', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.set('items.0.name', 'changed');
+    expect(candidates(form, 'items')).toContain('items.0.name');
+  });
+
+  it('setting a value back to its initial value deletes dirty and unindexes it', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.set('items.0.name', 'changed');
+    form.set('items.0.name', 'a'); // back to initial -> dirty[path] deleted
+    // wasSet still holds 'items.0.name' (Task 2), so the key must still be indexed —
+    // this exercises the refcount, not a full eviction.
+    expect(candidates(form, 'items')).toContain('items.0.name');
+  });
+
+  it('resetField unindexes dirty entries for the reset field', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.set('items.0.name', 'changed');
+    form.resetField('items.0.name' as any);
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+});

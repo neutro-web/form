@@ -1623,7 +1623,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       setNestedValue(values, path, val);
       const initialVal = getNestedValue(initialValues, path);
       dirty[path] = !isDeepEqual(initialVal, val);
-      if (!dirty[path]) delete dirty[path];
+      if (!dirty[path]) {
+        delete dirty[path];
+        unindexKey(path);
+      } else {
+        indexKey(path);
+      }
       if (options.touch) touched[path] = true;
     });
     if (computedMap.size > 0) {
@@ -1667,8 +1672,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
               connectedPaths.delete(path);
               if (!persistedPaths.has(path)) {
                 delete errors[path];
+                unindexKey(path);
                 delete touched[path];
+                unindexKey(path);
                 delete dirty[path];
+                unindexKey(path);
                 clearedPaths.push(path);
               }
             }
@@ -2689,7 +2697,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
         if (!options?.keepDirty) {
           for (const k of Object.keys(dirty)) {
-            if (k === targetPath || k.startsWith(`${targetPath}.`)) delete dirty[k];
+            if (k === targetPath || k.startsWith(`${targetPath}.`)) {
+              delete dirty[k];
+              unindexKey(k);
+            }
           }
           for (const k of Object.keys(wasSet)) {
             if (k === targetPath || k.startsWith(`${targetPath}.`)) {
