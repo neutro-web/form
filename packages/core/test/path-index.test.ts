@@ -385,3 +385,111 @@ describe('pathIndex — destroy()', () => {
     expect(candidates(form, 'items')).not.toContain('items.0.name'); // fully released now
   });
 });
+
+describe('shiftStateIndices — candidate-lookup correctness', () => {
+  it('arrayRemove shifts EVERY affected index correctly (not just one) and preserves exact state counts', async () => {
+    // Deviation from the brief's original draft (see task-10-report.md for full
+    // rationale): no `rules`/`validator` config is used here. arrayRemove always
+    // ends with an unconditional `runValidation([targetPath])` call (pre-existing
+    // behavior, not part of this task); with real rules configured that revalidates
+    // every literal rule path under 'items' and re-populates validatedPaths using
+    // the OLD (pre-shift) literal path names, which stomps on and masks the exact
+    // count invariants this test wants to isolate. With no rules/validator, the
+    // config-free branch of runValidation only ever adds the exact scope path
+    // passed to it ('items', already tracked) and never touches per-field paths,
+    // so shiftStateIndices's own validatedPaths bookkeeping is what's being
+    // observed here, not incidental revalidation noise.
+    const form = createForm({
+      initialValues: {
+        items: [{ name: '' }, { name: 'b' }, { name: 'c' }, { name: 'd' }, { name: 'e' }],
+        unrelatedField1: 'x',
+        unrelatedField2: 'y',
+      },
+    });
+    // Give every index a distinguishable dirty/touched/wasSet footprint so a
+    // shift bug affecting any single index is individually detectable.
+    for (let i = 1; i <= 4; i++) {
+      form.set(`items.${i}.name` as any, `changed-${i}`, { touch: true });
+    }
+    // Seed a genuine error at index 0 directly (no rules engine involved) so the
+    // count-invariant assertions below depend on there being a real error to
+    // drop when index 0 is removed. setErrors() also marks the path touched
+    // (see its implementation) — accounted for in the touched-count assertion.
+    form.setErrors({ 'items.0.name': 'Required' } as any);
+    // With no rules/validator configured, validate() takes the no-op branch and
+    // just walks extractAllPaths(values), populating validatedPaths for every
+    // real path in `values` (both the array-item object path `items.N` and its
+    // leaf `items.N.name`) — giving a full, deterministic baseline unaffected by
+    // rule-engine revalidation.
+    await form.validate();
+    const before = form._debugRawState();
+    const beforeErrorCount = Object.keys(before.errors).length;
+    const beforeTouchedCount = Object.keys(before.touched).length;
+    const beforeDirtyCount = Object.keys(before.dirty).length;
+    const beforeWasSetCount = Object.keys(before.wasSet).length;
+    const beforeValidatedCount = before.validatedPaths.length;
+
+    form.arrayRemove('items' as any, 0); // every remaining index (1-4) shifts down by 1
+
+    // Every shifted item's value AND its touched/dirty footprint followed it.
+    expect(form.get('items.0.name' as any)).toBe('changed-1');
+    expect(form.get('items.1.name' as any)).toBe('changed-2');
+    expect(form.get('items.2.name' as any)).toBe('changed-3');
+    expect(form.get('items.3.name' as any)).toBe('changed-4');
+    for (let i = 0; i <= 3; i++) {
+      expect(form.isFieldDirty(`items.${i}.name` as any)).toBe(true);
+    }
+
+    // Exact count invariants: removing index 0 should drop exactly the removed
+    // index's tracked entries and leave every other entry's COUNT unchanged
+    // (renamed, not duplicated or dropped) — a too-narrow or too-broad
+    // candidate set would change these counts even if the specific assertions
+    // above happen to still look right.
+    const after = form._debugRawState();
+    // Index 0's touched entry (set by setErrors above) is genuinely dropped;
+    // every other touched entry (indices 1-4) is renamed, not duplicated/lost.
+    expect(Object.keys(after.touched).length).toBe(beforeTouchedCount - 1);
+    expect(Object.keys(after.dirty).length).toBe(beforeDirtyCount); // no dirty state on removed index 0
+    // arrayRemove unconditionally marks the array root itself as wasSet
+    // (`wasSet[targetPath] = true` at the top of arrayRemove, pre-existing
+    // behavior unrelated to shiftStateIndices) — so the count grows by
+    // exactly one for that root marker, on top of the unchanged per-index
+    // entries carried over by the shift.
+    expect(Object.keys(after.wasSet).length).toBe(beforeWasSetCount + 1); // no wasSet state on removed index 0 beyond the array-root marker
+    expect(Object.keys(after.errors).length).toBe(beforeErrorCount - 1); // index 0's error is dropped, not orphaned
+    // Index 0 contributes TWO tracked validatedPaths entries (the array-item
+    // object path 'items.0' AND its leaf 'items.0.name'), both dropped on removal.
+    expect(after.validatedPaths.length).toBe(beforeValidatedCount - 2);
+  });
+
+  it('arrayRemove leaves state below the removed index completely untouched', async () => {
+    const form = createForm({
+      initialValues: { items: [{ name: 'a' }, { name: 'b' }, { name: 'c' }] },
+    });
+    form.set('items.0.name' as any, 'unaffected', { touch: true });
+    const before = form._debugRawState();
+    form.arrayRemove('items' as any, 2); // remove the LAST index; index 0 must not move or be touched
+    const after = form._debugRawState();
+    expect(after.touched['items.0.name']).toBe(before.touched['items.0.name']);
+    expect(after.dirty['items.0.name']).toBe(before.dirty['items.0.name']);
+    expect(form.get('items.0.name' as any)).toBe('unaffected');
+  });
+
+  it('arrayInsert correctly shifts state up and leaves unrelated fields alone', () => {
+    const form = createForm({
+      initialValues: { items: [{ name: 'a' }, { name: 'b' }], other: 'unchanged' },
+    });
+    form.set('items.1.name', 'b-touched', { touch: true });
+    form.arrayInsert('items' as any, 0, { name: 'new' } as any);
+    expect(form.get('items.2.name' as any)).toBe('b-touched');
+    expect(form.get('other' as any)).toBe('unchanged');
+  });
+
+  it('pathIndex candidates for the array prefix shrink to zero once all array state is cleared', async () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.set('items.0.name', 'changed', { touch: true });
+    expect(candidates(form, 'items').length).toBeGreaterThan(0);
+    form.arrayRemove('items' as any, 0);
+    expect(candidates(form, 'items').length).toBe(0);
+  });
+});

@@ -1721,41 +1721,49 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     targetIndex?: number
   ): string[] => {
     const shiftedKeys: string[] = [];
+    const candidates = Array.from(pathIndex.get(basePath)?.keys() ?? []);
+    // Two-phase per map: compute every drop/rename against the ORIGINAL stateMap
+    // first, then delete every affected candidate key, and only after all deletes
+    // have landed write the renamed values back in. Doing delete-and-write in a
+    // single interleaved pass (in `candidates` iteration order) is unsafe: e.g.
+    // removing index 0 from a 5-item array renames index 1's key down to index 0's
+    // key while ALSO needing to drop the original index-0 key — if the candidate
+    // order processes the rename before the drop, the drop (keyed only by string,
+    // not by "was this a rename target") silently wipes out the just-renamed value.
     const shiftMap = (stateMap: Record<string, any>) => {
-      const updated: Record<string, any> = {};
+      const updated: Record<string, any> = { ...stateMap };
       const prefix = `${basePath}.`;
-      Object.keys(stateMap).forEach((key) => {
-        if (!key.startsWith(prefix)) {
-          updated[key] = stateMap[key];
-          return;
-        }
+      const renames: Array<[string, string]> = [];
+      for (const key of candidates) {
+        if (!(key in stateMap)) continue;
+        if (!key.startsWith(prefix)) continue;
         const remaining = key.substring(prefix.length);
         const match = remaining.match(/^(\d+)(.*)$/);
-        if (!match) {
-          updated[key] = stateMap[key];
-          return;
-        }
+        if (!match) continue;
         const index = parseInt(match[1], 10);
         const tail = match[2];
         if (action === 'remove') {
-          if (index === fromIndex) return;
-          if (index > fromIndex) {
-            const newKey = `${prefix}${index - 1}${tail}`;
-            updated[newKey] = stateMap[key];
-            shiftedKeys.push(newKey);
-          } else {
-            updated[key] = stateMap[key];
+          if (index === fromIndex) {
+            delete updated[key];
+            unindexKey(key);
+          } else if (index > fromIndex) {
+            delete updated[key];
+            unindexKey(key);
+            renames.push([key, `${prefix}${index - 1}${tail}`]);
           }
         } else if (action === 'insert' && targetIndex !== undefined) {
           if (index >= targetIndex) {
-            const newKey = `${prefix}${index + 1}${tail}`;
-            updated[newKey] = stateMap[key];
-            shiftedKeys.push(newKey);
-          } else {
-            updated[key] = stateMap[key];
+            delete updated[key];
+            unindexKey(key);
+            renames.push([key, `${prefix}${index + 1}${tail}`]);
           }
         }
-      });
+      }
+      for (const [oldKey, newKey] of renames) {
+        updated[newKey] = stateMap[oldKey];
+        indexKey(newKey);
+        shiftedKeys.push(newKey);
+      }
       return updated;
     };
     batch(() => {
@@ -1766,47 +1774,40 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       // Update validatedPaths for the structural change.
       // For insert: shift existing indices ≥ targetIndex up by 1 so tracking follows items.
       // For remove: drop the removed index, renumber survivors above it.
-      const updatedValidated = new Set<string>();
       const arrPrefix = `${basePath}.`;
-      if (action === 'remove') {
-        validatedPaths.forEach((key) => {
-          if (!key.startsWith(arrPrefix)) {
-            updatedValidated.add(key);
-            return;
+      const validatedRenames: string[] = [];
+      for (const key of candidates) {
+        if (!validatedPaths.has(key)) continue;
+        if (!key.startsWith(arrPrefix)) continue;
+        const remaining = key.substring(arrPrefix.length);
+        const match = remaining.match(/^(\d+)(.*)$/);
+        if (!match) continue;
+        const index = parseInt(match[1], 10);
+        const tail = match[2];
+        if (action === 'remove') {
+          if (index === fromIndex) {
+            validatedPaths.delete(key);
+            unindexKey(key);
+          } else if (index > fromIndex) {
+            validatedPaths.delete(key);
+            unindexKey(key);
+            validatedRenames.push(`${arrPrefix}${index - 1}${tail}`);
           }
-          const remaining = key.substring(arrPrefix.length);
-          const match = remaining.match(/^(\d+)(.*)$/);
-          if (!match) {
-            updatedValidated.add(key);
-            return;
+        } else if (action === 'insert' && targetIndex !== undefined) {
+          if (index >= targetIndex) {
+            validatedPaths.delete(key);
+            unindexKey(key);
+            validatedRenames.push(`${arrPrefix}${index + 1}${tail}`);
           }
-          const index = parseInt(match[1], 10);
-          const tail = match[2];
-          if (index === fromIndex) return; // drop the removed index
-          if (index > fromIndex)
-            updatedValidated.add(`${arrPrefix}${index - 1}${tail}`); // renumber survivors
-          else updatedValidated.add(key); // keep below-removed unchanged
-        });
-      } else if (action === 'insert' && targetIndex !== undefined) {
-        validatedPaths.forEach((key) => {
-          if (!key.startsWith(arrPrefix)) {
-            updatedValidated.add(key);
-            return;
-          }
-          const remaining = key.substring(arrPrefix.length);
-          const match = remaining.match(/^(\d+)(.*)$/);
-          if (!match) {
-            updatedValidated.add(key);
-            return;
-          }
-          const index = parseInt(match[1], 10);
-          const tail = match[2];
-          if (index >= targetIndex) updatedValidated.add(`${arrPrefix}${index + 1}${tail}`);
-          else updatedValidated.add(key);
-        });
+        }
       }
-      validatedPaths.clear();
-      for (const k of updatedValidated) validatedPaths.add(k);
+      // Add renamed validatedPaths entries only after every drop/delete above has
+      // landed — same collision hazard as shiftMap above (a rename target can
+      // coincide with a key that's also being dropped this same pass).
+      for (const newKey of validatedRenames) {
+        validatedPaths.add(newKey);
+        indexKey(newKey);
+      }
       // Also notify any actively-registered subscriber path under this array index whose
       // slot content shifted, even when no error/touched/dirty/wasSet state exists there -
       // otherwise arrayRemove/arrayInsert would have no way to reach a per-item VALUE
@@ -1816,8 +1817,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       // subscriptions are registered against a fixed slot path - by the time this runs,
       // `values` has already been mutated (splice happened before this call), so re-running
       // notify() on the *same* key re-reads the new content that shifted into that slot.
-      for (const key of pathSubscribers.keys()) {
-        if (key === '*' || !key.startsWith(arrPrefix)) continue;
+      // Note: pathSubscribers itself is NOT renamed here (subscriptions stay registered at
+      // their original path — only the notify-list is computed), so no indexKey/unindexKey
+      // calls are needed for this loop; it only reads pathSubscribers, never writes it.
+      for (const key of candidates) {
+        if (!pathSubscribers.has(key) || key === '*') continue;
+        if (!key.startsWith(arrPrefix)) continue;
         const remaining = key.substring(arrPrefix.length);
         const match = remaining.match(/^(\d+)(.*)$/);
         if (!match) continue;
