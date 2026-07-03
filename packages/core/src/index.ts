@@ -2614,17 +2614,21 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
               const tail = key.substring(prefixA.length);
               const bKey = `${prefixB}${tail}`;
               updated[bKey] = stateMap[key];
-              indexKey(bKey);
               if (stateMap[bKey] === undefined) {
+                // bKey had no prior state here, so it's genuinely gaining a new
+                // claim at this key while `key` (A-side) loses its claim.
+                indexKey(bKey);
                 delete updated[key];
                 unindexKey(key);
               }
+              // else: bKey already held state here — the key identity stays put
+              // (only the values swap), so its existing claim is unchanged.
             } else if (matchesB) {
               const tail = key.substring(prefixB.length);
               const aKey = `${prefixA}${tail}`;
               updated[aKey] = stateMap[key];
-              indexKey(aKey);
               if (stateMap[aKey] === undefined) {
+                indexKey(aKey);
                 delete updated[key];
                 unindexKey(key);
               }

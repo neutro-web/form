@@ -641,6 +641,45 @@ describe('arraySwap — candidate-lookup correctness', () => {
     expect(candidates(form, 'items').sort()).toEqual(['items.0.name', 'items.1.name']);
   });
 
+  it('arraySwap with BOTH slots already populated does not leak a refcount when claims are later cleared', () => {
+    // Regression test: when both swap slots already hold state for the same
+    // tail, the key identity stays put (only the VALUES swap) — no index
+    // change should happen at all. The buggy swapKeys called indexKey(bKey)/
+    // indexKey(aKey) unconditionally whenever a key matched, even though the
+    // paired unindexKey only fired when the OPPOSITE slot was undefined. That
+    // left a permanent extra claim on 'items.0.name'/'items.1.name' every time
+    // arraySwap ran on two populated slots, so pathIndex never went back to
+    // empty even after every real claim (touched + errors) was cleared.
+    const form = createForm({
+      initialValues: {
+        items: [{ x: 'a' }, { x: 'b' }],
+      },
+    });
+    form.setErrors({ 'items.0.x': 'e1', 'items.1.x': 'e2' } as any);
+    expect(candidates(form, 'items').sort()).toEqual(['items.0.x', 'items.1.x']);
+
+    form.arraySwap('items' as any, 0, 1);
+
+    // Release every claim that was placed on these keys. setErrors() also
+    // marks the path touched (see the comment on the first test in this
+    // describe block), so clearErrors() alone only releases the `errors`
+    // claim — release the paired `touched` claim directly (it's not exposed
+    // through a public "untouch" API), same pattern used by the
+    // "pathIndex — destroy()" tests above.
+    form.clearErrors();
+    form._debugUnindexKey('items.0.x');
+    form._debugUnindexKey('items.1.x');
+
+    const raw = form._debugRawState();
+    expect(Object.keys(raw.errors)).toEqual([]);
+    // No leaked claims: once every real claim (errors + touched) has been
+    // released, pathIndex must be fully empty for this prefix — no stray
+    // refcount left over from arraySwap's indexKey calls.
+    expect(candidates(form, 'items')).toEqual([]);
+    expect(form._debugPathIndex().has('items.0.x')).toBe(false);
+    expect(form._debugPathIndex().has('items.1.x')).toBe(false);
+  });
+
   it('arraySwap preserves validatedPaths for both indices when both were populated by validate()', async () => {
     // Regression test for the in-place-mutation collision reported against
     // this commit: the previous single-pass loop read/wrote the SAME live
