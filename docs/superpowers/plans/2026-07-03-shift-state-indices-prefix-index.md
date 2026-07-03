@@ -1477,8 +1477,11 @@ Note on test rigor (addressed after round-2 plan review): checking a single shif
 describe('shiftStateIndices — candidate-lookup correctness', () => {
   it('arrayRemove shifts EVERY affected index correctly (not just one) and preserves exact state counts', async () => {
     const form = createForm({
+      // items.0.name starts EMPTY so the required rule actually produces a
+      // real error on it pre-removal — the count-invariant assertions below
+      // depend on there being a genuine error to drop when index 0 is removed.
       initialValues: {
-        items: [{ name: 'a' }, { name: 'b' }, { name: 'c' }, { name: 'd' }, { name: 'e' }],
+        items: [{ name: '' }, { name: 'b' }, { name: 'c' }, { name: 'd' }, { name: 'e' }],
         unrelatedField1: 'x',
         unrelatedField2: 'y',
       },
@@ -2115,6 +2118,7 @@ describe('pathIndex — fuzz: index matches an independently-computed ground tru
     assertIndexMatchesGroundTruth(form, 'items');
     form.reset();
     assertIndexMatchesGroundTruth(form, 'items');
+    assertIndexMatchesGroundTruth(form, 'other'); // check both prefixes immediately after reset(), not deferred
     // After a full reset, only the still-live subscriber on 'items.2.name'
     // (now relocated by the moves/swaps above) should keep anything indexed
     // under 'items' — confirmed by the ground-truth ­equality check above,
