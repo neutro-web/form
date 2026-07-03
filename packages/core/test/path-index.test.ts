@@ -96,8 +96,27 @@ describe('pathIndex — dirty call sites', () => {
 
   it('resetField unindexes dirty entries for the reset field', () => {
     const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
-    form.set('items.0.name', 'changed');
+    form.set('items.0.name', 'changed'); // real refcount for the key is now 2: one
+    // claim from wasSet's indexKey call, one from dirty's indexKey call (see the
+    // "setFieldValue indexes a dirty write" test above).
+    //
+    // resetField's dirty-clearing loop and wasSet-clearing loop are gated by the
+    // same `!options?.keepDirty` condition, so a plain reset here can't clear one
+    // without the other — asserting mere absence afterward would pass even if
+    // dirty's own unindexKey(k) call were deleted, because wasSet's decrement alone
+    // (2 -> 1) wouldn't be enough to fully evict the key, UNLESS a bug elsewhere
+    // masked that. To make the assertion depend on *both* decrements actually
+    // firing, add a third synthetic claim first so the refcount starts at 3.
+    form._debugIndexKey('items.0.name');
     form.resetField('items.0.name' as any);
+    // If both the dirty and wasSet loops fired their unindexKey call (3 -> 1), the
+    // key must still be present, held up solely by the synthetic claim.
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    // Draining the synthetic claim should now fully zero the refcount. If dirty's
+    // unindexKey(k) call had been dropped from resetField, only one real decrement
+    // (wasSet's) would have fired above (3 -> 2), and this final drain (2 -> 1)
+    // would leave the key still indexed — failing this assertion.
+    form._debugUnindexKey('items.0.name');
     expect(candidates(form, 'items')).not.toContain('items.0.name');
   });
 });
