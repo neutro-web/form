@@ -493,3 +493,77 @@ describe('shiftStateIndices — candidate-lookup correctness', () => {
     expect(candidates(form, 'items').length).toBe(0);
   });
 });
+
+describe('rekeyArrayState (arrayMove) — candidate-lookup correctness', () => {
+  it('arrayMove correctly moves touched/dirty/wasSet and updates pathIndex, ignoring unrelated fields', () => {
+    // Note: deliberately does NOT call form.validate() with no scope here. A full
+    // (unscoped) validate() walks and indexes every path in `values` into
+    // validatedPaths (see runValidation's `extractAllPaths(values)` fallback),
+    // which would make the shared pathIndex candidate list for 'items' reflect
+    // ALL three items regardless of which one was actually touched - contaminating
+    // this test's "only the moved item's state should follow it" assertion, since
+    // a full permutation of a fully-validated 3-item array keeps every index
+    // occupied (by a different item's content) after the move. Keeping this test
+    // scoped to only touched/dirty/wasSet (state that's set via form.set, not a
+    // form-wide validate) isolates the assertion to what rekeyArrayState actually
+    // controls for the single item that moved.
+    const form = createForm({
+      initialValues: {
+        items: [{ name: 'a' }, { name: 'b' }, { name: 'c' }],
+        unrelated: 'x',
+      },
+    });
+    form.set('items.0.name', '', { touch: true });
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    form.arrayMove('items' as any, 0, 2); // 'a' (with its touched/dirty state) moves to index 2
+    expect(form.get('items.2.name' as any)).toBe('');
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+    expect(candidates(form, 'items')).toContain('items.2.name');
+    expect(form.getState().touched['items.2.name']).toBe(true);
+    expect(form.getState().touched['items.0.name']).toBeUndefined();
+    expect(form.get('unrelated' as any)).toBe('x');
+  });
+
+  it('pathIndex candidates for the array shrink correctly after arrayMove when the moved item had no tracked state', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } });
+    form.set('items.1.name', 'tracked', { touch: true });
+    expect(candidates(form, 'items')).toContain('items.1.name');
+    form.arrayMove('items' as any, 0, 1); // index 1 ('b', tracked) moves to index 0
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    expect(candidates(form, 'items')).not.toContain('items.1.name');
+  });
+
+  it('shifts EVERY affected index correctly for a multi-item arrayMove (collision-bug guard)', () => {
+    // Move index 0 -> 4 across a 5-item array where EVERY index has distinguishable
+    // tracked touched state. This is a full cyclic permutation of all 5 keys: every
+    // key's destination is also some other key's source, which is exactly the shape
+    // that breaks a single-pass interleaved delete/rename loop over pathIndex
+    // candidates (Map iteration order is insertion order, not ascending numeric
+    // order) - see Task 10's shiftStateIndices collision bug for the same class of
+    // failure. Assert every slot's value is fully and independently correct.
+    const form = createForm({
+      initialValues: {
+        items: [{ name: 'v0' }, { name: 'v1' }, { name: 'v2' }, { name: 'v3' }, { name: 'v4' }],
+      },
+    });
+    for (let i = 0; i < 5; i++) {
+      form.set(`items.${i}.name` as any, `touched-${i}`, { touch: true });
+    }
+    for (let i = 0; i < 5; i++) {
+      expect(form.getState().touched[`items.${i}.name`]).toBe(true);
+    }
+    form.arrayMove('items' as any, 0, 4);
+    // Expected sliding-window permutation for fromIndex=0, toIndex=4:
+    // index 0 -> 4; indices 1..4 -> shift down by 1 (1->0, 2->1, 3->2, 4->3).
+    const expectedValueAtIndex = ['touched-1', 'touched-2', 'touched-3', 'touched-4', 'touched-0'];
+    for (let i = 0; i < 5; i++) {
+      expect(form.get(`items.${i}.name` as any)).toBe(expectedValueAtIndex[i]);
+      expect(form.getState().touched[`items.${i}.name`]).toBe(true);
+    }
+    // No stray old-index candidates should remain, and no destination should be
+    // silently dropped by a colliding delete/rename in the same pass.
+    expect(candidates(form, 'items').sort()).toEqual(
+      [0, 1, 2, 3, 4].map((i) => `items.${i}.name`).sort()
+    );
+  });
+});

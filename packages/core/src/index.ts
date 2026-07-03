@@ -1839,29 +1839,46 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
   const rekeyArrayState = (basePath: string, fromIndex: number, toIndex: number) => {
     const prefix = `${basePath}.`;
+    const candidates = Array.from(pathIndex.get(basePath)?.keys() ?? []);
+    const computeNewIndex = (index: number): number => {
+      if (index === fromIndex) return toIndex;
+      if (fromIndex < toIndex && index > fromIndex && index <= toIndex) return index - 1;
+      if (fromIndex > toIndex && index >= toIndex && index < fromIndex) return index + 1;
+      return index;
+    };
+    // Two-phase, mirroring shiftStateIndices (Task 10): a sliding-window arrayMove
+    // rename is a permutation over the affected indices, so a destination key for
+    // one source can equal the source key of another rename processed later in the
+    // SAME candidates iteration (Map order is insertion order, not ascending numeric
+    // order). Interleaving delete-and-write in one pass over `candidates` risks a
+    // later `delete updated[key]` wiping out a value an earlier iteration already
+    // wrote to that same key as its rename target. Phase 1 computes every rename
+    // against the pristine `stateMap` (never mutated mid-loop); phase 2 deletes all
+    // affected source keys, then writes all renamed values - deletes-before-writes
+    // guarantees a write can never be clobbered by a later delete of the same key.
     const shiftMap = (stateMap: Record<string, any>) => {
-      const updated: Record<string, any> = {};
-      const affectedKeys: { index: number; tail: string; key: string }[] = [];
-      Object.keys(stateMap).forEach((key) => {
-        if (!key.startsWith(prefix)) {
-          updated[key] = stateMap[key];
-          return;
-        }
+      const updated: Record<string, any> = { ...stateMap };
+      const renames: Array<[string, string, any]> = [];
+      for (const key of candidates) {
+        if (!(key in stateMap)) continue;
+        if (!key.startsWith(prefix)) continue;
         const remaining = key.substring(prefix.length);
         const match = remaining.match(/^(\d+)(.*)$/);
-        if (!match) {
-          updated[key] = stateMap[key];
-          return;
-        }
-        affectedKeys.push({ index: parseInt(match[1], 10), tail: match[2], key });
-      });
-      affectedKeys.forEach(({ index, tail, key }) => {
-        let newIndex = index;
-        if (index === fromIndex) newIndex = toIndex;
-        else if (fromIndex < toIndex && index > fromIndex && index <= toIndex) newIndex = index - 1;
-        else if (fromIndex > toIndex && index >= toIndex && index < fromIndex) newIndex = index + 1;
-        updated[`${prefix}${newIndex}${tail}`] = stateMap[key];
-      });
+        if (!match) continue;
+        const index = parseInt(match[1], 10);
+        const tail = match[2];
+        const newIndex = computeNewIndex(index);
+        if (newIndex === index) continue; // untouched by this move, leave as-is
+        renames.push([key, `${prefix}${newIndex}${tail}`, stateMap[key]]);
+      }
+      for (const [oldKey] of renames) {
+        delete updated[oldKey];
+        unindexKey(oldKey);
+      }
+      for (const [, newKey, value] of renames) {
+        updated[newKey] = value;
+        indexKey(newKey);
+      }
       return updated;
     };
     batch(() => {
@@ -1869,31 +1886,29 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       touched = shiftMap(touched);
       dirty = shiftMap(dirty);
       wasSet = shiftMap(wasSet) as Record<string, boolean>;
-      // Re-key validatedPaths (Set) with the same sliding-window logic.
-      const updatedValidated = new Set<string>();
-      const affectedKeys: { index: number; tail: string; key: string }[] = [];
-      validatedPaths.forEach((key) => {
-        if (!key.startsWith(prefix)) {
-          updatedValidated.add(key);
-          return;
-        }
+      // Re-key validatedPaths (Set) with the same sliding-window logic and the same
+      // delete-all-then-write-all discipline as shiftMap above.
+      const validatedRenames: Array<[string, string]> = [];
+      for (const key of candidates) {
+        if (!validatedPaths.has(key)) continue;
+        if (!key.startsWith(prefix)) continue;
         const remaining = key.substring(prefix.length);
         const match = remaining.match(/^(\d+)(.*)$/);
-        if (!match) {
-          updatedValidated.add(key);
-          return;
-        }
-        affectedKeys.push({ index: parseInt(match[1], 10), tail: match[2], key });
-      });
-      affectedKeys.forEach(({ index, tail }) => {
-        let newIndex = index;
-        if (index === fromIndex) newIndex = toIndex;
-        else if (fromIndex < toIndex && index > fromIndex && index <= toIndex) newIndex = index - 1;
-        else if (fromIndex > toIndex && index >= toIndex && index < fromIndex) newIndex = index + 1;
-        updatedValidated.add(`${prefix}${newIndex}${tail}`);
-      });
-      validatedPaths.clear();
-      for (const k of updatedValidated) validatedPaths.add(k);
+        if (!match) continue;
+        const index = parseInt(match[1], 10);
+        const tail = match[2];
+        const newIndex = computeNewIndex(index);
+        if (newIndex === index) continue;
+        validatedRenames.push([key, `${prefix}${newIndex}${tail}`]);
+      }
+      for (const [oldKey] of validatedRenames) {
+        validatedPaths.delete(oldKey);
+        unindexKey(oldKey);
+      }
+      for (const [, newKey] of validatedRenames) {
+        validatedPaths.add(newKey);
+        indexKey(newKey);
+      }
     });
   };
 
