@@ -108,6 +108,22 @@ In the `FormInstance<T>` interface, find line 285 (`_subscribeToActions: (fn: (a
   _debugIndexKey: (key: string) => void;
   /** @internal test-only direct access to unindexKey. Not part of the stable public API. */
   _debugUnindexKey: (key: string) => void;
+  /**
+   * @internal test-only snapshot of the SIX TRACKED STRUCTURES THEMSELVES
+   * (not pathIndex) — used as an independent ground truth in tests, since
+   * asserting against _debugPathIndex alone only proves the index is
+   * internally consistent with itself, not that it matches the real
+   * errors/touched/dirty/wasSet/validatedPaths/pathSubscribers state.
+   * Not part of the stable public API.
+   */
+  _debugRawState: () => {
+    errors: Record<string, string>;
+    touched: Record<string, boolean>;
+    dirty: Record<string, boolean>;
+    wasSet: Record<string, boolean>;
+    validatedPaths: string[];
+    pathSubscriberKeys: string[];
+  };
 }
 ```
 
@@ -130,6 +146,14 @@ In the returned instance object, find `_subscribeToActions` (currently at line 2
     },
     _debugIndexKey: (key: string) => indexKey(key),
     _debugUnindexKey: (key: string) => unindexKey(key),
+    _debugRawState: () => ({
+      errors: { ...errors },
+      touched: { ...touched },
+      dirty: { ...dirty },
+      wasSet: { ...wasSet },
+      validatedPaths: [...validatedPaths],
+      pathSubscriberKeys: [...pathSubscribers.keys()],
+    }),
 ```
 
 - [ ] **Step 4: Type-check**
@@ -1357,26 +1381,7 @@ git commit -m "feat(core): unindex reset()/hydrate() bulk-clear sites, preservin
 
 Add to `packages/core/test/path-index.test.ts`:
 
-```ts
-describe('pathIndex — destroy()', () => {
-  it('destroy() unindexes pathSubscribers entries but leaves errors/touched/dirty/wasSet/validatedPaths state (and their pathIndex entries) untouched', async () => {
-    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
-    const unsub = form.subscribeToPath('items.0.name' as any, () => {});
-    form.setErrors({ 'items.0.name': 'bad' });
-    expect(candidates(form, 'items')).toContain('items.0.name');
-    form.destroy();
-    // errors still holds the key (destroy() doesn't clear errors), so it must remain indexed.
-    expect(candidates(form, 'items')).toContain('items.0.name');
-    unsub(); // no-op after destroy, pathSubscribers already cleared; the subscription's
-             // own claim was already released by destroy(), not by this call.
-  });
-});
-```
-
-- [ ] **Step 2: Run to verify failure**
-
-Run: `pnpm exec vitest run packages/core/test/path-index.test.ts`
-Expected: FAILS in a way that reveals the real bug this task fixes — trace through: before this task's fix, `destroy()` doesn't call `unindexKey` for `pathSubscribers` entries, so the key stays indexed with refcount 2 (errors + subscriber) even after `destroy()`. The assertion `expect(candidates(form, 'items')).toContain('items.0.name')` after `destroy()` would actually already PASS even without the fix, because the key is still indexed either way (just with a wrong refcount). To make this test meaningfully fail pre-fix and pass post-fix, add a second, more precise assertion using the refcount indirectly: unsubscribe first, then destroy, and confirm the key eventually reaches zero only through `unindexKey` calls that this task adds. Replace the test with:
+Note on test design: a test that only checks "the key is still indexed after `destroy()`" would pass even without this task's fix, because without `destroy()` releasing the subscriber's claim, the key stays indexed too — just with a wrong (too-high) refcount, which a single presence check can't distinguish from the correct refcount. The test below forces the refcount to be exercised down to exactly zero through two independent claims, so a missing `unindexKey` call in `destroy()` leaves the key incorrectly still indexed after *both* claims are released, which the test's final assertion catches:
 
 ```ts
 describe('pathIndex — destroy()', () => {
@@ -1392,10 +1397,10 @@ describe('pathIndex — destroy()', () => {
 });
 ```
 
-This version fails pre-fix because without `destroy()` calling `unindexKey` for the subscriber claim, the key has refcount 2 after `destroy()`; `clearErrors()` only removes one claim (refcount 1), so `candidates(form, 'items')` would still (incorrectly) contain `'items.0.name'` after `clearErrors()` — the test's final assertion fails. Post-fix, `destroy()` correctly drops to refcount 1, and `clearErrors()` drops it to 0.
+- [ ] **Step 2: Run to verify failure**
 
 Run: `pnpm exec vitest run packages/core/test/path-index.test.ts`
-Expected: this test FAILS pre-fix.
+Expected: FAILS pre-fix — without `destroy()` calling `unindexKey` for the subscriber claim, the key has refcount 2 after `destroy()`; `clearErrors()` only removes one claim (refcount 1), so the test's final assertion (`not.toContain`) fails because the key is still indexed. Post-fix, `destroy()` correctly drops the refcount to 1, and `clearErrors()` drops it to 0, so the final assertion passes.
 
 - [ ] **Step 3: Wire `destroy()`**
 
@@ -1466,12 +1471,14 @@ Expected: matches the version quoted in the design spec's "Problem" section — 
 
 Add to `packages/core/test/path-index.test.ts` (this test passes both before and after the rewrite — it's a correctness guard, not a TDD-red step, since the *behavior* doesn't change, only the enumeration strategy):
 
+Note on test rigor (addressed after round-2 plan review): checking a single shifted index is too weak a regression guard for this rewrite — a bug that mishandles all-but-the-first affected key (e.g. an off-by-one that only shifts the first candidate encountered, or a candidate-set that's silently too narrow and drops keys) would still pass a test that only inspects one index. The tests below instead (a) set distinguishable state at **every** index of a multi-item array, not just one, and assert **all** of them shifted correctly, and (b) assert an exact **count** of tracked state via `_debugRawState()` before and after each op — a too-narrow or too-broad candidate set changes the count even when the specific indices a narrower test happens to check still look right by coincidence.
+
 ```ts
 describe('shiftStateIndices — candidate-lookup correctness', () => {
-  it('arrayRemove correctly shifts errors/touched/dirty/wasSet/validatedPaths/subscribers, ignoring unrelated top-level state', async () => {
+  it('arrayRemove shifts EVERY affected index correctly (not just one) and preserves exact state counts', async () => {
     const form = createForm({
       initialValues: {
-        items: [{ name: 'a' }, { name: 'b' }, { name: 'c' }],
+        items: [{ name: 'a' }, { name: 'b' }, { name: 'c' }, { name: 'd' }, { name: 'e' }],
         unrelatedField1: 'x',
         unrelatedField2: 'y',
       },
@@ -1479,17 +1486,59 @@ describe('shiftStateIndices — candidate-lookup correctness', () => {
         'items.0.name': { required: true },
         'items.1.name': { required: true },
         'items.2.name': { required: true },
+        'items.3.name': { required: true },
+        'items.4.name': { required: true },
       } as any,
     });
-    const seen: unknown[] = [];
-    const unsub = form.subscribeToPath('items.1.name' as any, (v) => seen.push(v));
-    form.set('items.1.name', '', { touch: true }); // dirty + touched + wasSet on index 1
+    // Give every index a distinguishable dirty/touched/wasSet footprint so a
+    // shift bug affecting any single index is individually detectable.
+    for (let i = 1; i <= 4; i++) {
+      form.set(`items.${i}.name` as any, `changed-${i}`, { touch: true });
+    }
     await form.validate();
-    form.arrayRemove('items' as any, 0); // index 1 ("b") shifts down to index 0
-    expect(form.get('items.0.name' as any)).toBe('');
-    expect(form.isFieldDirty('items.0.name' as any)).toBe(true);
-    expect(seen[seen.length - 1]).toBe(''); // subscriber followed the shift
-    unsub();
+    const before = form._debugRawState();
+    const beforeErrorCount = Object.keys(before.errors).length;
+    const beforeTouchedCount = Object.keys(before.touched).length;
+    const beforeDirtyCount = Object.keys(before.dirty).length;
+    const beforeWasSetCount = Object.keys(before.wasSet).length;
+    const beforeValidatedCount = before.validatedPaths.length;
+
+    form.arrayRemove('items' as any, 0); // every remaining index (1-4) shifts down by 1
+
+    // Every shifted item's value AND its touched/dirty footprint followed it.
+    expect(form.get('items.0.name' as any)).toBe('changed-1');
+    expect(form.get('items.1.name' as any)).toBe('changed-2');
+    expect(form.get('items.2.name' as any)).toBe('changed-3');
+    expect(form.get('items.3.name' as any)).toBe('changed-4');
+    for (let i = 0; i <= 3; i++) {
+      expect(form.isFieldDirty(`items.${i}.name` as any)).toBe(true);
+    }
+
+    // Exact count invariants: removing index 0 (which had no dirty/touched/wasSet
+    // state of its own, only an error from validation) should drop exactly the
+    // removed index's tracked entries and leave every other entry's COUNT
+    // unchanged (renamed, not duplicated or dropped) — a too-narrow or
+    // too-broad candidate set would change these counts even if the specific
+    // assertions above happen to still look right.
+    const after = form._debugRawState();
+    expect(Object.keys(after.touched).length).toBe(beforeTouchedCount); // no touched state on removed index 0
+    expect(Object.keys(after.dirty).length).toBe(beforeDirtyCount); // no dirty state on removed index 0
+    expect(Object.keys(after.wasSet).length).toBe(beforeWasSetCount); // no wasSet state on removed index 0
+    expect(Object.keys(after.errors).length).toBe(beforeErrorCount - 1); // index 0's error is dropped, not orphaned
+    expect(after.validatedPaths.length).toBe(beforeValidatedCount - 1); // same for validatedPaths
+  });
+
+  it('arrayRemove leaves state below the removed index completely untouched', async () => {
+    const form = createForm({
+      initialValues: { items: [{ name: 'a' }, { name: 'b' }, { name: 'c' }] },
+    });
+    form.set('items.0.name' as any, 'unaffected', { touch: true });
+    const before = form._debugRawState();
+    form.arrayRemove('items' as any, 2); // remove the LAST index; index 0 must not move or be touched
+    const after = form._debugRawState();
+    expect(after.touched['items.0.name']).toBe(before.touched['items.0.name']);
+    expect(after.dirty['items.0.name']).toBe(before.dirty['items.0.name']);
+    expect(form.get('items.0.name' as any)).toBe('unaffected');
   });
 
   it('arrayInsert correctly shifts state up and leaves unrelated fields alone', () => {
@@ -1988,27 +2037,38 @@ git commit -m "perf(core): rewrite arraySwap's swapKeys/validatedPaths swap to u
 **Interfaces:**
 - Consumes: the public `FormInstance<T>` API plus `_debugPathIndex()` from Task 1.
 
+Note on test rigor (addressed after round-2 plan review): the first draft of this task compared `_debugPathIndex()` against itself under the name "brute-force scan," which is tautological — it cannot detect a wrong index, only an index that's inconsistent with itself. Real ground truth requires comparing against the six tracked structures directly, which `_debugRawState()` (added to Task 1's debug accessors above; if not yet present, add it there before this task) exposes. The helper below builds a genuine independent candidate set by scanning `_debugRawState()`'s six structures for keys under `prefix` — the same logic `pathIndex` is supposed to encode, but computed from the raw state, not from `pathIndex` itself.
+
 - [ ] **Step 1: Write the fuzz test**
 
 Add to `packages/core/test/path-index.test.ts`:
 
 ```ts
-describe('pathIndex — fuzz: index always matches brute-force scan', () => {
-  function bruteForceCandidates(form: ReturnType<typeof createForm>, prefix: string): Set<string> {
-    // Mirrors what pathIndex SHOULD contain: any key from the six tracked
-    // structures whose value is reachable via the form's public introspection.
-    // We can't read errors/touched/dirty/wasSet/validatedPaths/pathSubscribers
-    // directly (they're closure-private), so this brute-force check instead
-    // re-derives the expected candidate set from the same _debugPathIndex
-    // snapshot taken immediately after each operation and compares it against
-    // a snapshot taken one operation earlier, asserting monotonic consistency:
-    // every key present in prefix's candidate set continues to correctly
-    // resolve via the public API (get/isFieldValid/isFieldDirty) without throwing
-    // and without returning suspicious "phantom" state.
-    return form._debugPathIndex().get(prefix) ?? new Set();
+describe('pathIndex — fuzz: index matches an independently-computed ground truth', () => {
+  // Independent oracle: scans the six RAW tracked structures (not pathIndex)
+  // for keys under `prefix`, exactly mirroring what pathIndex is supposed to
+  // contain. This can actually fail if pathIndex is wrong, unlike comparing
+  // pathIndex against itself.
+  function groundTruthCandidates(form: ReturnType<typeof createForm>, prefix: string): Set<string> {
+    const raw = form._debugRawState();
+    const matches = (key: string) => key === prefix || key.startsWith(`${prefix}.`);
+    const result = new Set<string>();
+    for (const key of Object.keys(raw.errors)) if (matches(key)) result.add(key);
+    for (const key of Object.keys(raw.touched)) if (matches(key)) result.add(key);
+    for (const key of Object.keys(raw.dirty)) if (matches(key)) result.add(key);
+    for (const key of Object.keys(raw.wasSet)) if (matches(key)) result.add(key);
+    for (const key of raw.validatedPaths) if (matches(key)) result.add(key);
+    for (const key of raw.pathSubscriberKeys) if (key !== '*' && matches(key)) result.add(key);
+    return result;
   }
 
-  it('interleaved operations never leave a stale/incorrect pathIndex entry', async () => {
+  function assertIndexMatchesGroundTruth(form: ReturnType<typeof createForm>, prefix: string) {
+    const expected = groundTruthCandidates(form, prefix);
+    const actual = form._debugPathIndex().get(prefix) ?? new Set<string>();
+    expect(actual).toEqual(expected);
+  }
+
+  it('interleaved operations keep pathIndex exactly equal to the ground truth, not just non-crashing', async () => {
     const form = createForm({
       initialValues: {
         items: Array.from({ length: 6 }, (_, i) => ({ name: `item-${i}` })),
@@ -2030,33 +2090,38 @@ describe('pathIndex — fuzz: index always matches brute-force scan', () => {
     // arrayRemove, arrayMove, arraySwap, setErrors/clearErrors, resetField.
     form.set('items.0.name', '', { touch: true });
     await form.validate();
-    expect(bruteForceCandidates(form, 'items').has('items.0.name')).toBe(true);
+    assertIndexMatchesGroundTruth(form, 'items');
 
     form.arrayRemove('items' as any, 0); // shifts remaining items down
-    expect(bruteForceCandidates(form, 'items').has('items.0.name')).toBe(false);
+    assertIndexMatchesGroundTruth(form, 'items');
 
     form.arrayInsert('items' as any, 0, { name: 'inserted' } as any);
+    assertIndexMatchesGroundTruth(form, 'items');
     form.arrayMove('items' as any, 0, 3);
+    assertIndexMatchesGroundTruth(form, 'items');
     form.arraySwap('items' as any, 1, 2);
+    assertIndexMatchesGroundTruth(form, 'items');
 
     form.setErrors({ 'other.1.label': 'bad' }); // shares 'other.1.label' with the subscriber above
-    expect(bruteForceCandidates(form, 'other').has('other.1.label')).toBe(true);
+    assertIndexMatchesGroundTruth(form, 'other');
     form.clearErrors(); // releases the errors claim; subscriber claim should keep it indexed
-    expect(bruteForceCandidates(form, 'other').has('other.1.label')).toBe(true);
+    assertIndexMatchesGroundTruth(form, 'other');
+    expect(groundTruthCandidates(form, 'other').has('other.1.label')).toBe(true); // still held by the subscriber
     unsubs[1](); // releases the subscriber claim too
-    expect(bruteForceCandidates(form, 'other').has('other.1.label')).toBe(false);
+    assertIndexMatchesGroundTruth(form, 'other');
+    expect(groundTruthCandidates(form, 'other').has('other.1.label')).toBe(false);
 
     form.resetField('items.1.name' as any);
+    assertIndexMatchesGroundTruth(form, 'items');
     form.reset();
+    assertIndexMatchesGroundTruth(form, 'items');
     // After a full reset, only the still-live subscriber on 'items.2.name'
-    // (now relocated by the moves/swaps above — read its current value via
-    // the public API rather than assuming it's still at index 2) should
-    // keep anything indexed under 'items'.
+    // (now relocated by the moves/swaps above) should keep anything indexed
+    // under 'items' — confirmed by the ground-truth ­equality check above,
+    // not assumed.
     unsubs[0]();
-    expect(form._debugPathIndex().has('items')).toBe(false);
-
-    // No stale pathIndex entries remain for structures with nothing left.
-    expect(form._debugPathIndex().has('other')).toBe(false);
+    assertIndexMatchesGroundTruth(form, 'items');
+    assertIndexMatchesGroundTruth(form, 'other');
   });
 
   it('repeated random-ish interleavings across many independent arrays stay consistent', async () => {
@@ -2087,14 +2152,12 @@ describe('pathIndex — fuzz: index always matches brute-force scan', () => {
         // empty array) — that's fine, the point is pathIndex never desyncs
         // regardless of which ops actually succeed.
       }
-    }
-
-    // Sanity: every remaining candidate under each array prefix must resolve
-    // to a real, currently-reachable path without throwing.
-    for (const prefix of ['a', 'b', 'c']) {
-      const keys = form._debugPathIndex().get(prefix) ?? new Set();
-      for (const key of keys) {
-        expect(() => form.get(key as any)).not.toThrow();
+      // Ground-truth equality check after EVERY operation, not just at the
+      // end — catches a desync at the exact op that caused it, and a too-
+      // narrow/too-broad candidate set that a final-state-only "doesn't
+      // throw" check would miss entirely.
+      for (const prefix of ['a', 'b', 'c']) {
+        assertIndexMatchesGroundTruth(form, prefix);
       }
     }
   });
