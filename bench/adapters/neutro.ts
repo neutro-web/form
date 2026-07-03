@@ -43,6 +43,9 @@ export function createAdapter(fixture: FormFixture): BenchAdapter {
     arrayMove(path, from, to) {
       form.arrayMove(path as any, from, to)
     },
+    arrayInsert(path, index, item) {
+      form.arrayInsert(path as any, index, item)
+    },
     getErrors() {
       return form.getState().errors
     },

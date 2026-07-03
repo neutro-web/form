@@ -25,6 +25,8 @@ export interface BenchAdapter {
 
   arrayRemove(path: string, index: number): void
   arrayMove(path: string, from: number, to: number): void
+  /** Optional: not every adapter under comparison exposes an insert-at-index primitive. */
+  arrayInsert?(path: string, index: number, item: any): void
 
   getErrors(): Record<string, string>
   getTouched(): Record<string, boolean>

@@ -10,36 +10,48 @@ function wireItemSubscribers(adapter: ReturnType<typeof neutroAdapter>, count: n
   return () => unsubscribes.forEach(fn => fn())
 }
 
+// Each describe block instantiates ONE form outside the timed callback, then
+// the timed callback repeatedly removes-then-reinserts the same item so the
+// array stays at a stable size across iterations. This isolates the cost of
+// the shift itself (shiftStateIndices) from the cost of building a fresh
+// 500-item form + 500 subscribers, which previously dominated the signal.
 describe('array-ops-scale/remove-start', () => {
-  // Worst case for a shift-based engine: removing index 0 shifts all 499 remaining items.
+  const a = neutroAdapter(largeArrayFixture)
+  wireItemSubscribers(a, 500)
+  const item = a.get('items.0')
+  // Worst case for a shift-based engine: removing index 0 shifts all remaining items.
   bench('neutro/form', () => {
-    const a = neutroAdapter(largeArrayFixture)
-    const cleanup = wireItemSubscribers(a, 500)
     a.arrayRemove('items', 0)
-    cleanup()
+    a.arrayInsert!('items', 0, item)
   })
 })
 
 describe('array-ops-scale/remove-end', () => {
+  const a = neutroAdapter(largeArrayFixture)
+  wireItemSubscribers(a, 500)
+  const lastIndex = (a.get('items') as unknown[]).length - 1
+  const item = a.get(`items.${lastIndex}`)
   // Best case: removing the last index shifts nothing.
   bench('neutro/form', () => {
-    const a = neutroAdapter(largeArrayFixture)
-    const cleanup = wireItemSubscribers(a, 500)
-    a.arrayRemove('items', 499)
-    cleanup()
+    a.arrayRemove('items', lastIndex)
+    a.arrayInsert!('items', lastIndex, item)
   })
 })
 
 describe('array-ops-scale/remove-start-with-unrelated-fields', () => {
+  const a = neutroAdapter(largeArrayWithUnrelatedFieldsFixture)
+  wireItemSubscribers(a, 500)
+  const item = a.get('items.0')
   // Same worst-case removal, but the form also has 500 unrelated top-level fields.
-  // Isolates whether cost scales with array size alone or with total form state size
-  // (shiftStateIndices's unconditional Object.keys(stateMap).forEach scans over
-  // errors/touched/dirty/wasSet/validatedPaths, plus the pathSubscribers scan, all
-  // iterate the ENTIRE respective collection, not just the array's own keys).
+  // Isolates whether cost scales with array size alone or with total form state
+  // size. Before the pathIndex fix (docs/superpowers/specs/2026-07-03-shift-
+  // state-indices-prefix-index-design.md), shiftStateIndices's unconditional
+  // Object.keys(stateMap).forEach scans over errors/touched/dirty/wasSet/
+  // validatedPaths, plus the pathSubscribers scan, iterated the ENTIRE
+  // respective collection every call, not just the array's own keys — this
+  // benchmark's whole purpose is to make that difference visible.
   bench('neutro/form', () => {
-    const a = neutroAdapter(largeArrayWithUnrelatedFieldsFixture)
-    const cleanup = wireItemSubscribers(a, 500)
     a.arrayRemove('items', 0)
-    cleanup()
+    a.arrayInsert!('items', 0, item)
   })
 })
