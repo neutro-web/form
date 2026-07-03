@@ -1502,7 +1502,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
           if (activeEpoch === asyncEpoch && !abortController?.signal.aborted) {
             const combined = { ...builtInErrors, ...resolvedErrors };
+            const oldErrors = errors;
             errors = expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined;
+            reindexErrors(oldErrors, errors);
           }
         } else {
           if (!isValidatorReturn(validationResult)) {
@@ -1512,12 +1514,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           }
           const safeResult = isValidatorReturn(validationResult) ? validationResult : {};
           const combined = { ...builtInErrors, ...safeResult };
+          const oldErrorsSync = errors;
           errors = expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined;
+          reindexErrors(oldErrorsSync, errors);
         }
       } else {
+        const oldErrorsNoValidator = errors;
         errors = expandedScope
           ? mergeScopedErrors(errors, builtInErrors, expandedScope)
           : builtInErrors;
+        reindexErrors(oldErrorsNoValidator, errors);
       }
     } finally {
       if (expandedScope) {
@@ -2265,7 +2271,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     for (const p of paths) {
       if (DANGEROUS_PATH_KEYS.has(p)) continue;
       const val = incoming[p];
-      if (val !== undefined) errors[p] = val;
+      if (val !== undefined) {
+        errors[p] = val;
+        indexKey(p);
+      }
     }
     for (const p of paths) {
       touched[p] = true;
@@ -2280,7 +2289,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   const clearErrors = (): void => {
     const paths = Object.keys(errors);
     if (paths.length === 0) return;
-    for (const p of paths) delete errors[p];
+    for (const p of paths) {
+      delete errors[p];
+      unindexKey(p);
+    }
     batch(() => {
       for (const p of paths) notify(p);
     });
@@ -2695,7 +2707,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
         if (!options?.keepError) {
           for (const k of Object.keys(errors)) {
-            if (k === targetPath || k.startsWith(`${targetPath}.`)) delete errors[k];
+            if (k === targetPath || k.startsWith(`${targetPath}.`)) {
+              delete errors[k];
+              unindexKey(k);
+            }
           }
         }
         if (!options?.keepTouched) {

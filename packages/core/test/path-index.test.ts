@@ -160,3 +160,78 @@ describe('pathIndex — touched call sites', () => {
     expect(candidates(form, 'items')).toContain('items.0.name');
   });
 });
+
+describe('pathIndex — errors call sites', () => {
+  it('setErrors indexes the error write', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.setErrors({ 'items.0.name': 'bad' });
+    expect(candidates(form, 'items')).toContain('items.0.name');
+  });
+
+  it('clearErrors unindexes every cleared error', async () => {
+    // setErrors() also marks the path `touched`, which claims its own independent
+    // refcount slot in pathIndex — clearErrors() only ever clears `errors`, so
+    // asserting mere absence after setErrors()+clearErrors() would still pass
+    // even if clearErrors' own unindexKey call were deleted, masked by touched's
+    // untouched claim. Populate the error via a rules-based validate() instead,
+    // which writes to `errors` only and never touches `touched`, so clearErrors'
+    // unindexKey call is the sole thing that can zero this key's refcount.
+    const form = createForm({
+      initialValues: { items: [{ name: '' }] },
+      rules: { 'items.0.name': 'required' } as any,
+    });
+    await form.validate();
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    expect(form.getState().touched['items.0.name' as any]).toBeUndefined();
+    form.clearErrors();
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+
+  it('resetField unindexes an error for the reset field', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.setErrors({ 'items.0.name': 'bad' });
+    form.resetField('items.0.name' as any);
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+
+  it('runValidation indexes errors produced by config.rules and unindexes cleared ones', async () => {
+    const form = createForm({
+      initialValues: { items: [{ name: '' }] },
+      rules: { 'items.0.name': 'required' } as any,
+    });
+    await form.validate();
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    // Fixing the value via set() also claims this key for `wasSet` and `dirty`
+    // (Task 2), so after the error clears, those two independent claims alone
+    // would keep the key in pathIndex — an absence check here would pass even
+    // if runValidation's reindexErrors() call were deleted entirely, masked by
+    // wasSet/dirty. Drain exactly those two known claims after validating, so
+    // only reindexErrors' own unindexKey call can zero the remainder.
+    form.set('items.0.name', 'filled');
+    await form.validate();
+    form._debugUnindexKey('items.0.name'); // drains wasSet's claim
+    form._debugUnindexKey('items.0.name'); // drains dirty's claim
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+
+  it('runValidation with a scoped validate only reindexes within the diff, leaving unrelated errors indexed', async () => {
+    const form = createForm({
+      initialValues: { items: [{ name: '' }], other: [{ label: '' }] },
+      rules: {
+        'items.0.name': 'required',
+        'other.0.label': 'required',
+      } as any,
+    });
+    await form.validate();
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    expect(candidates(form, 'other')).toContain('other.0.label');
+    // See the isolation note above: draining wasSet's and dirty's claims after
+    // the scoped validate isolates reindexErrors' own unindexKey contribution.
+    form.set('items.0.name', 'filled');
+    await form.validate(['items.0.name'] as any);
+    form._debugUnindexKey('items.0.name');
+    form._debugUnindexKey('items.0.name');
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+    expect(candidates(form, 'other')).toContain('other.0.label'); // untouched by the scoped run
+  });
+});
