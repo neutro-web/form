@@ -283,6 +283,28 @@ export interface FormInstance<T extends object> {
     callback: (values: Record<string, unknown>) => void
   ): () => void;
   _subscribeToActions: (fn: (action: FormAction, state: FormState<T>) => void) => () => void;
+  /** @internal test-only accessor for pathIndex membership. Not part of the stable public API. */
+  _debugPathIndex: () => Map<string, Set<string>>;
+  /** @internal test-only direct access to indexKey. Not part of the stable public API. */
+  _debugIndexKey: (key: string) => void;
+  /** @internal test-only direct access to unindexKey. Not part of the stable public API. */
+  _debugUnindexKey: (key: string) => void;
+  /**
+   * @internal test-only snapshot of the SIX TRACKED STRUCTURES THEMSELVES
+   * (not pathIndex) — used as an independent ground truth in tests, since
+   * asserting against _debugPathIndex alone only proves the index is
+   * internally consistent with itself, not that it matches the real
+   * errors/touched/dirty/wasSet/validatedPaths/pathSubscribers state.
+   * Not part of the stable public API.
+   */
+  _debugRawState: () => {
+    errors: Record<string, string>;
+    touched: Record<string, boolean>;
+    dirty: Record<string, boolean>;
+    wasSet: Record<string, boolean>;
+    validatedPaths: string[];
+    pathSubscriberKeys: string[];
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1026,6 +1048,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   let dirty: Record<string, boolean> = {};
   let wasSet: Record<string, boolean> = {};
   const validatedPaths = new Set<string>();
+  // Refcounted shadow index: maps every ancestor prefix of a tracked key (from
+  // errors/touched/dirty/wasSet/validatedPaths/pathSubscribers) to a Map of
+  // (full key -> number of those six structures currently holding that key).
+  // Lets shiftStateIndices/rekeyArrayState/arraySwap look up "what state exists
+  // under this array" in O(state under the array) instead of scanning all
+  // tracked state. See docs/superpowers/specs/2026-07-03-shift-state-indices-prefix-index-design.md.
+  const pathIndex = new Map<string, Map<string, number>>();
   let isSubmitting = false;
   let isValidating = false;
   let hasValidated = false;
@@ -1514,6 +1543,46 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
 
     return Object.keys(errors).length === 0;
+  };
+
+  const indexKey = (key: string) => {
+    const segments = key.split('.');
+    let prefix = segments[0];
+    for (let i = 1; i < segments.length; i++) {
+      let counts = pathIndex.get(prefix);
+      if (!counts) {
+        counts = new Map();
+        pathIndex.set(prefix, counts);
+      }
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      prefix = `${prefix}.${segments[i]}`;
+    }
+  };
+
+  const unindexKey = (key: string) => {
+    const segments = key.split('.');
+    let prefix = segments[0];
+    for (let i = 1; i < segments.length; i++) {
+      const counts = pathIndex.get(prefix);
+      if (counts) {
+        const next = (counts.get(key) ?? 1) - 1;
+        if (next <= 0) counts.delete(key);
+        else counts.set(key, next);
+        if (counts.size === 0) pathIndex.delete(prefix);
+      }
+      prefix = `${prefix}.${segments[i]}`;
+    }
+  };
+
+  // Diff-based reindex for structures that get wholesale-reassigned rather than
+  // mutated key-by-key (currently only runValidation's `errors` reassignment).
+  const reindexErrors = (oldErrors: Record<string, string>, newErrors: Record<string, string>) => {
+    for (const key of Object.keys(oldErrors)) {
+      if (!(key in newErrors)) unindexKey(key);
+    }
+    for (const key of Object.keys(newErrors)) {
+      if (!(key in oldErrors)) indexKey(key);
+    }
   };
 
   const mergeScopedErrors = (
@@ -2765,6 +2834,24 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         actionListeners.delete(fn);
       };
     },
+
+    _debugPathIndex: () => {
+      const snapshot = new Map<string, Set<string>>();
+      for (const [prefix, counts] of pathIndex) {
+        snapshot.set(prefix, new Set(counts.keys()));
+      }
+      return snapshot;
+    },
+    _debugIndexKey: (key: string) => indexKey(key),
+    _debugUnindexKey: (key: string) => unindexKey(key),
+    _debugRawState: () => ({
+      errors: { ...errors },
+      touched: { ...touched },
+      dirty: { ...dirty },
+      wasSet: { ...wasSet },
+      validatedPaths: [...validatedPaths],
+      pathSubscriberKeys: [...pathSubscribers.keys()],
+    }),
 
     focus,
     focusFirstError,
