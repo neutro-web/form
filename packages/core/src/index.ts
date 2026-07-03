@@ -1629,7 +1629,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       } else {
         indexKey(path);
       }
-      if (options.touch) touched[path] = true;
+      if (options.touch) {
+        touched[path] = true;
+        indexKey(path);
+      }
     });
     if (computedMap.size > 0) {
       if (batchDepth > 0) {
@@ -2092,6 +2095,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
     const handleBlur = () => {
       touched[stringPath] = true;
+      indexKey(stringPath);
       dispatchAction({ type: 'BLUR', path: stringPath });
       if (mode === 'onBlur' || mode === 'onTouched') {
         runValidation([stringPath]);
@@ -2165,6 +2169,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     submissionAttempts++;
     extractAllPaths(values).forEach((p) => {
       touched[p] = true;
+      indexKey(p);
     });
     notify();
 
@@ -2262,7 +2267,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const val = incoming[p];
       if (val !== undefined) errors[p] = val;
     }
-    for (const p of paths) touched[p] = true;
+    for (const p of paths) {
+      touched[p] = true;
+      indexKey(p);
+    }
     batch(() => {
       for (const p of paths) notify(p);
     });
@@ -2692,7 +2700,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
         if (!options?.keepTouched) {
           for (const k of Object.keys(touched)) {
-            if (k === targetPath || k.startsWith(`${targetPath}.`)) delete touched[k];
+            if (k === targetPath || k.startsWith(`${targetPath}.`)) {
+              delete touched[k];
+              unindexKey(k);
+            }
           }
         }
         if (!options?.keepDirty) {

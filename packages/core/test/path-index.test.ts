@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { createForm } from '../src/index';
 
@@ -118,5 +119,44 @@ describe('pathIndex — dirty call sites', () => {
     // would leave the key still indexed — failing this assertion.
     form._debugUnindexKey('items.0.name');
     expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+});
+
+describe('pathIndex — touched call sites', () => {
+  it('setFieldValue with touch:true indexes the touched write', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.set('items.0.name', 'b', { touch: true });
+    expect(candidates(form, 'items')).toContain('items.0.name');
+  });
+
+  it('submit() marks every path touched and indexes them', async () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    await form.submit(() => {});
+    expect(candidates(form, 'items')).toContain('items.0.name');
+  });
+
+  it('resetField unindexes touched entries for the reset field', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    // Touch the field via connect()'s blur handler rather than form.set(), so the
+    // ONLY structure claiming this key in the pathIndex is `touched` — form.set()
+    // would also claim it via wasSet and (if the value changed) dirty, and since
+    // resetField's default options clear all three together, an absence check
+    // afterward could pass even if touched's own unindexKey call were missing,
+    // masked by wasSet/dirty's independent decrements (the same trap that hit the
+    // Task 3 dirty test). Using blur-only touch means resetField's touched-clearing
+    // loop is the sole thing that can zero this key's refcount.
+    const input = document.createElement('input');
+    const disconnect = form.connect('items.0.name' as any, input);
+    input.dispatchEvent(new Event('blur'));
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    form.resetField('items.0.name' as any);
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+    disconnect();
+  });
+
+  it('setErrors touching paths indexes them', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.setErrors({ 'items.0.name': 'bad' });
+    expect(candidates(form, 'items')).toContain('items.0.name');
   });
 });
