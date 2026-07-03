@@ -2599,12 +2599,14 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       [copy[indexA], copy[indexB]] = [copy[indexB], copy[indexA]];
       batch(() => {
         setNestedValue(values, targetPath, copy);
+        const candidates = Array.from(pathIndex.get(targetPath)?.keys() ?? []);
         const swapKeys = (stateMap: Record<string, any>) => {
           const prefix = `${targetPath}.`;
           const updated = { ...stateMap };
           const prefixA = `${prefix}${indexA}`;
           const prefixB = `${prefix}${indexB}`;
-          Object.keys(stateMap).forEach((key) => {
+          for (const key of candidates) {
+            if (!(key in stateMap)) continue;
             // Use exact-or-dot-child match to avoid "items.1" matching "items.10", "items.11", etc.
             const matchesA = key === prefixA || key.startsWith(`${prefixA}.`);
             const matchesB = key === prefixB || key.startsWith(`${prefixB}.`);
@@ -2612,14 +2614,22 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
               const tail = key.substring(prefixA.length);
               const bKey = `${prefixB}${tail}`;
               updated[bKey] = stateMap[key];
-              if (stateMap[bKey] === undefined) delete updated[key];
+              indexKey(bKey);
+              if (stateMap[bKey] === undefined) {
+                delete updated[key];
+                unindexKey(key);
+              }
             } else if (matchesB) {
               const tail = key.substring(prefixB.length);
               const aKey = `${prefixA}${tail}`;
               updated[aKey] = stateMap[key];
-              if (stateMap[aKey] === undefined) delete updated[key];
+              indexKey(aKey);
+              if (stateMap[aKey] === undefined) {
+                delete updated[key];
+                unindexKey(key);
+              }
             }
-          });
+          }
           return updated;
         };
         errors = swapKeys(errors);
@@ -2627,24 +2637,28 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         dirty = swapKeys(dirty);
         wasSet = swapKeys(wasSet) as Record<string, boolean>;
         // Swap validatedPaths entries for indexA ↔ indexB.
-        const updatedValidated = new Set<string>();
         const prefixA = `${targetPath}.${indexA}`;
         const prefixB = `${targetPath}.${indexB}`;
-        validatedPaths.forEach((key) => {
+        for (const key of candidates) {
+          if (!validatedPaths.has(key)) continue;
           const matchesA = key === prefixA || key.startsWith(`${prefixA}.`);
           const matchesB = key === prefixB || key.startsWith(`${prefixB}.`);
           if (matchesA) {
             const tail = key.substring(prefixA.length);
-            updatedValidated.add(`${prefixB}${tail}`);
+            const newKey = `${prefixB}${tail}`;
+            validatedPaths.delete(key);
+            unindexKey(key);
+            validatedPaths.add(newKey);
+            indexKey(newKey);
           } else if (matchesB) {
             const tail = key.substring(prefixB.length);
-            updatedValidated.add(`${prefixA}${tail}`);
-          } else {
-            updatedValidated.add(key);
+            const newKey = `${prefixA}${tail}`;
+            validatedPaths.delete(key);
+            unindexKey(key);
+            validatedPaths.add(newKey);
+            indexKey(newKey);
           }
-        });
-        validatedPaths.clear();
-        for (const k of updatedValidated) validatedPaths.add(k);
+        }
         notify(`${targetPath}.${indexA}`);
         notify(`${targetPath}.${indexB}`);
       });

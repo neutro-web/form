@@ -567,3 +567,77 @@ describe('rekeyArrayState (arrayMove) — candidate-lookup correctness', () => {
     );
   });
 });
+
+describe('arraySwap — candidate-lookup correctness', () => {
+  it('arraySwap correctly swaps errors/touched/dirty/wasSet/validatedPaths and pathIndex, ignoring unrelated fields', async () => {
+    // Deviation from the brief's original draft: the brief used a `rules`
+    // config + `await form.validate()` to seed validatedPaths/errors before
+    // swapping. arraySwap always ends with an unconditional
+    // `runValidation([targetPath])` call (pre-existing behavior, not part of
+    // this task); with a real rule literally keyed to 'items.0.name'
+    // configured, that post-swap revalidation re-validates the *literal* path
+    // 'items.0.name' against whatever value now sits there, re-adding it to
+    // validatedPaths (and hence pathIndex) regardless of what swapKeys did.
+    // This is the same class of rules-vs-revalidation contamination documented
+    // in Task 10/11's shiftStateIndices/rekeyArrayState tests (see their
+    // comments above). Using setErrors() directly instead of a rules-driven
+    // validate() isolates the assertions to what arraySwap's own
+    // swapKeys/validatedPaths-swap logic controls.
+    // Note: uses setErrors() alone (not form.set(..., { touch: true }) followed
+    // by setErrors()) to seed touched/errors. setErrors() unconditionally calls
+    // indexKey(p) for its touched write regardless of whether the path was
+    // already touched (see setErrors's implementation) — combining it with a
+    // prior form.set(..., { touch: true }) on the same path would double the
+    // touched refcount for reasons unrelated to arraySwap, requiring two
+    // unindexKey calls to fully clear it instead of one. That refcount-overcount
+    // is a pre-existing characteristic of setErrors, out of scope for this task.
+    const form = createForm({
+      initialValues: {
+        items: [{ name: 'a' }, { name: 'b' }],
+        unrelated: 'x',
+      },
+    });
+    form.set('items.0.name', '');
+    form.setErrors({ 'items.0.name': 'Required' } as any);
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    form.arraySwap('items' as any, 0, 1);
+    expect(form.get('items.1.name' as any)).toBe('');
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+    expect(candidates(form, 'items')).toContain('items.1.name');
+    expect(form.getState().errors['items.1.name']).toBe('Required');
+    expect(form.getState().errors['items.0.name']).toBeUndefined();
+    expect(form.get('unrelated' as any)).toBe('x');
+  });
+
+  it('arraySwap with neither index carrying tracked state leaves pathIndex empty for that array', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }, { name: 'b' }] } });
+    form.arraySwap('items' as any, 0, 1);
+    expect(candidates(form, 'items')).toEqual([]);
+  });
+
+  it('arraySwap with BOTH indices carrying tracked state simultaneously swaps both sides correctly', () => {
+    const form = createForm({
+      initialValues: {
+        items: [{ name: 'a' }, { name: 'b' }],
+      },
+    });
+    form.set('items.0.name' as any, 'touched-a', { touch: true });
+    form.set('items.1.name' as any, 'touched-b', { touch: true });
+    form.setErrors({ 'items.0.name': 'err-a', 'items.1.name': 'err-b' } as any);
+    expect(candidates(form, 'items').sort()).toEqual(['items.0.name', 'items.1.name']);
+
+    form.arraySwap('items' as any, 0, 1);
+
+    // Values are swapped.
+    expect(form.get('items.0.name' as any)).toBe('touched-b');
+    expect(form.get('items.1.name' as any)).toBe('touched-a');
+    // touched state follows the same slot indices (both were touched, so both remain touched).
+    expect(form.getState().touched['items.0.name']).toBe(true);
+    expect(form.getState().touched['items.1.name']).toBe(true);
+    // Errors are swapped with their originating value, not dropped or duplicated.
+    expect(form.getState().errors['items.0.name']).toBe('err-b');
+    expect(form.getState().errors['items.1.name']).toBe('err-a');
+    // pathIndex still reflects exactly these two tracked keys — no stray entries.
+    expect(candidates(form, 'items').sort()).toEqual(['items.0.name', 'items.1.name']);
+  });
+});
