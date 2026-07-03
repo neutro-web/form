@@ -134,10 +134,39 @@ Several sites replace or partially clear a tracked structure at once rather than
 
 Items 6 and 7 do not change the design — they're ordinary single/multi-key writes already covered by the general "every write/delete calls indexKey/unindexKey" invariant — but are named explicitly so the implementation plan's call-site audit doesn't have to rediscover them.
 
+### Wholesale `errors` reassignment in `runValidation` (found during plan-time audit)
+
+`runValidation` (`index.ts` ~1400–1491) does not write `errors` key-by-key — it reassigns the entire `errors` object in one of three branches, each producing a brand-new object via `{...builtInErrors, ...resolvedErrors}` (plain replace) or `mergeScopedErrors(errors, combined, expandedScope)` (a scoped merge that itself does an internal `{...currentErrors}` copy, deletes keys under the scope, then applies `nextErrors` for keys under the scope). This is the single highest-frequency error-mutation path in the file — it runs on effectively every validation cycle (every value change with `validate: true`, every full-form validate, every scoped async resolution) — and none of the single-key `indexKey`/`unindexKey` call sites above cover it.
+
+**Fix — diff-based reindex.** Because none of the three branches mutate `errors` in place (they all produce a new object and assign it to the closure variable), the reindex is a single, uniform operation applied wherever the reassignment happens:
+
+```ts
+const reindexErrors = (oldErrors: Record<string, string>, newErrors: Record<string, string>) => {
+  for (const key of Object.keys(oldErrors)) {
+    if (!(key in newErrors)) unindexKey(key);
+  }
+  for (const key of Object.keys(newErrors)) {
+    if (!(key in oldErrors)) indexKey(key);
+  }
+};
+```
+
+Call this immediately after each of the three assignment sites (1476, 1486, 1489–1491), passing the pre-assignment `errors` value as `oldErrors` and the newly computed value as `newErrors` — e.g.:
+
+```ts
+const oldErrors = errors;
+errors = expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined;
+reindexErrors(oldErrors, errors);
+```
+
+Keys present in both old and new are correctly left untouched (no spurious unindex/reindex churn — the diff only acts on the symmetric difference). This is bounded by the size of the errors diff, which `runValidation` already pays to compute via the object-spread/merge itself — no new complexity class introduced, matching the same reasoning already applied to the `reset()`/`hydrate()` bulk-clear sites.
+
+This is the only closure-scoped structure with a wholesale-reassignment-during-normal-operation pattern outside of `shiftStateIndices`/`rekeyArrayState`/`arraySwap`/`reset()`/`hydrate()` — `touched`, `dirty`, `wasSet`, `validatedPaths`, and `pathSubscribers` were re-audited at plan time and confirmed to only ever be mutated via single-key writes/deletes or the already-enumerated bulk-clear/rebuild sites (see call-site audit in the implementation plan for the full confirmation).
+
 ### Testing
 
 1. **Unit tests for `indexKey`/`unindexKey`** — ancestor-prefix walking correctness, refcount increment/decrement across repeated `indexKey`/`unindexKey` calls for the *same* key (simulating a key shared by two structures, e.g. an error plus a subscriber), prefix-entry cleanup only once the refcount map for that prefix is fully empty, top-level (no-dot) keys are no-ops.
-2. **Fuzz/property test** — random interleavings of `setError`, `setTouched`, `setDirty`, `setValue` (wasSet), `subscribeToPath`/unsubscribe, `arrayInsert`, `arrayRemove`, `arrayMove`, `arraySwap`, field-level reset, full `reset()`, `hydrate()`, simulated DOM-pruning (removing a connected element), and `destroy()`, across multiple independent arrays and unrelated top-level fields. Include cases where the *same* full key is deliberately given multiple simultaneous claims (e.g. set an error and register a subscriber on the same path, then clear only the error) to exercise the refcount path specifically. After every operation, assert `pathIndex.get(basePath)`'s key set (filtered to keys actually present in at least one of the six structures) matches a brute-force `Object.keys()`/`Array.from(set)` scan filtered by `startsWith(prefix)`. This is the primary safety net against silent index drift from a missed call site or an incorrect refcount.
+2. **Fuzz/property test** — random interleavings of `setError`, `setTouched`, `setDirty`, `setValue` (wasSet), `subscribeToPath`/unsubscribe, `arrayInsert`, `arrayRemove`, `arrayMove`, `arraySwap`, field-level reset, full `reset()`, `hydrate()`, `runValidation` (both full-form and scoped, exercising `reindexErrors`'s diff logic — including a case where validation removes an error for one path while adding a new one for a different path in the same run), simulated DOM-pruning (removing a connected element), and `destroy()`, across multiple independent arrays and unrelated top-level fields. Include cases where the *same* full key is deliberately given multiple simultaneous claims (e.g. set an error and register a subscriber on the same path, then clear only the error) to exercise the refcount path specifically. After every operation, assert `pathIndex.get(basePath)`'s key set (filtered to keys actually present in at least one of the six structures) matches a brute-force `Object.keys()`/`Array.from(set)` scan filtered by `startsWith(prefix)`. This is the primary safety net against silent index drift from a missed call site or an incorrect refcount.
 3. **Existing test suite** — the full existing `arrayRemove`/`arrayInsert`/`arrayMove`/`arraySwap`/`reset` test suite must pass unmodified; this is a pure internal-performance change with no observable behavior difference.
 4. **Benchmark** — revisit the `array-ops-scale` Task 7 attempt (`docs/superpowers/specs/2026-07-02-bench-array-ops-at-scale-design.md`) with instantiation cost isolated from shift cost this time (e.g. pre-warm/pre-instantiate the form once, then measure only the repeated array-op cost), to produce the clean before/after number that was missing previously.
 
