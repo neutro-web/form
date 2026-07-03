@@ -2941,6 +2941,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       persistenceUnsubscribe?.();
       persistenceUnsubscribe = null;
       globalSubscribers.clear();
+      for (const key of pathSubscribers.keys()) {
+        if (key === '*') continue;
+        unindexKey(key);
+      }
       pathSubscribers.clear();
       actionListeners.clear();
       connectionRegistry.clear();

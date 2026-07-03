@@ -366,3 +366,22 @@ describe('pathIndex — pathSubscribers call sites', () => {
     unsub();
   });
 });
+
+describe('pathIndex — destroy()', () => {
+  it('destroy() releases the pathSubscribers claim on a key, letting it become fully unindexed once errors is also cleared', async () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.subscribeToPath('items.0.name' as any, () => {}); // claim #1: pathSubscribers
+    // setErrors() places two claims of its own (see "setErrors touching paths
+    // indexes them" above): one on `errors`, one on `touched`. clearErrors()
+    // only ever releases the `errors` claim, so drain the `touched` claim
+    // synthetically below — otherwise it would mask destroy()'s own release
+    // of claim #1 by keeping the key indexed regardless of whether destroy()
+    // correctly called unindexKey.
+    form.setErrors({ 'items.0.name': 'bad' }); // claim #2: errors, claim #3: touched
+    form.destroy(); // should release claim #1 (pathSubscribers), leaving claims #2/#3
+    expect(candidates(form, 'items')).toContain('items.0.name'); // errors/touched claims still hold it
+    form.clearErrors(); // release claim #2 (errors)
+    form._debugUnindexKey('items.0.name'); // release claim #3 (touched)
+    expect(candidates(form, 'items')).not.toContain('items.0.name'); // fully released now
+  });
+});
