@@ -1374,13 +1374,17 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       if (!scopePaths) {
         hasValidated = true;
         for (const p of extractAllPaths(values)) {
-          validatedPaths.add(p);
-          indexKey(p);
+          if (!validatedPaths.has(p)) {
+            validatedPaths.add(p);
+            indexKey(p);
+          }
         }
       } else {
         for (const path of scopePaths) {
-          validatedPaths.add(path);
-          indexKey(path);
+          if (!validatedPaths.has(path)) {
+            validatedPaths.add(path);
+            indexKey(path);
+          }
         }
       }
       return true;
@@ -1542,14 +1546,18 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       if (expandedScope) {
         if (activeEpoch === asyncEpoch && !abortController?.signal.aborted) {
           for (const path of expandedScope) {
-            validatedPaths.add(path);
-            indexKey(path);
+            if (!validatedPaths.has(path)) {
+              validatedPaths.add(path);
+              indexKey(path);
+            }
           }
         }
       } else if (activeEpoch === asyncEpoch) {
         for (const p of extractAllPaths(values)) {
-          validatedPaths.add(p);
-          indexKey(p);
+          if (!validatedPaths.has(p)) {
+            validatedPaths.add(p);
+            indexKey(p);
+          }
         }
       }
       if (globalSubscribers.size > 0) {
@@ -1633,23 +1641,26 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
       return;
     }
+    const wasAlreadySet = path in wasSet;
     wasSet[path] = true;
-    indexKey(path);
+    if (!wasAlreadySet) indexKey(path);
     const currentVal = getNestedValue(values, path);
     if (isDeepEqual(currentVal, val)) return;
     batch(() => {
       setNestedValue(values, path, val);
       const initialVal = getNestedValue(initialValues, path);
+      const dirtyAlreadySet = path in dirty;
       dirty[path] = !isDeepEqual(initialVal, val);
       if (!dirty[path]) {
         delete dirty[path];
-        unindexKey(path);
-      } else {
+        if (dirtyAlreadySet) unindexKey(path);
+      } else if (!dirtyAlreadySet) {
         indexKey(path);
       }
       if (options.touch) {
+        const touchedAlreadySet = path in touched;
         touched[path] = true;
-        indexKey(path);
+        if (!touchedAlreadySet) indexKey(path);
       }
     });
     if (computedMap.size > 0) {
@@ -2136,8 +2147,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     };
 
     const handleBlur = () => {
+      const wasTouched = stringPath in touched;
       touched[stringPath] = true;
-      indexKey(stringPath);
+      if (!wasTouched) indexKey(stringPath);
       dispatchAction({ type: 'BLUR', path: stringPath });
       if (mode === 'onBlur' || mode === 'onTouched') {
         runValidation([stringPath]);
@@ -2210,8 +2222,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     isSubmitting = true;
     submissionAttempts++;
     extractAllPaths(values).forEach((p) => {
+      const wasTouched = p in touched;
       touched[p] = true;
-      indexKey(p);
+      if (!wasTouched) indexKey(p);
     });
     notify();
 
@@ -2308,13 +2321,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       if (DANGEROUS_PATH_KEYS.has(p)) continue;
       const val = incoming[p];
       if (val !== undefined) {
+        const hadError = p in errors;
         errors[p] = val;
-        indexKey(p);
+        if (!hadError) indexKey(p);
       }
     }
     for (const p of paths) {
+      const wasTouched = p in touched;
       touched[p] = true;
-      indexKey(p);
+      if (!wasTouched) indexKey(p);
     }
     batch(() => {
       for (const p of paths) notify(p);
@@ -2511,8 +2526,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       const arr = getNestedValue(values, targetPath) || [];
       if (!Array.isArray(arr) || index < 0 || index > arr.length) return;
+      const wasAlreadySet = targetPath in wasSet;
       wasSet[targetPath] = true;
-      indexKey(targetPath);
+      if (!wasAlreadySet) indexKey(targetPath);
       const copy = [...arr];
       copy.splice(index, 0, item);
       batch(() => {
@@ -2536,8 +2552,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       const targetPath = Array.isArray(path) ? path.join('.') : path;
       const arr = getNestedValue(values, targetPath) || [];
       if (!Array.isArray(arr) || index < 0 || index >= arr.length) return;
+      const wasAlreadySet = targetPath in wasSet;
       wasSet[targetPath] = true;
-      indexKey(targetPath);
+      if (!wasAlreadySet) indexKey(targetPath);
       const copy = [...arr];
       copy.splice(index, 1);
       batch(() => {
@@ -2566,8 +2583,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         toIndex >= arr.length
       )
         return;
+      const wasAlreadySet = targetPath in wasSet;
       wasSet[targetPath] = true;
-      indexKey(targetPath);
+      if (!wasAlreadySet) indexKey(targetPath);
       const copy = [...arr];
       const [movedItem] = copy.splice(fromIndex, 1);
       copy.splice(toIndex, 0, movedItem);
@@ -2593,8 +2611,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         indexB >= arr.length
       )
         return;
+      const wasAlreadySet = targetPath in wasSet;
       wasSet[targetPath] = true;
-      indexKey(targetPath);
+      if (!wasAlreadySet) indexKey(targetPath);
       const copy = [...arr];
       [copy[indexA], copy[indexB]] = [copy[indexB], copy[indexA]];
       batch(() => {

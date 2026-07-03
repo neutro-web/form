@@ -858,3 +858,26 @@ describe('pathIndex — fuzz: index matches an independently-computed ground tru
     }
   });
 });
+
+describe('pathIndex — repeated writes do not leak refcounts', () => {
+  it('set() on the same path twice then reset() fully clears pathIndex', () => {
+    const form = createForm({ initialValues: { items: [{ name: '' }] } });
+    form.set('items.0.name', 'x');
+    form.set('items.0.name', 'y');
+    form.reset();
+    expect(form._debugPathIndex().has('items')).toBe(false);
+    expect(form._debugPathIndex().has('items.0')).toBe(false);
+  });
+
+  it('setErrors() on the same path twice then clearErrors() fully clears pathIndex', () => {
+    const form = createForm({ initialValues: { items: [{ name: '' }] } });
+    form.setErrors({ 'items.0.name': 'bad1' });
+    form.setErrors({ 'items.0.name': 'bad2' });
+    form.clearErrors();
+    // setErrors also marks `touched`, which stays indexed after clearErrors()
+    // (clearErrors only clears `errors`) — so untouch it too to fully drain
+    // the refcount for this key and confirm the prefix disappears.
+    form._debugUnindexKey('items.0.name');
+    expect(form._debugPathIndex().has('items')).toBe(false);
+  });
+});
