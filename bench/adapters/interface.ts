@@ -15,7 +15,7 @@ export interface BenchAdapter {
   readonly name: string
   readonly capabilities: AdapterCapability[]
 
-  set(path: string, value: any): void
+  set(path: string, value: any, options?: { touch?: boolean }): void
   get(path: string): any
 
   subscribeToPath(path: string, fn: () => void): () => void

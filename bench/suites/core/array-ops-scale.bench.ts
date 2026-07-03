@@ -43,13 +43,18 @@ describe('array-ops-scale/remove-start-with-unrelated-fields', () => {
   wireItemSubscribers(a, 500)
   const item = a.get('items.0')
   // Same worst-case removal, but the form also has 500 unrelated top-level fields.
-  // Isolates whether cost scales with array size alone or with total form state
-  // size. Before the pathIndex fix (docs/superpowers/specs/2026-07-03-shift-
-  // state-indices-prefix-index-design.md), shiftStateIndices's unconditional
-  // Object.keys(stateMap).forEach scans over errors/touched/dirty/wasSet/
-  // validatedPaths, plus the pathSubscribers scan, iterated the ENTIRE
-  // respective collection every call, not just the array's own keys — this
-  // benchmark's whole purpose is to make that difference visible.
+  // Those fields must carry REAL tracked state (touched + dirty) for this to mean
+  // anything — otherwise they never enter errors/touched/dirty/wasSet/
+  // validatedPaths/pathSubscribers, and old (full-scan) and new (pathIndex) code
+  // both scan the exact same ~500 items-only entries, making the two
+  // implementations look identical (or the new one look worse from pathIndex
+  // bookkeeping overhead) despite this benchmark's whole purpose being to show
+  // that shiftStateIndices no longer scans over untouched, unrelated form state.
+  // This setup work is done outside the timed callback; only the shift/reinsert
+  // itself is measured.
+  for (let i = 0; i < 500; i++) {
+    a.set(`unrelated${i}`, `touched-value${i}`, { touch: true })
+  }
   bench('neutro/form', () => {
     a.arrayRemove('items', 0)
     a.arrayInsert!('items', 0, item)

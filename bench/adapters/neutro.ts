@@ -21,8 +21,8 @@ export function createAdapter(fixture: FormFixture): BenchAdapter {
       'async-cancellation',
     ] as AdapterCapability[],
 
-    set(path, value) {
-      form.set(path as any, value)
+    set(path, value, options) {
+      form.set(path as any, value, options)
     },
     get(path) {
       return form.get(path as any)
