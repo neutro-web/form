@@ -259,6 +259,52 @@ describe('pathIndex — errors call sites', () => {
   });
 });
 
+describe('pathIndex — bulk-clear sites', () => {
+  it('reset() unindexes every errors/touched/dirty/wasSet/validatedPaths entry, but leaves pathSubscribers-only entries indexed', async () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    const unsub = form.subscribeToPath('items.0.name' as any, () => {});
+    form.set('items.0.name', 'changed', { touch: true });
+    await form.validate();
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    form.reset();
+    // pathSubscribers still holds a live subscription on this path -> must remain indexed.
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    unsub();
+    // now nothing holds it -> fully unindexed.
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+
+  it('reset() with nothing else referencing the path fully unindexes it', () => {
+    const form = createForm({ initialValues: { items: [{ name: 'a' }] } });
+    form.set('items.0.name', 'changed', { touch: true });
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    form.reset();
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+
+  it('hydrate() unindexes errors/touched/dirty entries it clears (no wasSet/validatedPaths involved)', async () => {
+    let stored: any = { items: [{ name: 'a' }] };
+    const form = createForm({
+      initialValues: { items: [{ name: 'a' }] },
+      persistence: {
+        adapter: {
+          read: async () => stored,
+          write: async (v: any) => {
+            stored = v;
+          },
+          clear: async () => {
+            stored = null;
+          },
+        },
+      } as any,
+    });
+    form.setErrors({ 'items.0.name': 'bad' });
+    expect(candidates(form, 'items')).toContain('items.0.name');
+    await form.hydrate();
+    expect(candidates(form, 'items')).not.toContain('items.0.name');
+  });
+});
+
 describe('pathIndex — validatedPaths call sites', () => {
   it('a full validate() with no validator/rules indexes every extracted path', async () => {
     const form = createForm({ initialValues: { items: [{ name: 'a' }] } });

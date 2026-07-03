@@ -2662,10 +2662,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         if (newValues) initialValues = deepClone(newValues);
         values = deepClone(initialValues);
         runComputedPass(); // re-derive computed fields from reset state
+        for (const k of Object.keys(errors)) unindexKey(k);
         errors = {};
+        for (const k of Object.keys(touched)) unindexKey(k);
         touched = {};
+        for (const k of Object.keys(dirty)) unindexKey(k);
         dirty = {};
+        for (const k of Object.keys(wasSet)) unindexKey(k);
         wasSet = {};
+        for (const k of validatedPaths) unindexKey(k);
         validatedPaths.clear();
         isSubmitting = false;
         isValidating = false;
@@ -2832,8 +2837,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         batch(() => {
           initialValues = deepClone(merged);
           values = deepClone(initialValues);
+          for (const k of Object.keys(errors)) unindexKey(k);
           errors = {};
+          for (const k of Object.keys(touched)) unindexKey(k);
           touched = {};
+          for (const k of Object.keys(dirty)) unindexKey(k);
           dirty = {};
           isSubmitting = false;
           isValidating = false;
