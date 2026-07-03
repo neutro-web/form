@@ -2637,27 +2637,34 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         dirty = swapKeys(dirty);
         wasSet = swapKeys(wasSet) as Record<string, boolean>;
         // Swap validatedPaths entries for indexA ↔ indexB.
+        // Two-phase, mirroring shiftStateIndices/rekeyArrayState above: computing
+        // renames against the pristine `candidates` snapshot and only deleting all
+        // source keys before adding any rename target avoids a later `.add(newKey)`
+        // being re-matched by `validatedPaths.has(key)` later in this SAME pass
+        // (Set/Map iteration order is insertion order, not guaranteed to visit both
+        // members of a swap pair "atomically") — which would silently swap it AGAIN.
         const prefixA = `${targetPath}.${indexA}`;
         const prefixB = `${targetPath}.${indexB}`;
+        const validatedRenames: Array<[string, string]> = [];
         for (const key of candidates) {
           if (!validatedPaths.has(key)) continue;
           const matchesA = key === prefixA || key.startsWith(`${prefixA}.`);
           const matchesB = key === prefixB || key.startsWith(`${prefixB}.`);
           if (matchesA) {
             const tail = key.substring(prefixA.length);
-            const newKey = `${prefixB}${tail}`;
-            validatedPaths.delete(key);
-            unindexKey(key);
-            validatedPaths.add(newKey);
-            indexKey(newKey);
+            validatedRenames.push([key, `${prefixB}${tail}`]);
           } else if (matchesB) {
             const tail = key.substring(prefixB.length);
-            const newKey = `${prefixA}${tail}`;
-            validatedPaths.delete(key);
-            unindexKey(key);
-            validatedPaths.add(newKey);
-            indexKey(newKey);
+            validatedRenames.push([key, `${prefixA}${tail}`]);
           }
+        }
+        for (const [oldKey] of validatedRenames) {
+          validatedPaths.delete(oldKey);
+          unindexKey(oldKey);
+        }
+        for (const [, newKey] of validatedRenames) {
+          validatedPaths.add(newKey);
+          indexKey(newKey);
         }
         notify(`${targetPath}.${indexA}`);
         notify(`${targetPath}.${indexB}`);

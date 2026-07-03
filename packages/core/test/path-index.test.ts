@@ -640,4 +640,41 @@ describe('arraySwap — candidate-lookup correctness', () => {
     // pathIndex still reflects exactly these two tracked keys — no stray entries.
     expect(candidates(form, 'items').sort()).toEqual(['items.0.name', 'items.1.name']);
   });
+
+  it('arraySwap preserves validatedPaths for both indices when both were populated by validate()', async () => {
+    // Regression test for the in-place-mutation collision reported against
+    // this commit: the previous single-pass loop read/wrote the SAME live
+    // validatedPaths Set while iterating (`.delete(key)` immediately followed
+    // by `.add(newKey)`), so a rename target added early in the pass could be
+    // re-matched by a later `validatedPaths.has(key)` check in that same pass
+    // and get swapped a second time — silently dropping items.1/items.1.name.
+    // Using rules + await form.validate() (rather than setErrors()) is the
+    // only way to actually populate validatedPaths, which is the state this
+    // bug corrupts; validatedPaths is not observable through errors/touched.
+    const form = createForm({
+      initialValues: {
+        items: [{ name: 'a' }, { name: 'b' }],
+      },
+      rules: {
+        'items.0.name': 'required',
+        'items.1.name': 'required',
+      } as any,
+    });
+    await form.validate();
+    const before = form._debugRawState();
+    expect(before.validatedPaths).toEqual(
+      expect.arrayContaining(['items.0', 'items.0.name', 'items.1', 'items.1.name'])
+    );
+
+    form.arraySwap('items' as any, 0, 1);
+
+    const after = form._debugRawState();
+    // All four entries must survive the swap — none silently dropped.
+    expect(after.validatedPaths).toEqual(
+      expect.arrayContaining(['items.0', 'items.0.name', 'items.1', 'items.1.name'])
+    );
+    expect(candidates(form, 'items')).toEqual(
+      expect.arrayContaining(['items.0', 'items.0.name', 'items.1', 'items.1.name'])
+    );
+  });
 });
