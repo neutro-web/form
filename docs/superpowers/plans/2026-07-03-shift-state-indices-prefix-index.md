@@ -796,7 +796,7 @@ becomes:
       }
 ```
 
-(Three distinct local variable names — `oldErrors`, `oldErrorsSync`, `oldErrorsNoValidator` — are used because the three branches are siblings in the same function scope, not nested, so reusing one name across all three `if`/`else if`/`else` branches would still be legal JS but is avoided here for clarity about which branch each snapshot belongs to.)
+Three distinct local variable names — `oldErrors`, `oldErrorsSync`, `oldErrorsNoValidator` — are used for clarity about which branch each snapshot belongs to. **Important — these three sites are not flat siblings**: they sit at different nesting depths inside `runValidation`'s control flow (`if (config.validator) { if (validationResult instanceof Promise) { if (activeEpoch === asyncEpoch...) { /* site 1, ~1476 */ } } else { /* site 2, ~1486 */ } } else { /* site 3, ~1489-1491 */ }`). Before editing, run `sed -n '1400,1492p' packages/core/src/index.ts` and visually confirm each site's actual enclosing braces — do not assume the three edits are three independent top-level branches of one `if`/`else if`/`else` chain. Each edit (snapshot-then-reindex) is still self-contained and correct wherever its enclosing block is, but placing `const oldErrors = errors;` at the wrong brace depth (e.g. one level too high, outside the `if (activeEpoch === asyncEpoch...)` guard) would incorrectly call `reindexErrors` even when that guard's condition is false and `errors` was never actually reassigned on this path.
 
 - [ ] **Step 4: Confirm the DOM-pruning `errors` call from Task 3**
 
@@ -1032,7 +1032,7 @@ git commit -m "feat(core): index validatedPaths add/delete sites into pathIndex"
 This is the one structure where the spec explicitly warns about double-counting: `indexKey` must fire only when a path transitions from "no subscribers" to "one subscriber," not on every `subscribe()` call.
 
 **Files:**
-- Modify: `packages/core/src/index.ts` lines 1820–1843 (`subscribeToPath`), 2229–2245 (`subscribeToPathDynamic`)
+- Modify: `packages/core/src/index.ts` lines 1820–1843 (`subscribeToPath`), 2217–2246 (`subscribeToPathDynamic` — function starts at 2217; the specific edits are at 2229 and 2239–2245)
 
 **Interfaces:**
 - Consumes: `indexKey`, `unindexKey` from Task 1.
