@@ -5,6 +5,7 @@ import type { BundleSizeResult } from '../../types/schema.js'
 
 const LIBRARIES: Array<{ library: string; entry: string }> = [
   { library: 'neutro/form',      entry: 'fixtures/bundle/neutro.ts' },
+  { library: 'neutro/form (minimal)', entry: 'fixtures/bundle/neutro-minimal.ts' },
   { library: 'react-hook-form',  entry: 'fixtures/bundle/rhf.ts' },
   { library: 'formik',           entry: 'fixtures/bundle/formik.ts' },
   { library: 'tanstack-form',    entry: 'fixtures/bundle/tanstack.ts' },

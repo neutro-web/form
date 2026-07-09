@@ -3,32 +3,37 @@
     {
       "library": "neutro/form",
       "status": "ok",
-      "gzipBytes": 10414
+      "gzipBytes": 12107
+    },
+    {
+      "library": "neutro/form (minimal)",
+      "status": "ok",
+      "gzipBytes": 8128
     },
     {
       "library": "react-hook-form",
       "status": "ok",
-      "gzipBytes": 9946
+      "gzipBytes": 9965
     },
     {
       "library": "formik",
       "status": "ok",
-      "gzipBytes": 13477
+      "gzipBytes": 13493
     },
     {
       "library": "tanstack-form",
       "status": "ok",
-      "gzipBytes": 17792
+      "gzipBytes": 17838
     },
     {
       "library": "vee-validate",
       "status": "ok",
-      "gzipBytes": 10596
+      "gzipBytes": 10606
     },
     {
       "library": "felte",
       "status": "ok",
-      "gzipBytes": 23399
+      "gzipBytes": 23490
     }
   ]
 }

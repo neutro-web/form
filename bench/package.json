@@ -24,6 +24,7 @@
     "node": ">=20.19.0"
   },
   "devDependencies": {
+    "@neutro/form": "link:../packages/alias",
     "@neutro/form-core": "link:../packages/core",
     "@playwright/test": "^1.45.0",
     "@tanstack/react-form": "^1.33.0",

@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@neutro/form':
+        specifier: link:../packages/alias
+        version: link:../packages/alias
       '@neutro/form-core':
         specifier: link:../packages/core
         version: link:../packages/core
