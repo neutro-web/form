@@ -1026,6 +1026,68 @@ function flattenComputedConfig<T>(
 // createForm
 // ---------------------------------------------------------------------------
 
+/**
+ * Consolidates createForm's closure state (the six tracked structures, DOM
+ * bridge registries, batching/async bookkeeping, submission state, and the
+ * cross-cluster primitives every feature needs) into a single object. This
+ * removes the need to pass ~35 individual closure variables/functions around
+ * once the engine is split into feature files (see the modular-bundle-splitting
+ * spec). All fields alias the SAME underlying objects/Maps/Sets used elsewhere
+ * in createForm — mutating ctx.errors mutates the real `errors` map in place —
+ * so this is purely an access-path change, not a state duplication.
+ */
+interface FormEngineContext<T extends object> {
+  values: T;
+  initialValues: T;
+  errors: Record<string, string>;
+  touched: Record<string, boolean>;
+  dirty: Record<string, boolean>;
+  wasSet: Record<string, boolean>;
+  validatedPaths: Set<string>;
+  pathIndex: Map<string, Map<string, number>>;
+  pathSubscribers: Map<string, Set<PathSubscriber>>;
+  globalSubscribers: Set<FormSubscriber<T>>;
+  connectionRegistry: Map<string, WeakRef<HTMLElement>>;
+  connectedPaths: Set<string>;
+  persistedPaths: Set<string>;
+  mutationObserver: MutationObserver | null;
+  persistenceUnsubscribe: (() => void) | null;
+  persistenceWriteTimer: ReturnType<typeof setTimeout> | null;
+  batchDepth: number;
+  pendingPaths: Set<string | undefined>;
+  pendingExactPaths: Set<string>;
+  asyncEpoch: number;
+  activeAbortControllers: Map<string, AbortController>;
+  isSubmitting: boolean;
+  isValidating: boolean;
+  hasValidated: boolean;
+  isHydrating: boolean;
+  submissionAttempts: number;
+  lastSubmittedValues: Partial<T> | null;
+  config: FormConfig<T>;
+  transientPaths: string[];
+  isComputedField: (path: string) => boolean;
+  runComputedPass: () => string[];
+  hasComputedFields: () => boolean;
+  onReset: (newValues?: T) => void;
+  runValidation: (scopePaths?: string[]) => Promise<boolean>;
+  dispatchAction: (action: FormAction) => void;
+  notify: (path?: string, options?: { exact?: boolean }) => void;
+  notifyGlobalSubscribers: (snap: FormState<T>) => void;
+  notifyPathSubscribers: (paths: string[], exactPaths?: string[]) => void;
+  batch: (fn: () => void) => void;
+  indexKey: (key: string) => void;
+  unindexKey: (key: string) => void;
+  getState: () => FormState<T>;
+  resolveFieldMode: (path: string) => ValidationMode;
+  deepMerge: (base: any, override: any) => any;
+  setFieldValue: (path: string, value: unknown, options?: SetOptions) => void;
+  subscribeToPath: <V>(path: string, fn: PathSubscriber<V>) => () => void;
+  __warnUnknownPath: (path: string) => void;
+  isFieldRequired: (path: string) => boolean;
+  subscribe: (fn: FormSubscriber<T>) => () => void;
+}
+
 export function createForm<T extends object>(config: FormConfig<T>): FormInstance<T> {
   const deepMerge = (base: any, override: any, seen = new WeakSet()): any => {
     if (override === null || override === undefined) return base;
@@ -1041,49 +1103,22 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     return result;
   };
 
+  // `values`/`initialValues` are the sole two documented exceptions kept as
+  // standalone `const` (not inlined into ctx below, not deleted): several
+  // top-level statements between here and `ctx`'s declaration (the
+  // compileDependencyScopes call, the computed-fields seed pass, the dev
+  // path-trie build) read them immediately, before `ctx` exists — see the
+  // comments at those call sites. Every other tracked-state field (errors,
+  // touched, dirty, wasSet, validatedPaths, pathIndex, pathSubscribers,
+  // globalSubscribers, connectionRegistry, connectedPaths, persistedPaths,
+  // mutationObserver, persistenceUnsubscribe, persistenceWriteTimer,
+  // batchDepth, pendingPaths, pendingExactPaths, asyncEpoch,
+  // activeAbortControllers, isSubmitting, isValidating, hasValidated,
+  // isHydrating, submissionAttempts, lastSubmittedValues) has no such
+  // pre-ctx reader, so it is declared directly inside the ctx object literal
+  // below instead of as a standalone `const`/`let` here.
   const initialValues = deepClone(config.initialValues);
   const values = deepClone(initialValues);
-  const errors: Record<string, string> = {};
-  const touched: Record<string, boolean> = {};
-  const dirty: Record<string, boolean> = {};
-  const wasSet: Record<string, boolean> = {};
-  const validatedPaths = new Set<string>();
-  // Refcounted shadow index: maps every ancestor prefix of a tracked key (from
-  // errors/touched/dirty/wasSet/validatedPaths/pathSubscribers) to a Map of
-  // (full key -> number of those six structures currently holding that key).
-  // Lets shiftStateIndices/rekeyArrayState/arraySwap look up "what state exists
-  // under this array" in O(state under the array) instead of scanning all
-  // tracked state. See docs/superpowers/specs/2026-07-03-shift-state-indices-prefix-index-design.md.
-  const pathIndex = new Map<string, Map<string, number>>();
-  let isSubmitting = false;
-  let isValidating = false;
-  let hasValidated = false;
-  let isHydrating = false;
-  let submissionAttempts = 0;
-  let lastSubmittedValues: Partial<T> | null = null;
-  let persistenceWriteTimer: ReturnType<typeof setTimeout> | null = null;
-  let persistenceUnsubscribe: (() => void) | null = null;
-
-  const globalSubscribers = new Set<FormSubscriber<T>>();
-  const pathSubscribers = new Map<string, Set<PathSubscriber>>();
-  const connectionRegistry = new Map<string, WeakRef<HTMLElement>>();
-  const connectedPaths = new Set<string>();
-  const persistedPaths = new Set<string>();
-
-  // Bug #7: depth counter instead of boolean so nested batch() calls don't flush early.
-  let batchDepth = 0;
-  const pendingPaths = new Set<string | undefined>();
-  // Paths queued via notify(path, { exact: true }) — see notifyPathSubscribers: these
-  // still walk ancestors (so a subscriber on the path itself, or any ancestor, fires)
-  // but skip the descendant scan, so sibling entries under the same parent are not
-  // re-notified. Used by arrayRemove to reach an array-root subscriber without
-  // re-triggering every unaffected item's per-field subscriber.
-  const pendingExactPaths = new Set<string>();
-
-  let asyncEpoch = 0;
-  // Bug #8: no shared asyncDebounceTimer — each runValidation invocation manages its own.
-  const activeAbortControllers = new Map<string, AbortController>();
-  let mutationObserver: MutationObserver | null = null;
 
   const { preComputedScopes, wildcardDependencies } = config.dependencies
     ? compileDependencyScopes(config.dependencies, initialValues)
@@ -1135,14 +1170,14 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   }
 
   /**
-   * Re-evaluates all computed fields against current `values`.
+   * Re-evaluates all computed fields against current `ctx.values`.
    * Runs up to `computedPassLimit` passes (default 5) to resolve chained
    * dependencies. Fields are updated in-place per pass, so forward-declared chains
    * (b before c when c depends on b) resolve in a single pass. Reverse-declared
    * chains need one extra pass — with the default limit of 5 any acyclic chain up
    * to 5 levels deep resolves regardless of declaration order.
    * Emits a console.warn if the fields never stabilize (circular dependency).
-   * Returns an array of unique paths whose values changed.
+   * Returns an array of unique paths whose ctx.values changed.
    */
   const runComputedPass = (): string[] => {
     if (computedMap.size === 0) return [];
@@ -1184,7 +1219,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
             stillChangingPaths.push(path);
           }
         } catch {
-          // ignore errors in check-only pass
+          // ignore ctx.errors in check-only pass
         }
       }
       if (stillChangingPaths.length === 0) stabilized = true;
@@ -1198,36 +1233,22 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     return [...changedPathsSet];
   };
 
-  runComputedPass(); // seed computed values at init
-  const __pathValidation = config.pathValidation ?? 'dev';
-  const __shouldBuildTrie =
-    __pathValidation !== 'off' && !(__pathValidation === 'dev' && __isProdLocal);
-  // Runtime path validation: builds a trie from initialValues for unknown-path detection.
-  const __devPathTrie = __shouldBuildTrie ? buildPathTrie(values) : null;
-
-  const __warnUnknownPath = (path: string): void => {
-    if (!__devPathTrie) return;
-    if (!isKnownPath(__devPathTrie, path)) {
-      console.warn(`[NeutroForm] Unknown path: "${path}". Check your initialValues schema.`);
-    }
-  };
-
   const getState = (): FormState<T> => ({
-    values: deepClone(values),
-    errors: { ...errors },
-    touched: { ...touched },
-    dirty: { ...dirty },
-    isSubmitting,
-    isValidating,
-    isValid: hasValidated ? Object.keys(errors).length === 0 : null,
-    submissionAttempts,
-    lastSubmittedValues: lastSubmittedValues ? deepClone(lastSubmittedValues) : null,
+    values: deepClone(ctx.values),
+    errors: { ...ctx.errors },
+    touched: { ...ctx.touched },
+    dirty: { ...ctx.dirty },
+    isSubmitting: ctx.isSubmitting,
+    isValidating: ctx.isValidating,
+    isValid: ctx.hasValidated ? Object.keys(ctx.errors).length === 0 : null,
+    submissionAttempts: ctx.submissionAttempts,
+    lastSubmittedValues: ctx.lastSubmittedValues ? deepClone(ctx.lastSubmittedValues) : null,
   });
 
   const actionListeners = new Set<(action: FormAction, state: FormState<T>) => void>();
   const dispatchAction = (action: FormAction): void => {
     if (actionListeners.size === 0) return;
-    const snapshot = getState();
+    const snapshot = ctx.getState();
     actionListeners.forEach((fn) => {
       try {
         fn(action, snapshot);
@@ -1238,7 +1259,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   const notifyGlobalSubscribers = (snapshot: FormState<T>) => {
-    for (const fn of globalSubscribers) {
+    for (const fn of ctx.globalSubscribers) {
       try {
         fn(snapshot);
       } catch (err) {
@@ -1247,7 +1268,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
   };
 
-  // Shared path fan-out logic used by notify(), _flushNotifications(), and reset().
+  // Shared path fan-out logic used by ctx.notify(), _flushNotifications(), and reset().
   //
   // Walks both directions from each mutated path: upward to ancestors (so a
   // subscriber on 'items' fires when 'items.0.v' changes) and downward to
@@ -1256,9 +1277,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   // mutated value is itself an object/array — primitive leaf sets (the
   // set-get/subscriptions benchmark hot path) skip the O(n) descendant scan entirely.
   //
-  // All paths-to-notify across the whole flush are collected into one Set before
+  // All paths-to-ctx.notify across the whole flush are collected into one Set before
   // firing, so a subscriber reachable via two different mutated paths in the same
-  // batch (e.g. arrayRemove's shifted-key notify plus its whole-array notify)
+  // ctx.batch (e.g. arrayRemove's shifted-key ctx.notify plus its whole-array ctx.notify)
   // fires exactly once, not once per path that reaches it.
   const notifyPathSubscribers = (paths: string[], exactPaths: string[] = []) => {
     const toNotify = new Set<string>();
@@ -1270,10 +1291,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         accum = accum ? `${accum}.${part}` : part;
         toNotify.add(accum);
       }
-      const currentVal = getNestedValue(values, mutatedPath);
+      const currentVal = getNestedValue(ctx.values, mutatedPath);
       if (currentVal !== null && typeof currentVal === 'object') {
         const descendantPrefix = `${mutatedPath}.`;
-        for (const registered of pathSubscribers.keys()) {
+        for (const registered of ctx.pathSubscribers.keys()) {
           if (registered !== '*' && registered.startsWith(descendantPrefix)) {
             toNotify.add(registered);
           }
@@ -1294,12 +1315,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
     }
     for (const p of toNotify) {
-      const listeners = pathSubscribers.get(p);
+      const listeners = ctx.pathSubscribers.get(p);
       if (!listeners) continue;
-      const val = p === '*' ? deepClone(values) : deepClone(getNestedValue(values, p));
+      const val = p === '*' ? deepClone(ctx.values) : deepClone(getNestedValue(ctx.values, p));
       for (const cb of listeners) {
         try {
-          cb(val, { error: errors[p], touched: touched[p], dirty: dirty[p] });
+          cb(val, { error: ctx.errors[p], touched: ctx.touched[p], dirty: ctx.dirty[p] });
         } catch (err) {
           console.error('[NeutroForm] path subscriber threw:', err);
         }
@@ -1307,92 +1328,92 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
   };
 
-  // Called when a batch flushes: notifies global subscribers once, then replays each path.
+  // Called when a ctx.batch flushes: notifies global subscribers once, then replays each path.
   const _flushNotifications = (paths: Array<string | undefined>, exactPaths: string[] = []) => {
-    if (globalSubscribers.size > 0) {
-      notifyGlobalSubscribers(getState());
+    if (ctx.globalSubscribers.size > 0) {
+      ctx.notifyGlobalSubscribers(ctx.getState());
     }
     const unique = [...new Set(paths.filter((p): p is string => p !== undefined))];
     const uniqueExact = [...new Set(exactPaths)];
-    notifyPathSubscribers(unique, uniqueExact);
+    ctx.notifyPathSubscribers(unique, uniqueExact);
   };
 
-  // Bug #9: guard getState() behind globalSubscribers.size > 0.
-  // Rule: notify(path) for field-data mutations; notify() with no arg for flag-only changes.
-  // Pass { exact: true } to notify a subscriber registered on mutatedPath itself (and its
+  // Bug #9: guard ctx.getState() behind ctx.globalSubscribers.size > 0.
+  // Rule: ctx.notify(path) for field-data mutations; ctx.notify() with no arg for flag-only changes.
+  // Pass { exact: true } to ctx.notify a subscriber registered on mutatedPath itself (and its
   // ancestors) WITHOUT the descendant scan — i.e. without re-notifying sibling entries
   // registered under the same path. See arrayRemove.
   const notify = (mutatedPath?: string, options?: { exact?: boolean }) => {
     const exact = options?.exact ?? false;
-    if (batchDepth > 0) {
+    if (ctx.batchDepth > 0) {
       if (exact && mutatedPath) {
-        pendingExactPaths.add(mutatedPath);
+        ctx.pendingExactPaths.add(mutatedPath);
       } else {
-        pendingPaths.add(mutatedPath);
+        ctx.pendingPaths.add(mutatedPath);
       }
       return;
     }
-    if (globalSubscribers.size > 0) {
-      notifyGlobalSubscribers(getState());
+    if (ctx.globalSubscribers.size > 0) {
+      ctx.notifyGlobalSubscribers(ctx.getState());
     }
     if (mutatedPath) {
-      if (exact) notifyPathSubscribers([], [mutatedPath]);
-      else notifyPathSubscribers([mutatedPath]);
+      if (exact) ctx.notifyPathSubscribers([], [mutatedPath]);
+      else ctx.notifyPathSubscribers([mutatedPath]);
     }
   };
 
   const batch = (fn: () => void) => {
-    batchDepth++;
+    ctx.batchDepth++;
     try {
       fn();
     } finally {
-      batchDepth--;
-      if (batchDepth === 0 && (pendingPaths.size > 0 || pendingExactPaths.size > 0)) {
-        const paths = [...pendingPaths];
-        const exactPaths = [...pendingExactPaths];
-        pendingPaths.clear();
-        pendingExactPaths.clear();
+      ctx.batchDepth--;
+      if (ctx.batchDepth === 0 && (ctx.pendingPaths.size > 0 || ctx.pendingExactPaths.size > 0)) {
+        const paths = [...ctx.pendingPaths];
+        const exactPaths = [...ctx.pendingExactPaths];
+        ctx.pendingPaths.clear();
+        ctx.pendingExactPaths.clear();
         _flushNotifications(paths, exactPaths);
       }
     }
   };
 
   const subscribe = (fn: FormSubscriber<T>) => {
-    globalSubscribers.add(fn);
+    ctx.globalSubscribers.add(fn);
     try {
-      fn(getState());
+      fn(ctx.getState());
     } catch (err) {
       console.error('[NeutroForm] subscriber threw on initial call:', err);
     }
     return () => {
-      globalSubscribers.delete(fn);
+      ctx.globalSubscribers.delete(fn);
     };
   };
 
   const runValidation = async (scopePaths?: string[]): Promise<boolean> => {
-    if (!config.validator && !config.rules) {
+    if (!ctx.config.validator && !ctx.config.rules) {
       if (!scopePaths) {
-        hasValidated = true;
-        for (const p of extractAllPaths(values)) {
-          if (!validatedPaths.has(p)) {
-            validatedPaths.add(p);
-            indexKey(p);
+        ctx.hasValidated = true;
+        for (const p of extractAllPaths(ctx.values)) {
+          if (!ctx.validatedPaths.has(p)) {
+            ctx.validatedPaths.add(p);
+            ctx.indexKey(p);
           }
         }
       } else {
         for (const path of scopePaths) {
-          if (!validatedPaths.has(path)) {
-            validatedPaths.add(path);
-            indexKey(path);
+          if (!ctx.validatedPaths.has(path)) {
+            ctx.validatedPaths.add(path);
+            ctx.indexKey(path);
           }
         }
       }
       return true;
     }
-    isValidating = true;
-    // isValidating is a global flag — only global subscribers need this notification.
-    if (globalSubscribers.size > 0) {
-      notifyGlobalSubscribers(getState());
+    ctx.isValidating = true;
+    // ctx.isValidating is a global flag — only global subscribers need this notification.
+    if (ctx.globalSubscribers.size > 0) {
+      ctx.notifyGlobalSubscribers(ctx.getState());
     }
 
     let expandedScope: string[] | undefined;
@@ -1422,34 +1443,34 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       expandedScope = scopePaths;
     }
 
-    const activeEpoch = ++asyncEpoch;
+    const activeEpoch = ++ctx.asyncEpoch;
     let abortController: AbortController | undefined;
 
     try {
       if (expandedScope) {
         for (const path of expandedScope) {
-          activeAbortControllers.get(path)?.abort();
-          activeAbortControllers.delete(path);
+          ctx.activeAbortControllers.get(path)?.abort();
+          ctx.activeAbortControllers.delete(path);
         }
       }
       abortController = new AbortController();
       if (expandedScope) {
-        for (const path of expandedScope) activeAbortControllers.set(path, abortController);
+        for (const path of expandedScope) ctx.activeAbortControllers.set(path, abortController);
       }
 
-      // Built-in rules run synchronously first; custom validator errors override on conflict.
-      const builtInErrors: Record<string, string> = config.rules
+      // Built-in rules run synchronously first; custom validator ctx.errors override on conflict.
+      const builtInErrors: Record<string, string> = ctx.config.rules
         ? applyBuiltInRules(
-            values,
-            config.rules as Record<string, BuiltInRule | BuiltInRule[]>,
+            ctx.values,
+            ctx.config.rules as Record<string, BuiltInRule | BuiltInRule[]>,
             expandedScope
           )
         : {};
 
-      if (config.validator) {
+      if (ctx.config.validator) {
         // Bug #13: pass snapshot so mid-await mutations can't corrupt validation state.
-        const valuesSnapshot = deepClone(values);
-        const validationResult = config.validator(
+        const valuesSnapshot = deepClone(ctx.values);
+        const validationResult = ctx.config.validator(
           valuesSnapshot,
           expandedScope,
           abortController.signal
@@ -1488,7 +1509,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
               // setTimeout call itself as the dominant cost, not the
               // AbortController/epoch bookkeeping).
               if (abortController?.signal.aborted) {
-                resolve(errors);
+                resolve(ctx.errors);
                 return;
               }
               runValidator();
@@ -1496,13 +1517,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
               let localTimer: any;
               const onAbort = () => {
                 clearTimeout(localTimer);
-                resolve(errors);
+                resolve(ctx.errors);
               };
               abortController?.signal.addEventListener('abort', onAbort, { once: true });
               localTimer = setTimeout(() => {
                 abortController?.signal.removeEventListener('abort', onAbort);
                 if (abortController?.signal.aborted) {
-                  resolve(errors);
+                  resolve(ctx.errors);
                   return;
                 }
                 runValidator();
@@ -1510,11 +1531,11 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
             }
           });
 
-          if (activeEpoch === asyncEpoch && !abortController?.signal.aborted) {
+          if (activeEpoch === ctx.asyncEpoch && !abortController?.signal.aborted) {
             const combined = { ...builtInErrors, ...resolvedErrors };
             applyRecordDiff(
-              errors,
-              expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined
+              ctx.errors,
+              expandedScope ? mergeScopedErrors(ctx.errors, combined, expandedScope) : combined
             );
           }
         } else {
@@ -1526,60 +1547,63 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           const safeResult = isValidatorReturn(validationResult) ? validationResult : {};
           const combined = { ...builtInErrors, ...safeResult };
           applyRecordDiff(
-            errors,
-            expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined
+            ctx.errors,
+            expandedScope ? mergeScopedErrors(ctx.errors, combined, expandedScope) : combined
           );
         }
       } else {
         applyRecordDiff(
-          errors,
-          expandedScope ? mergeScopedErrors(errors, builtInErrors, expandedScope) : builtInErrors
+          ctx.errors,
+          expandedScope
+            ? mergeScopedErrors(ctx.errors, builtInErrors, expandedScope)
+            : builtInErrors
         );
       }
     } finally {
       if (expandedScope) {
-        for (const path of expandedScope) activeAbortControllers.delete(path);
+        for (const path of expandedScope) ctx.activeAbortControllers.delete(path);
       }
-      isValidating = false;
-      if (!expandedScope && activeEpoch === asyncEpoch) hasValidated = true;
-      // Populate validatedPaths: for a scoped run reuse expandedScope; for a full run
-      // walk current values. (extractAllPaths is not called for scoped runs.)
+      ctx.isValidating = false;
+      if (!expandedScope && activeEpoch === ctx.asyncEpoch) ctx.hasValidated = true;
+      // Populate ctx.validatedPaths: for a scoped run reuse expandedScope; for a full run
+      // walk current ctx.values. (extractAllPaths is not called for scoped runs.)
       if (expandedScope) {
-        if (activeEpoch === asyncEpoch && !abortController?.signal.aborted) {
+        if (activeEpoch === ctx.asyncEpoch && !abortController?.signal.aborted) {
           for (const path of expandedScope) {
-            if (!validatedPaths.has(path)) {
-              validatedPaths.add(path);
-              indexKey(path);
+            if (!ctx.validatedPaths.has(path)) {
+              ctx.validatedPaths.add(path);
+              ctx.indexKey(path);
             }
           }
         }
-      } else if (activeEpoch === asyncEpoch) {
-        for (const p of extractAllPaths(values)) {
-          if (!validatedPaths.has(p)) {
-            validatedPaths.add(p);
-            indexKey(p);
+      } else if (activeEpoch === ctx.asyncEpoch) {
+        for (const p of extractAllPaths(ctx.values)) {
+          if (!ctx.validatedPaths.has(p)) {
+            ctx.validatedPaths.add(p);
+            ctx.indexKey(p);
           }
         }
       }
-      if (globalSubscribers.size > 0) {
-        notifyGlobalSubscribers(getState());
+      if (ctx.globalSubscribers.size > 0) {
+        ctx.notifyGlobalSubscribers(ctx.getState());
       }
       // Notify path subscribers so they see updated error state.
-      const pathsToNotify = expandedScope ?? [...pathSubscribers.keys()].filter((p) => p !== '*');
-      notifyPathSubscribers(pathsToNotify);
+      const pathsToNotify =
+        expandedScope ?? [...ctx.pathSubscribers.keys()].filter((p) => p !== '*');
+      ctx.notifyPathSubscribers(pathsToNotify);
     }
 
-    return Object.keys(errors).length === 0;
+    return Object.keys(ctx.errors).length === 0;
   };
 
   const indexKey = (key: string) => {
     const segments = key.split('.');
     let prefix = segments[0];
     for (let i = 1; i < segments.length; i++) {
-      let counts = pathIndex.get(prefix);
+      let counts = ctx.pathIndex.get(prefix);
       if (!counts) {
         counts = new Map();
-        pathIndex.set(prefix, counts);
+        ctx.pathIndex.set(prefix, counts);
       }
       counts.set(key, (counts.get(key) ?? 0) + 1);
       prefix = `${prefix}.${segments[i]}`;
@@ -1590,30 +1614,30 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     const segments = key.split('.');
     let prefix = segments[0];
     for (let i = 1; i < segments.length; i++) {
-      const counts = pathIndex.get(prefix);
+      const counts = ctx.pathIndex.get(prefix);
       if (counts) {
         const next = (counts.get(key) ?? 1) - 1;
         if (next <= 0) counts.delete(key);
         else counts.set(key, next);
-        if (counts.size === 0) pathIndex.delete(prefix);
+        if (counts.size === 0) ctx.pathIndex.delete(prefix);
       }
       prefix = `${prefix}.${segments[i]}`;
     }
   };
 
-  // In-place diff applier for `errors`, which runValidation updates via a computed
+  // In-place diff applier for `ctx.errors`, which ctx.runValidation updates via a computed
   // next-value map rather than mutating key-by-key. Clears keys absent from `next`,
-  // assigns/updates keys present in `next`, keeping pathIndex in sync via
-  // indexKey/unindexKey — without reassigning `target`'s identity.
+  // assigns/updates keys present in `next`, keeping ctx.pathIndex in sync via
+  // ctx.indexKey/ctx.unindexKey — without reassigning `target`'s identity.
   const applyRecordDiff = (target: Record<string, string>, next: Record<string, string>): void => {
     for (const key of Object.keys(target)) {
       if (!(key in next)) {
         delete target[key];
-        unindexKey(key);
+        ctx.unindexKey(key);
       }
     }
     for (const key of Object.keys(next)) {
-      if (!(key in target)) indexKey(key);
+      if (!(key in target)) ctx.indexKey(key);
       target[key] = next[key];
     }
   };
@@ -1642,80 +1666,80 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     val: any,
     options: { touch?: boolean; validate?: boolean } = {}
   ) => {
-    if (computedMap.has(path)) {
+    if (ctx.isComputedField(path)) {
       if (!__isProdLocal) {
         console.warn(`[NeutroForm] "${path}" is a computed field — set() is a no-op.`);
       }
       return;
     }
-    const wasAlreadySet = path in wasSet;
-    wasSet[path] = true;
-    if (!wasAlreadySet) indexKey(path);
-    const currentVal = getNestedValue(values, path);
+    const wasAlreadySet = path in ctx.wasSet;
+    ctx.wasSet[path] = true;
+    if (!wasAlreadySet) ctx.indexKey(path);
+    const currentVal = getNestedValue(ctx.values, path);
     if (isDeepEqual(currentVal, val)) return;
-    batch(() => {
-      setNestedValue(values, path, val);
-      const initialVal = getNestedValue(initialValues, path);
-      const dirtyAlreadySet = path in dirty;
-      dirty[path] = !isDeepEqual(initialVal, val);
-      if (!dirty[path]) {
-        delete dirty[path];
-        if (dirtyAlreadySet) unindexKey(path);
+    ctx.batch(() => {
+      setNestedValue(ctx.values, path, val);
+      const initialVal = getNestedValue(ctx.initialValues, path);
+      const dirtyAlreadySet = path in ctx.dirty;
+      ctx.dirty[path] = !isDeepEqual(initialVal, val);
+      if (!ctx.dirty[path]) {
+        delete ctx.dirty[path];
+        if (dirtyAlreadySet) ctx.unindexKey(path);
       } else if (!dirtyAlreadySet) {
-        indexKey(path);
+        ctx.indexKey(path);
       }
       if (options.touch) {
-        const touchedAlreadySet = path in touched;
-        touched[path] = true;
-        if (!touchedAlreadySet) indexKey(path);
+        const touchedAlreadySet = path in ctx.touched;
+        ctx.touched[path] = true;
+        if (!touchedAlreadySet) ctx.indexKey(path);
       }
     });
-    if (computedMap.size > 0) {
-      if (batchDepth > 0) {
-        // Inside an outer batch: run computed pass to keep values consistent,
-        // but defer all notifications until the batch flushes.
-        const changedComputedPaths = runComputedPass();
-        pendingPaths.add(path);
-        for (const cp of changedComputedPaths) pendingPaths.add(cp);
+    if (ctx.hasComputedFields()) {
+      if (ctx.batchDepth > 0) {
+        // Inside an outer ctx.batch: run computed pass to keep ctx.values consistent,
+        // but defer all notifications until the ctx.batch flushes.
+        const changedComputedPaths = ctx.runComputedPass();
+        ctx.pendingPaths.add(path);
+        for (const cp of changedComputedPaths) ctx.pendingPaths.add(cp);
       } else {
-        // Outside any batch: run the computed pass first, then notify path and computed
-        // subscribers in one call. A single call means notifyPathSubscribers' dedup Set
+        // Outside any ctx.batch: run the computed pass first, then ctx.notify path and computed
+        // subscribers in one call. A single call means ctx.notifyPathSubscribers' dedup Set
         // covers both — a descendant subscriber under `path` (e.g. a computed field nested
         // inside an object-valued set() target) fires exactly once, with the post-computed
         // value, instead of once (stale, pre-computed) from a `[path]`-only call and again
         // (fresh) from a separate `changedComputedPaths` call.
-        const changedComputedPaths = runComputedPass();
-        notifyPathSubscribers([path, ...changedComputedPaths]);
-        if (globalSubscribers.size > 0) {
-          notifyGlobalSubscribers(getState());
+        const changedComputedPaths = ctx.runComputedPass();
+        ctx.notifyPathSubscribers([path, ...changedComputedPaths]);
+        if (ctx.globalSubscribers.size > 0) {
+          ctx.notifyGlobalSubscribers(ctx.getState());
         }
       }
     } else {
-      notify(path);
+      ctx.notify(path);
     }
-    if (options.validate === true) runValidation([path]);
+    if (options.validate === true) ctx.runValidation([path]);
   };
 
   const initMutationObserver = () => {
-    if (mutationObserver || typeof window === 'undefined' || typeof document === 'undefined')
+    if (ctx.mutationObserver || typeof window === 'undefined' || typeof document === 'undefined')
       return;
-    mutationObserver = new MutationObserver((mutations) => {
+    ctx.mutationObserver = new MutationObserver((mutations) => {
       const clearedPaths: string[] = [];
       mutations.forEach((mutation) => {
         mutation.removedNodes.forEach((node) => {
           if (!(node instanceof HTMLElement)) return;
-          connectionRegistry.forEach((ref, path) => {
+          ctx.connectionRegistry.forEach((ref, path) => {
             const el = ref.deref();
             if (!el || node.contains(el)) {
-              connectionRegistry.delete(path);
-              connectedPaths.delete(path);
-              if (!persistedPaths.has(path)) {
-                delete errors[path];
-                unindexKey(path);
-                delete touched[path];
-                unindexKey(path);
-                delete dirty[path];
-                unindexKey(path);
+              ctx.connectionRegistry.delete(path);
+              ctx.connectedPaths.delete(path);
+              if (!ctx.persistedPaths.has(path)) {
+                delete ctx.errors[path];
+                ctx.unindexKey(path);
+                delete ctx.touched[path];
+                ctx.unindexKey(path);
+                delete ctx.dirty[path];
+                ctx.unindexKey(path);
                 clearedPaths.push(path);
               }
             }
@@ -1723,13 +1747,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         });
       });
       if (clearedPaths.length > 0) {
-        if (globalSubscribers.size > 0) {
-          notifyGlobalSubscribers(getState());
+        if (ctx.globalSubscribers.size > 0) {
+          ctx.notifyGlobalSubscribers(ctx.getState());
         }
-        notifyPathSubscribers(clearedPaths);
+        ctx.notifyPathSubscribers(clearedPaths);
       }
     });
-    mutationObserver.observe(document.body, { childList: true, subtree: true });
+    ctx.mutationObserver.observe(document.body, { childList: true, subtree: true });
   };
 
   const shiftStateIndices = (
@@ -1739,10 +1763,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     targetIndex?: number
   ): string[] => {
     const shiftedKeys: string[] = [];
-    const candidates = Array.from(pathIndex.get(basePath)?.keys() ?? []);
+    const candidates = Array.from(ctx.pathIndex.get(basePath)?.keys() ?? []);
     // Two-phase per map: compute every drop/rename against the ORIGINAL stateMap
     // first, then delete every affected candidate key, and only after all deletes
-    // have landed write the renamed values back in. Doing delete-and-write in a
+    // have landed write the renamed ctx.values back in. Doing delete-and-write in a
     // single interleaved pass (in `candidates` iteration order) is unsafe: e.g.
     // removing index 0 from a 5-item array renames index 1's key down to index 0's
     // key while ALSO needing to drop the original index-0 key — if the candidate
@@ -1763,16 +1787,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         if (action === 'remove') {
           if (index === fromIndex) {
             toDelete.push(key);
-            unindexKey(key);
+            ctx.unindexKey(key);
           } else if (index > fromIndex) {
             toDelete.push(key);
-            unindexKey(key);
+            ctx.unindexKey(key);
             renames.push([key, `${prefix}${index - 1}${tail}`, stateMap[key]]);
           }
         } else if (action === 'insert' && targetIndex !== undefined) {
           if (index >= targetIndex) {
             toDelete.push(key);
-            unindexKey(key);
+            ctx.unindexKey(key);
             renames.push([key, `${prefix}${index + 1}${tail}`, stateMap[key]]);
           }
         }
@@ -1782,22 +1806,22 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       for (const key of toDelete) delete stateMap[key];
       for (const [, newKey, value] of renames) {
         stateMap[newKey] = value;
-        indexKey(newKey);
+        ctx.indexKey(newKey);
         shiftedKeys.push(newKey);
       }
     };
-    batch(() => {
-      shiftMap(errors);
-      shiftMap(touched);
-      shiftMap(dirty);
-      shiftMap(wasSet);
-      // Update validatedPaths for the structural change.
+    ctx.batch(() => {
+      shiftMap(ctx.errors);
+      shiftMap(ctx.touched);
+      shiftMap(ctx.dirty);
+      shiftMap(ctx.wasSet);
+      // Update ctx.validatedPaths for the structural change.
       // For insert: shift existing indices ≥ targetIndex up by 1 so tracking follows items.
       // For remove: drop the removed index, renumber survivors above it.
       const arrPrefix = `${basePath}.`;
       const validatedRenames: string[] = [];
       for (const key of candidates) {
-        if (!validatedPaths.has(key)) continue;
+        if (!ctx.validatedPaths.has(key)) continue;
         if (!key.startsWith(arrPrefix)) continue;
         const remaining = key.substring(arrPrefix.length);
         const match = remaining.match(/^(\d+)(.*)$/);
@@ -1806,42 +1830,42 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const tail = match[2];
         if (action === 'remove') {
           if (index === fromIndex) {
-            validatedPaths.delete(key);
-            unindexKey(key);
+            ctx.validatedPaths.delete(key);
+            ctx.unindexKey(key);
           } else if (index > fromIndex) {
-            validatedPaths.delete(key);
-            unindexKey(key);
+            ctx.validatedPaths.delete(key);
+            ctx.unindexKey(key);
             validatedRenames.push(`${arrPrefix}${index - 1}${tail}`);
           }
         } else if (action === 'insert' && targetIndex !== undefined) {
           if (index >= targetIndex) {
-            validatedPaths.delete(key);
-            unindexKey(key);
+            ctx.validatedPaths.delete(key);
+            ctx.unindexKey(key);
             validatedRenames.push(`${arrPrefix}${index + 1}${tail}`);
           }
         }
       }
-      // Add renamed validatedPaths entries only after every drop/delete above has
+      // Add renamed ctx.validatedPaths entries only after every drop/delete above has
       // landed — same collision hazard as shiftMap above (a rename target can
       // coincide with a key that's also being dropped this same pass).
       for (const newKey of validatedRenames) {
-        validatedPaths.add(newKey);
-        indexKey(newKey);
+        ctx.validatedPaths.add(newKey);
+        ctx.indexKey(newKey);
       }
-      // Also notify any actively-registered subscriber path under this array index whose
-      // slot content shifted, even when no error/touched/dirty/wasSet state exists there -
+      // Also ctx.notify any actively-registered subscriber path under this array index whose
+      // slot content shifted, even when no error/ctx.touched/ctx.dirty/ctx.wasSet state exists there -
       // otherwise arrayRemove/arrayInsert would have no way to reach a per-item VALUE
       // subscriber except by falling back to notifying the whole array (which, since
-      // notify() cascades to descendants, re-fires every unaffected sibling too, not just
+      // ctx.notify() cascades to descendants, re-fires every unaffected sibling too, not just
       // the shifted items). Unlike the state maps above (which relocate data to a new key),
       // subscriptions are registered against a fixed slot path - by the time this runs,
-      // `values` has already been mutated (splice happened before this call), so re-running
-      // notify() on the *same* key re-reads the new content that shifted into that slot.
-      // Note: pathSubscribers itself is NOT renamed here (subscriptions stay registered at
-      // their original path — only the notify-list is computed), so no indexKey/unindexKey
-      // calls are needed for this loop; it only reads pathSubscribers, never writes it.
+      // `ctx.values` has already been mutated (splice happened before this call), so re-running
+      // ctx.notify() on the *same* key re-reads the new content that shifted into that slot.
+      // Note: ctx.pathSubscribers itself is NOT renamed here (subscriptions stay registered at
+      // their original path — only the ctx.notify-list is computed), so no ctx.indexKey/ctx.unindexKey
+      // calls are needed for this loop; it only reads ctx.pathSubscribers, never writes it.
       for (const key of candidates) {
-        if (!pathSubscribers.has(key) || key === '*') continue;
+        if (!ctx.pathSubscribers.has(key) || key === '*') continue;
         if (!key.startsWith(arrPrefix)) continue;
         const remaining = key.substring(arrPrefix.length);
         const match = remaining.match(/^(\d+)(.*)$/);
@@ -1859,7 +1883,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
   const rekeyArrayState = (basePath: string, fromIndex: number, toIndex: number) => {
     const prefix = `${basePath}.`;
-    const candidates = Array.from(pathIndex.get(basePath)?.keys() ?? []);
+    const candidates = Array.from(ctx.pathIndex.get(basePath)?.keys() ?? []);
     const computeNewIndex = (index: number): number => {
       if (index === fromIndex) return toIndex;
       if (fromIndex < toIndex && index > fromIndex && index <= toIndex) return index - 1;
@@ -1874,7 +1898,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // later `delete updated[key]` wiping out a value an earlier iteration already
     // wrote to that same key as its rename target. Phase 1 computes every rename
     // against the pristine `stateMap` (never mutated mid-loop); phase 2 deletes all
-    // affected source keys, then writes all renamed values - deletes-before-writes
+    // affected source keys, then writes all renamed ctx.values - deletes-before-writes
     // guarantees a write can never be clobbered by a later delete of the same key.
     const shiftMap = (stateMap: Record<string, any>) => {
       const renames: Array<[string, string, any]> = [];
@@ -1892,23 +1916,23 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
       for (const [oldKey] of renames) {
         delete stateMap[oldKey];
-        unindexKey(oldKey);
+        ctx.unindexKey(oldKey);
       }
       for (const [, newKey, value] of renames) {
         stateMap[newKey] = value;
-        indexKey(newKey);
+        ctx.indexKey(newKey);
       }
     };
-    batch(() => {
-      shiftMap(errors);
-      shiftMap(touched);
-      shiftMap(dirty);
-      shiftMap(wasSet);
-      // Re-key validatedPaths (Set) with the same sliding-window logic and the same
+    ctx.batch(() => {
+      shiftMap(ctx.errors);
+      shiftMap(ctx.touched);
+      shiftMap(ctx.dirty);
+      shiftMap(ctx.wasSet);
+      // Re-key ctx.validatedPaths (Set) with the same sliding-window logic and the same
       // delete-all-then-write-all discipline as shiftMap above.
       const validatedRenames: Array<[string, string]> = [];
       for (const key of candidates) {
-        if (!validatedPaths.has(key)) continue;
+        if (!ctx.validatedPaths.has(key)) continue;
         if (!key.startsWith(prefix)) continue;
         const remaining = key.substring(prefix.length);
         const match = remaining.match(/^(\d+)(.*)$/);
@@ -1920,65 +1944,65 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         validatedRenames.push([key, `${prefix}${newIndex}${tail}`]);
       }
       for (const [oldKey] of validatedRenames) {
-        validatedPaths.delete(oldKey);
-        unindexKey(oldKey);
+        ctx.validatedPaths.delete(oldKey);
+        ctx.unindexKey(oldKey);
       }
       for (const [, newKey] of validatedRenames) {
-        validatedPaths.add(newKey);
-        indexKey(newKey);
+        ctx.validatedPaths.add(newKey);
+        ctx.indexKey(newKey);
       }
     });
   };
 
   const resolveFieldMode = (path: string, connectOverride?: ValidationMode): ValidationMode => {
     if (connectOverride) return connectOverride;
-    if (config.validationMode) {
-      if (typeof config.validationMode === 'string') return config.validationMode;
-      const fieldMode = config.validationMode.fields?.[path];
+    if (ctx.config.validationMode) {
+      if (typeof ctx.config.validationMode === 'string') return ctx.config.validationMode;
+      const fieldMode = ctx.config.validationMode.fields?.[path];
       if (fieldMode) return fieldMode;
-      if (config.validationMode.default) return config.validationMode.default;
+      if (ctx.config.validationMode.default) return ctx.config.validationMode.default;
     }
     return 'onTouched';
   };
 
-  const isDirty = (): boolean => Object.keys(wasSet).length > 0;
+  const isDirty = (): boolean => Object.keys(ctx.wasSet).length > 0;
 
   const isFieldValid = (path: string): boolean | null => {
-    if (!validatedPaths.has(path)) return null;
-    return !errors[path];
+    if (!ctx.validatedPaths.has(path)) return null;
+    return !ctx.errors[path];
   };
 
   const isFieldDirty = (path: string): boolean => {
-    if (wasSet[path]) return true;
+    if (ctx.wasSet[path]) return true;
     const prefix = `${path}.`;
-    return Object.keys(wasSet).some((k) => k.startsWith(prefix));
+    return Object.keys(ctx.wasSet).some((k) => k.startsWith(prefix));
   };
 
   const subscribeToPath = (path: Path<T> | '*' | string, fn: PathSubscriber) => {
-    let pathSet = pathSubscribers.get(path);
+    let pathSet = ctx.pathSubscribers.get(path);
     if (!pathSet) {
       pathSet = new Set();
-      pathSubscribers.set(path, pathSet);
-      indexKey(path);
+      ctx.pathSubscribers.set(path, pathSet);
+      ctx.indexKey(path);
     }
     pathSet.add(fn);
-    const currentVal = path === '*' ? values : getNestedValue(values, path);
+    const currentVal = path === '*' ? ctx.values : getNestedValue(ctx.values, path);
     try {
       fn(deepClone(currentVal), {
-        error: errors[path],
-        touched: touched[path],
-        dirty: dirty[path],
+        error: ctx.errors[path],
+        touched: ctx.touched[path],
+        dirty: ctx.dirty[path],
       });
     } catch (err) {
       console.error('[NeutroForm] path subscriber threw on initial call:', err);
     }
     return () => {
-      const listeners = pathSubscribers.get(path);
+      const listeners = ctx.pathSubscribers.get(path);
       if (listeners) {
         listeners.delete(fn);
         if (listeners.size === 0) {
-          pathSubscribers.delete(path);
-          unindexKey(path);
+          ctx.pathSubscribers.delete(path);
+          ctx.unindexKey(path);
         }
       }
     };
@@ -1996,7 +2020,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     const fire = () => {
       const snapshot: Record<string, unknown> = {};
       uniquePaths.forEach((p) => {
-        snapshot[p] = deepClone(getNestedValue(values, p));
+        snapshot[p] = deepClone(getNestedValue(ctx.values, p));
       });
       try {
         callback(snapshot);
@@ -2017,7 +2041,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
         fire();
       };
-      const unsub = subscribeToPath(p as Path<T>, pathSubscriberFn);
+      const unsub = ctx.subscribeToPath(p as Path<T>, pathSubscriberFn);
       teardowns.push(unsub);
     });
 
@@ -2029,7 +2053,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   const focus = (path: string): boolean => {
-    const ref = connectionRegistry.get(path);
+    const ref = ctx.connectionRegistry.get(path);
     if (!ref) return false;
     const el = ref.deref();
     if (!el?.isConnected) return false;
@@ -2043,12 +2067,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   };
 
   const focusFirstError = (): boolean => {
-    const errorPaths = Object.keys(errors);
+    const errorPaths = Object.keys(ctx.errors);
     if (errorPaths.length === 0) return false;
 
     const connected = errorPaths
       .map((p) => {
-        const ref = connectionRegistry.get(p);
+        const ref = ctx.connectionRegistry.get(p);
         if (!ref) return null;
         const el = ref.deref();
         if (!el?.isConnected) return null;
@@ -2078,15 +2102,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   ) => {
     if (!element || typeof window === 'undefined') return () => {};
     const stringPath = Array.isArray(path) ? path.join('.') : path;
-    __warnUnknownPath(stringPath);
+    ctx.__warnUnknownPath(stringPath);
     const mode = resolveFieldMode(stringPath, options.validateOn);
     initMutationObserver();
-    connectionRegistry.set(stringPath, new WeakRef(element));
-    connectedPaths.add(stringPath);
-    if (options.persist) persistedPaths.add(stringPath);
+    ctx.connectionRegistry.set(stringPath, new WeakRef(element));
+    ctx.connectedPaths.add(stringPath);
+    if (options.persist) ctx.persistedPaths.add(stringPath);
 
-    element.setAttribute('aria-invalid', errors[stringPath] ? 'true' : 'false');
-    if (isFieldRequired(stringPath)) {
+    element.setAttribute('aria-invalid', ctx.errors[stringPath] ? 'true' : 'false');
+    if (ctx.isFieldRequired(stringPath)) {
       element.setAttribute('aria-required', 'true');
     }
 
@@ -2096,7 +2120,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       if (target.type === 'checkbox') {
         const checkbox = target as HTMLInputElement;
         if (checkbox.hasAttribute('value')) {
-          const currentArray = (getNestedValue(values, stringPath) as any[]) || [];
+          const currentArray = (getNestedValue(ctx.values, stringPath) as any[]) || [];
           rawVal = checkbox.checked
             ? [...currentArray, checkbox.value]
             : currentArray.filter((v) => v !== checkbox.value);
@@ -2143,25 +2167,25 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         rawVal = formatted;
       }
       if (mode === 'onChange') {
-        setFieldValue(stringPath, rawVal, { touch: true });
-        runValidation([stringPath]);
-      } else if (mode === 'onTouched' && touched[stringPath]) {
-        setFieldValue(stringPath, rawVal);
-        runValidation([stringPath]);
+        ctx.setFieldValue(stringPath, rawVal, { touch: true });
+        ctx.runValidation([stringPath]);
+      } else if (mode === 'onTouched' && ctx.touched[stringPath]) {
+        ctx.setFieldValue(stringPath, rawVal);
+        ctx.runValidation([stringPath]);
       } else {
-        setFieldValue(stringPath, rawVal);
+        ctx.setFieldValue(stringPath, rawVal);
       }
     };
 
     const handleBlur = () => {
-      const wasTouched = stringPath in touched;
-      touched[stringPath] = true;
-      if (!wasTouched) indexKey(stringPath);
-      dispatchAction({ type: 'BLUR', path: stringPath });
+      const wasTouched = stringPath in ctx.touched;
+      ctx.touched[stringPath] = true;
+      if (!wasTouched) ctx.indexKey(stringPath);
+      ctx.dispatchAction({ type: 'BLUR', path: stringPath });
       if (mode === 'onBlur' || mode === 'onTouched') {
-        runValidation([stringPath]);
+        ctx.runValidation([stringPath]);
       } else {
-        notify(stringPath);
+        ctx.notify(stringPath);
       }
     };
 
@@ -2169,7 +2193,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     element.addEventListener('change', syncValueFromDOM);
     element.addEventListener('blur', handleBlur);
 
-    const cachedValue = getNestedValue(values, stringPath);
+    const cachedValue = getNestedValue(ctx.values, stringPath);
     if (cachedValue !== undefined) {
       if (element instanceof HTMLInputElement && element.type === 'checkbox') {
         element.checked = element.hasAttribute('value')
@@ -2191,7 +2215,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
     }
 
-    const unsubscribeA11y = subscribeToPath(stringPath, (_, fieldState) => {
+    const unsubscribeA11y = ctx.subscribeToPath(stringPath, (_, fieldState) => {
       element.setAttribute('aria-invalid', fieldState.error ? 'true' : 'false');
       let errorContainer: Element | null = null;
       try {
@@ -2206,51 +2230,51 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
     });
 
-    notify(stringPath);
-    dispatchAction({ type: 'CONNECT', path: stringPath });
+    ctx.notify(stringPath);
+    ctx.dispatchAction({ type: 'CONNECT', path: stringPath });
     return () => {
       element.removeEventListener('input', syncValueFromDOM);
       element.removeEventListener('change', syncValueFromDOM);
       element.removeEventListener('blur', handleBlur);
       unsubscribeA11y();
-      connectionRegistry.delete(stringPath);
-      connectedPaths.delete(stringPath);
-      dispatchAction({ type: 'DISCONNECT', path: stringPath });
-      notify(stringPath);
+      ctx.connectionRegistry.delete(stringPath);
+      ctx.connectedPaths.delete(stringPath);
+      ctx.dispatchAction({ type: 'DISCONNECT', path: stringPath });
+      ctx.notify(stringPath);
     };
   };
 
   const submit = async (
     onSubmitCallback: (payload: Partial<T>) => void | Promise<void>
   ): Promise<boolean> => {
-    dispatchAction({ type: 'SUBMIT' });
-    if (isSubmitting) return false;
+    ctx.dispatchAction({ type: 'SUBMIT' });
+    if (ctx.isSubmitting) return false;
 
-    isSubmitting = true;
-    submissionAttempts++;
-    extractAllPaths(values).forEach((p) => {
-      const wasTouched = p in touched;
-      touched[p] = true;
-      if (!wasTouched) indexKey(p);
+    ctx.isSubmitting = true;
+    ctx.submissionAttempts++;
+    extractAllPaths(ctx.values).forEach((p) => {
+      const wasTouched = p in ctx.touched;
+      ctx.touched[p] = true;
+      if (!wasTouched) ctx.indexKey(p);
     });
-    notify();
+    ctx.notify();
 
     try {
-      const isValid = await runValidation();
+      const isValid = await ctx.runValidation();
       if (!isValid) {
-        isSubmitting = false;
-        notify();
+        ctx.isSubmitting = false;
+        ctx.notify();
         return false;
       }
 
       const callbackPayload = _getPayload(
-        values,
-        connectionRegistry,
-        connectedPaths,
-        persistedPaths
+        ctx.values,
+        ctx.connectionRegistry,
+        ctx.connectedPaths,
+        ctx.persistedPaths
       );
       // Strip transient computed fields from the payload (consistent with submit() behavior).
-      for (const path of transientPaths) {
+      for (const path of ctx.transientPaths) {
         const parts = path.split('.');
         let obj: any = callbackPayload;
         for (let i = 0; i < parts.length - 1; i++) {
@@ -2264,8 +2288,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           delete obj[parts[parts.length - 1]];
         }
       }
-      const valuesSnapshot = deepClone(values) as Partial<T>;
-      for (const path of transientPaths) {
+      const valuesSnapshot = deepClone(ctx.values) as Partial<T>;
+      for (const path of ctx.transientPaths) {
         const parts = path.split('.');
         let obj: any = valuesSnapshot;
         for (let i = 0; i < parts.length - 1; i++) {
@@ -2282,17 +2306,17 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
       try {
         await onSubmitCallback(callbackPayload);
-        lastSubmittedValues = valuesSnapshot;
+        ctx.lastSubmittedValues = valuesSnapshot;
         try {
-          await config.onSubmitSuccess?.(valuesSnapshot);
+          await ctx.config.onSubmitSuccess?.(valuesSnapshot);
         } catch (hookErr) {
           console.error('[NeutroForm] onSubmitSuccess threw:', hookErr);
         }
         return true;
       } catch (submitErr) {
-        if (config.onSubmitError) {
+        if (ctx.config.onSubmitError) {
           try {
-            await config.onSubmitError(submitErr, valuesSnapshot);
+            await ctx.config.onSubmitError(submitErr, valuesSnapshot);
           } catch (hookErr) {
             console.error('[NeutroForm] onSubmitError threw:', hookErr);
           }
@@ -2302,8 +2326,8 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         return false;
       }
     } finally {
-      isSubmitting = false;
-      notify();
+      ctx.isSubmitting = false;
+      ctx.notify();
     }
   };
 
@@ -2315,7 +2339,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       if (e && typeof e.preventDefault === 'function') e.preventDefault();
       const isValid = await submit(onSubmitCallback);
       if (!isValid && onInvalidCallback) {
-        onInvalidCallback({ ...errors });
+        onInvalidCallback({ ...ctx.errors });
       }
     };
   };
@@ -2328,43 +2352,142 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       if (DANGEROUS_PATH_KEYS.has(p)) continue;
       const val = incoming[p];
       if (val !== undefined) {
-        const hadError = p in errors;
-        errors[p] = val;
-        if (!hadError) indexKey(p);
+        const hadError = p in ctx.errors;
+        ctx.errors[p] = val;
+        if (!hadError) ctx.indexKey(p);
       }
     }
     for (const p of paths) {
-      const wasTouched = p in touched;
-      touched[p] = true;
-      if (!wasTouched) indexKey(p);
+      const wasTouched = p in ctx.touched;
+      ctx.touched[p] = true;
+      if (!wasTouched) ctx.indexKey(p);
     }
-    batch(() => {
-      for (const p of paths) notify(p);
+    ctx.batch(() => {
+      for (const p of paths) ctx.notify(p);
     });
-    dispatchAction({ type: 'SET_ERRORS', errors: incoming as Record<string, string> });
+    ctx.dispatchAction({ type: 'SET_ERRORS', errors: incoming as Record<string, string> });
   };
 
   const clearErrors = (): void => {
-    const paths = Object.keys(errors);
+    const paths = Object.keys(ctx.errors);
     if (paths.length === 0) return;
     for (const p of paths) {
-      delete errors[p];
-      unindexKey(p);
+      delete ctx.errors[p];
+      ctx.unindexKey(p);
     }
-    batch(() => {
-      for (const p of paths) notify(p);
+    ctx.batch(() => {
+      for (const p of paths) ctx.notify(p);
     });
-    dispatchAction({ type: 'CLEAR_ERRORS' });
+    ctx.dispatchAction({ type: 'CLEAR_ERRORS' });
   };
 
   function isFieldRequired(path: string): boolean {
     // Only checks for the built-in 'required' rule; requiredIf/requiredUnless object rules are intentionally excluded.
-    const fieldRules = config.rules?.[path];
+    const fieldRules = ctx.config.rules?.[path];
     if (!fieldRules) return false;
     return Array.isArray(fieldRules)
       ? (fieldRules as (string | object)[]).includes('required')
       : fieldRules === 'required';
   }
+
+  // Relocated from just after ctx.runComputedPass's definition (original position,
+  // pre-Task-6) to here: the seed call and trie-build below are the only
+  // immediately-*executed* (not merely defined) statements between the closure's
+  // initial declarations and `ctx` — ctx.runComputedPass's body is migrated to read
+  // ctx.values below, so this invocation must run after `ctx` exists, not before
+  // it (a `const` reference before its own declaration statement executes is a
+  // TDZ ReferenceError). Nothing between the original and new position reads
+  // computed-seeded ctx.values or the trie at *definition* time (only definitions,
+  // no calls), so this reorder is behavior-neutral.
+  // NOTE: this seed call and the trie-build below run BEFORE `ctx` is declared
+  // (see comment below on ctx's placement) — they must reference the bare
+  // pre-ctx identifiers, not ctx.X, or they would hit a TDZ ReferenceError.
+  runComputedPass(); // seed computed values at init
+  const __pathValidation = config.pathValidation ?? 'dev';
+  const __shouldBuildTrie =
+    __pathValidation !== 'off' && !(__pathValidation === 'dev' && __isProdLocal);
+  // Runtime path validation: builds a trie from initialValues for unknown-path detection.
+  const __devPathTrie = __shouldBuildTrie ? buildPathTrie(values) : null;
+
+  const __warnUnknownPath = (path: string): void => {
+    if (!__devPathTrie) return;
+    if (!isKnownPath(__devPathTrie, path)) {
+      console.warn(`[NeutroForm] Unknown path: "${path}". Check your initialValues schema.`);
+    }
+  };
+
+  // Deviation from the Task 6 brief: the brief's Step 1 places this declaration
+  // immediately after the ctx.transientPaths loop (~line 1135), but nearly every
+  // function referenced below (ctx.runValidation, ctx.dispatchAction, ctx.notify, ctx.batch,
+  // ctx.subscribe, ctx.indexKey, ctx.unindexKey, ctx.getState, ctx.resolveFieldMode, ctx.setFieldValue,
+  // ctx.subscribeToPath, ctx.__warnUnknownPath, ctx.isFieldRequired) is declared LATER in
+  // this closure body — a const there would reference them before their own
+  // `const` declarations execute (TDZ ReferenceError at every createForm()
+  // call). ctx must be declared after all of its referenced consts exist, so
+  // it is placed here instead, immediately before the first hoisted method
+  // that will read from it in Task 8+ and immediately before `return {...}`.
+  // Data fields below are inlined directly (not shorthand aliases to a bare
+  // `let`/`const` of the same name) and their original standalone declarations
+  // deleted — per Task 6 Step 3, this forces tsc to flag any code that still
+  // reads/writes the OLD bare name as an undefined-identifier error, since a
+  // silently-surviving bare copy of a *reassigned* field (isSubmitting,
+  // batchDepth, asyncEpoch, mutationObserver, persistenceUnsubscribe,
+  // persistenceWriteTimer, lastSubmittedValues, etc.) would diverge from
+  // ctx.X the moment either copy got reassigned independently. Functions
+  // (runValidation, notify, batch, indexKey, …) and the four identifiers
+  // documented below keep their standalone `const` — see the deviations
+  // noted at their declarations for why they can't be inlined here.
+  const ctx: FormEngineContext<T> = {
+    values,
+    initialValues,
+    errors: {},
+    touched: {},
+    dirty: {},
+    wasSet: {},
+    validatedPaths: new Set<string>(),
+    pathIndex: new Map<string, Map<string, number>>(),
+    pathSubscribers: new Map<string, Set<PathSubscriber>>(),
+    globalSubscribers: new Set<FormSubscriber<T>>(),
+    connectionRegistry: new Map<string, WeakRef<HTMLElement>>(),
+    connectedPaths: new Set<string>(),
+    persistedPaths: new Set<string>(),
+    mutationObserver: null,
+    persistenceUnsubscribe: null,
+    persistenceWriteTimer: null,
+    batchDepth: 0,
+    pendingPaths: new Set<string | undefined>(),
+    pendingExactPaths: new Set<string>(),
+    asyncEpoch: 0,
+    activeAbortControllers: new Map<string, AbortController>(),
+    isSubmitting: false,
+    isValidating: false,
+    hasValidated: false,
+    isHydrating: false,
+    submissionAttempts: 0,
+    lastSubmittedValues: null,
+    config,
+    transientPaths,
+    isComputedField: (path: string) => computedMap.has(path),
+    runComputedPass,
+    hasComputedFields: () => computedMap.size > 0,
+    onReset: () => {}, // no-op default; Task 8 (persistence extraction) installs the real override
+    runValidation,
+    dispatchAction,
+    notify,
+    notifyGlobalSubscribers,
+    notifyPathSubscribers,
+    batch,
+    indexKey,
+    unindexKey,
+    getState,
+    resolveFieldMode,
+    deepMerge,
+    setFieldValue,
+    subscribeToPath,
+    __warnUnknownPath,
+    isFieldRequired,
+    subscribe,
+  };
 
   const subscribeToPathDynamic = (path: string, fn: (value: unknown) => void): (() => void) => {
     if (path == null || typeof path !== 'string') {
@@ -2377,27 +2500,27 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         console.warn('[NeutroForm] subscribeToPathDynamic called with empty path — ignoring.');
       return () => {};
     }
-    __warnUnknownPath(path);
-    if (!pathSubscribers.has(path)) {
-      pathSubscribers.set(path, new Set());
-      indexKey(path);
+    ctx.__warnUnknownPath(path);
+    if (!ctx.pathSubscribers.has(path)) {
+      ctx.pathSubscribers.set(path, new Set());
+      ctx.indexKey(path);
     }
     // PathSubscriber receives (value, fieldState) but fn only declares (value) — JS ignores extra args.
     const sub = fn as PathSubscriber;
-    pathSubscribers.get(path)?.add(sub);
-    // Fire immediately with deep-cloned value (consistent with subscribeToPath)
+    ctx.pathSubscribers.get(path)?.add(sub);
+    // Fire immediately with deep-cloned value (consistent with ctx.subscribeToPath)
     try {
-      fn(deepClone(getNestedValue(values, path)));
+      fn(deepClone(getNestedValue(ctx.values, path)));
     } catch (err) {
       console.error('[NeutroForm] subscribeToPathDynamic subscriber threw on initial call:', err);
     }
     return () => {
-      const listeners = pathSubscribers.get(path);
+      const listeners = ctx.pathSubscribers.get(path);
       if (listeners) {
         listeners.delete(sub);
         if (listeners.size === 0) {
-          pathSubscribers.delete(path); // prune empty Set
-          unindexKey(path);
+          ctx.pathSubscribers.delete(path); // prune empty Set
+          ctx.unindexKey(path);
         }
       }
     };
@@ -2405,27 +2528,32 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
   const get = (path: Path<T> | string | string[]) => {
     const targetPath = Array.isArray(path) ? path.join('.') : path;
-    __warnUnknownPath(targetPath);
-    return getNestedValue(values, targetPath);
+    ctx.__warnUnknownPath(targetPath);
+    return getNestedValue(ctx.values, targetPath);
   };
 
   const set = ((path: any, val: any, options?: SetOptions) => {
     const targetPath = Array.isArray(path) ? path.join('.') : path;
-    __warnUnknownPath(targetPath);
-    setFieldValue(targetPath, val, options);
-    dispatchAction({ type: 'SET', path: targetPath, value: val, options });
+    ctx.__warnUnknownPath(targetPath);
+    ctx.setFieldValue(targetPath, val, options);
+    ctx.dispatchAction({ type: 'SET', path: targetPath, value: val, options });
   }) as FormInstance<T>['set'];
 
   const validate = (scopePaths?: Array<Path<T> | string[]>) => {
     const targets = scopePaths?.map((p) => (Array.isArray(p) ? p.join('.') : p));
-    dispatchAction({ type: 'VALIDATE', paths: targets });
-    return runValidation(targets);
+    ctx.dispatchAction({ type: 'VALIDATE', paths: targets });
+    return ctx.runValidation(targets);
   };
 
   const getPayload = () => {
-    const payload = _getPayload(values, connectionRegistry, connectedPaths, persistedPaths);
+    const payload = _getPayload(
+      ctx.values,
+      ctx.connectionRegistry,
+      ctx.connectedPaths,
+      ctx.persistedPaths
+    );
     // Strip transient computed fields from the payload (consistent with submit() behavior).
-    for (const path of transientPaths) {
+    for (const path of ctx.transientPaths) {
       const parts = path.split('.');
       let obj: any = payload;
       for (let i = 0; i < parts.length - 1; i++) {
@@ -2452,15 +2580,15 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         console.warn('[NeutroForm] setDynamic called with empty path — ignoring.');
       return;
     }
-    if (computedMap.has(path)) {
+    if (ctx.isComputedField(path)) {
       if (!__isProdLocal) {
         console.warn(`[NeutroForm] "${path}" is a computed field — setDynamic() is a no-op.`);
       }
       return;
     }
-    __warnUnknownPath(path);
-    setFieldValue(path, value, options);
-    dispatchAction({ type: 'SET', path, value, options });
+    ctx.__warnUnknownPath(path);
+    ctx.setFieldValue(path, value, options);
+    ctx.dispatchAction({ type: 'SET', path, value, options });
   };
 
   const getDynamic = <V = unknown>(path: string): V => {
@@ -2473,19 +2601,19 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         console.warn('[NeutroForm] getDynamic called with empty path — returning undefined.');
       return undefined as V;
     }
-    __warnUnknownPath(path);
-    return getNestedValue(values, path) as V;
+    ctx.__warnUnknownPath(path);
+    return getNestedValue(ctx.values, path) as V;
   };
 
   const getAriaProps = (path: Path<T> | string, options?: AriaPropsOptions): AriaProps => {
     const stringPath = path as string;
-    const hasError = Boolean(errors[stringPath]);
+    const hasError = Boolean(ctx.errors[stringPath]);
     const id = options?.errorId ?? `error-${stringPath.replace(/\./g, '-')}`;
 
     let ariaRequired: true | undefined;
     if (options?.required === true) {
       ariaRequired = true;
-    } else if (options?.required !== false && isFieldRequired(stringPath)) {
+    } else if (options?.required !== false && ctx.isFieldRequired(stringPath)) {
       ariaRequired = true;
     }
 
@@ -2496,81 +2624,81 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     };
   };
 
-  const getFieldMode = (path: string) => resolveFieldMode(path);
+  const getFieldMode = (path: string) => ctx.resolveFieldMode(path);
 
-  // Distinct name from the internal `batch` primitive (see naming collision warning
+  // Distinct name from the internal `ctx.batch` primitive (see naming collision warning
   // in the Task 6 brief) — this is the public FormInstance method, wrapping the
-  // internal batch() with BATCH_START/BATCH_END action dispatches.
+  // internal ctx.batch() with BATCH_START/BATCH_END action dispatches.
   const batchPublic = (fn: () => void) => {
-    dispatchAction({ type: 'BATCH_START' });
+    ctx.dispatchAction({ type: 'BATCH_START' });
     try {
-      batch(fn);
+      ctx.batch(fn);
     } finally {
-      dispatchAction({ type: 'BATCH_END' });
+      ctx.dispatchAction({ type: 'BATCH_END' });
     }
   };
 
   const arrayAppend = ((path: any, item: any) => {
     const targetPath = Array.isArray(path) ? path.join('.') : path;
-    const arr = getNestedValue(values, targetPath) || [];
+    const arr = getNestedValue(ctx.values, targetPath) || [];
     if (!Array.isArray(arr)) return;
-    setFieldValue(targetPath, [...arr, item]);
-    dispatchAction({ type: 'ARRAY_APPEND', path: targetPath, item });
+    ctx.setFieldValue(targetPath, [...arr, item]);
+    ctx.dispatchAction({ type: 'ARRAY_APPEND', path: targetPath, item });
   }) as FormInstance<T>['arrayAppend'];
 
   const arrayInsert = ((path: any, index: number, item: any) => {
     const targetPath = Array.isArray(path) ? path.join('.') : path;
-    const arr = getNestedValue(values, targetPath) || [];
+    const arr = getNestedValue(ctx.values, targetPath) || [];
     if (!Array.isArray(arr) || index < 0 || index > arr.length) return;
-    const wasAlreadySet = targetPath in wasSet;
-    wasSet[targetPath] = true;
-    if (!wasAlreadySet) indexKey(targetPath);
+    const wasAlreadySet = targetPath in ctx.wasSet;
+    ctx.wasSet[targetPath] = true;
+    if (!wasAlreadySet) ctx.indexKey(targetPath);
     const copy = [...arr];
     copy.splice(index, 0, item);
-    batch(() => {
-      setNestedValue(values, targetPath, copy);
+    ctx.batch(() => {
+      setNestedValue(ctx.values, targetPath, copy);
       const shifted = shiftStateIndices(targetPath, index, 'insert', index);
-      for (const k of shifted) notify(k);
-      notify(`${targetPath}.${index}`);
+      for (const k of shifted) ctx.notify(k);
+      ctx.notify(`${targetPath}.${index}`);
       // Belt-and-braces: also reach an array-root subscriber explicitly via the
       // exact-only path (skips the descendant scan, so unaffected siblings aren't
-      // re-notified). In practice notify(`${targetPath}.${index}`) above already walks
+      // re-notified). In practice ctx.notify(`${targetPath}.${index}`) above already walks
       // 'targetPath' as an ancestor, but this makes the root-subscriber guarantee
       // independent of that incidental path shape — see arrayRemove for the case where
       // it isn't incidental.
-      notify(targetPath, { exact: true });
+      ctx.notify(targetPath, { exact: true });
     });
-    runValidation([targetPath]);
-    dispatchAction({ type: 'ARRAY_INSERT', path: targetPath, index, item });
+    ctx.runValidation([targetPath]);
+    ctx.dispatchAction({ type: 'ARRAY_INSERT', path: targetPath, index, item });
   }) as FormInstance<T>['arrayInsert'];
 
   const arrayRemove = (path: Path<T> | string | string[], index: number) => {
     const targetPath = Array.isArray(path) ? path.join('.') : path;
-    const arr = getNestedValue(values, targetPath) || [];
+    const arr = getNestedValue(ctx.values, targetPath) || [];
     if (!Array.isArray(arr) || index < 0 || index >= arr.length) return;
-    const wasAlreadySet = targetPath in wasSet;
-    wasSet[targetPath] = true;
-    if (!wasAlreadySet) indexKey(targetPath);
+    const wasAlreadySet = targetPath in ctx.wasSet;
+    ctx.wasSet[targetPath] = true;
+    if (!wasAlreadySet) ctx.indexKey(targetPath);
     const copy = [...arr];
     copy.splice(index, 1);
-    batch(() => {
-      setNestedValue(values, targetPath, copy);
+    ctx.batch(() => {
+      setNestedValue(ctx.values, targetPath, copy);
       const shifted = shiftStateIndices(targetPath, index, 'remove');
-      for (const k of shifted) notify(k);
+      for (const k of shifted) ctx.notify(k);
       // Always reach a subscriber registered on the array path itself (e.g.
-      // subscribeToPath('items', cb)), regardless of whether anything shifted below
-      // it. Uses the exact-only notify — NOT a plain notify(targetPath) — so it does
-      // NOT trigger notifyPathSubscribers' descendant scan, which would re-fire every
+      // ctx.subscribeToPath('items', cb)), regardless of whether anything shifted below
+      // it. Uses the exact-only ctx.notify — NOT a plain ctx.notify(targetPath) — so it does
+      // NOT trigger ctx.notifyPathSubscribers' descendant scan, which would re-fire every
       // unaffected sibling item's per-field subscriber under the array root.
-      notify(targetPath, { exact: true });
+      ctx.notify(targetPath, { exact: true });
     });
-    runValidation([targetPath]);
-    dispatchAction({ type: 'ARRAY_REMOVE', path: targetPath, index });
+    ctx.runValidation([targetPath]);
+    ctx.dispatchAction({ type: 'ARRAY_REMOVE', path: targetPath, index });
   };
 
   const arrayMove = (path: Path<T> | string | string[], fromIndex: number, toIndex: number) => {
     const targetPath = Array.isArray(path) ? path.join('.') : path;
-    const arr = getNestedValue(values, targetPath) || [];
+    const arr = getNestedValue(ctx.values, targetPath) || [];
     if (
       !Array.isArray(arr) ||
       fromIndex < 0 ||
@@ -2579,26 +2707,26 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       toIndex >= arr.length
     )
       return;
-    const wasAlreadySet = targetPath in wasSet;
-    wasSet[targetPath] = true;
-    if (!wasAlreadySet) indexKey(targetPath);
+    const wasAlreadySet = targetPath in ctx.wasSet;
+    ctx.wasSet[targetPath] = true;
+    if (!wasAlreadySet) ctx.indexKey(targetPath);
     const copy = [...arr];
     const [movedItem] = copy.splice(fromIndex, 1);
     copy.splice(toIndex, 0, movedItem);
-    batch(() => {
-      setNestedValue(values, targetPath, copy);
+    ctx.batch(() => {
+      setNestedValue(ctx.values, targetPath, copy);
       rekeyArrayState(targetPath, fromIndex, toIndex);
       const start = Math.min(fromIndex, toIndex);
       const end = Math.max(fromIndex, toIndex);
-      for (let i = start; i <= end; i++) notify(`${targetPath}.${i}`);
+      for (let i = start; i <= end; i++) ctx.notify(`${targetPath}.${i}`);
     });
-    runValidation([targetPath]);
-    dispatchAction({ type: 'ARRAY_MOVE', path: targetPath, from: fromIndex, to: toIndex });
+    ctx.runValidation([targetPath]);
+    ctx.dispatchAction({ type: 'ARRAY_MOVE', path: targetPath, from: fromIndex, to: toIndex });
   };
 
   const arraySwap = (path: Path<T> | string | string[], indexA: number, indexB: number) => {
     const targetPath = Array.isArray(path) ? path.join('.') : path;
-    const arr = getNestedValue(values, targetPath) || [];
+    const arr = getNestedValue(ctx.values, targetPath) || [];
     if (
       !Array.isArray(arr) ||
       indexA < 0 ||
@@ -2607,14 +2735,14 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       indexB >= arr.length
     )
       return;
-    const wasAlreadySet = targetPath in wasSet;
-    wasSet[targetPath] = true;
-    if (!wasAlreadySet) indexKey(targetPath);
+    const wasAlreadySet = targetPath in ctx.wasSet;
+    ctx.wasSet[targetPath] = true;
+    if (!wasAlreadySet) ctx.indexKey(targetPath);
     const copy = [...arr];
     [copy[indexA], copy[indexB]] = [copy[indexB], copy[indexA]];
-    batch(() => {
-      setNestedValue(values, targetPath, copy);
-      const candidates = Array.from(pathIndex.get(targetPath)?.keys() ?? []);
+    ctx.batch(() => {
+      setNestedValue(ctx.values, targetPath, copy);
+      const candidates = Array.from(ctx.pathIndex.get(targetPath)?.keys() ?? []);
       const swapKeys = (stateMap: Record<string, any>) => {
         const prefix = `${targetPath}.`;
         const prefixA = `${prefix}${indexA}`;
@@ -2639,42 +2767,42 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
             if (stateMap[bKey] === undefined) {
               // bKey had no prior state here, so it's genuinely gaining a new
               // claim at this key while `key` (A-side) loses its claim.
-              indexKey(bKey);
+              ctx.indexKey(bKey);
               toDelete.push(key);
-              unindexKey(key);
+              ctx.unindexKey(key);
             }
             // else: bKey already held state here — the key identity stays put
-            // (only the values swap), so its existing claim is unchanged.
+            // (only the ctx.values swap), so its existing claim is unchanged.
           } else if (matchesB) {
             const tail = key.substring(prefixB.length);
             const aKey = `${prefixA}${tail}`;
             writes.push([aKey, stateMap[key]]);
             if (stateMap[aKey] === undefined) {
-              indexKey(aKey);
+              ctx.indexKey(aKey);
               toDelete.push(key);
-              unindexKey(key);
+              ctx.unindexKey(key);
             }
           }
         }
         for (const key of toDelete) delete stateMap[key];
         for (const [key, value] of writes) stateMap[key] = value;
       };
-      swapKeys(errors);
-      swapKeys(touched);
-      swapKeys(dirty);
-      swapKeys(wasSet);
-      // Swap validatedPaths entries for indexA ↔ indexB.
+      swapKeys(ctx.errors);
+      swapKeys(ctx.touched);
+      swapKeys(ctx.dirty);
+      swapKeys(ctx.wasSet);
+      // Swap ctx.validatedPaths entries for indexA ↔ indexB.
       // Two-phase, mirroring shiftStateIndices/rekeyArrayState above: computing
       // renames against the pristine `candidates` snapshot and only deleting all
       // source keys before adding any rename target avoids a later `.add(newKey)`
-      // being re-matched by `validatedPaths.has(key)` later in this SAME pass
+      // being re-matched by `ctx.validatedPaths.has(key)` later in this SAME pass
       // (Set/Map iteration order is insertion order, not guaranteed to visit both
       // members of a swap pair "atomically") — which would silently swap it AGAIN.
       const prefixA = `${targetPath}.${indexA}`;
       const prefixB = `${targetPath}.${indexB}`;
       const validatedRenames: Array<[string, string]> = [];
       for (const key of candidates) {
-        if (!validatedPaths.has(key)) continue;
+        if (!ctx.validatedPaths.has(key)) continue;
         const matchesA = key === prefixA || key.startsWith(`${prefixA}.`);
         const matchesB = key === prefixB || key.startsWith(`${prefixB}.`);
         if (matchesA) {
@@ -2686,24 +2814,24 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
       }
       for (const [oldKey] of validatedRenames) {
-        validatedPaths.delete(oldKey);
-        unindexKey(oldKey);
+        ctx.validatedPaths.delete(oldKey);
+        ctx.unindexKey(oldKey);
       }
       for (const [, newKey] of validatedRenames) {
-        validatedPaths.add(newKey);
-        indexKey(newKey);
+        ctx.validatedPaths.add(newKey);
+        ctx.indexKey(newKey);
       }
-      notify(`${targetPath}.${indexA}`);
-      notify(`${targetPath}.${indexB}`);
+      ctx.notify(`${targetPath}.${indexA}`);
+      ctx.notify(`${targetPath}.${indexB}`);
     });
-    runValidation([targetPath]);
-    dispatchAction({ type: 'ARRAY_SWAP', path: targetPath, i: indexA, j: indexB });
+    ctx.runValidation([targetPath]);
+    ctx.dispatchAction({ type: 'ARRAY_SWAP', path: targetPath, i: indexA, j: indexB });
   };
 
   const reset = (newValues?: T) => {
-    const cfg = config.persistence;
-    // Only write to the adapter if hydrate() has run — persistenceUnsubscribe is null until then.
-    if (cfg && persistenceUnsubscribe !== null) {
+    const cfg = ctx.config.persistence;
+    // Only write to the adapter if hydrate() has run — ctx.persistenceUnsubscribe is null until then.
+    if (cfg && ctx.persistenceUnsubscribe !== null) {
       if (newValues) {
         // Apply exclude filter before writing — same logic as buildToWrite in hydrate()
         const excludeSet = new Set((cfg.exclude ?? []) as string[]);
@@ -2726,44 +2854,44 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         });
       }
     }
-    batch(() => {
+    ctx.batch(() => {
       if (newValues) {
         const newInitial = deepClone(newValues);
-        for (const key of Object.keys(initialValues)) delete (initialValues as any)[key];
-        Object.assign(initialValues, newInitial);
+        for (const key of Object.keys(ctx.initialValues)) delete (ctx.initialValues as any)[key];
+        Object.assign(ctx.initialValues, newInitial);
       }
-      const newVals = deepClone(initialValues);
-      for (const key of Object.keys(values)) delete (values as any)[key];
-      Object.assign(values, newVals);
-      runComputedPass(); // re-derive computed fields from reset state
-      for (const k of Object.keys(errors)) {
-        unindexKey(k);
-        delete errors[k];
+      const newVals = deepClone(ctx.initialValues);
+      for (const key of Object.keys(ctx.values)) delete (ctx.values as any)[key];
+      Object.assign(ctx.values, newVals);
+      ctx.runComputedPass(); // re-derive computed fields from reset state
+      for (const k of Object.keys(ctx.errors)) {
+        ctx.unindexKey(k);
+        delete ctx.errors[k];
       }
-      for (const k of Object.keys(touched)) {
-        unindexKey(k);
-        delete touched[k];
+      for (const k of Object.keys(ctx.touched)) {
+        ctx.unindexKey(k);
+        delete ctx.touched[k];
       }
-      for (const k of Object.keys(dirty)) {
-        unindexKey(k);
-        delete dirty[k];
+      for (const k of Object.keys(ctx.dirty)) {
+        ctx.unindexKey(k);
+        delete ctx.dirty[k];
       }
-      for (const k of Object.keys(wasSet)) {
-        unindexKey(k);
-        delete wasSet[k];
+      for (const k of Object.keys(ctx.wasSet)) {
+        ctx.unindexKey(k);
+        delete ctx.wasSet[k];
       }
-      for (const k of validatedPaths) unindexKey(k);
-      validatedPaths.clear();
-      isSubmitting = false;
-      isValidating = false;
-      hasValidated = false;
-      submissionAttempts = 0;
-      lastSubmittedValues = null;
+      for (const k of ctx.validatedPaths) ctx.unindexKey(k);
+      ctx.validatedPaths.clear();
+      ctx.isSubmitting = false;
+      ctx.isValidating = false;
+      ctx.hasValidated = false;
+      ctx.submissionAttempts = 0;
+      ctx.lastSubmittedValues = null;
     });
-    connectionRegistry.forEach((ref, path) => {
+    ctx.connectionRegistry.forEach((ref, path) => {
       const el = ref.deref();
       if (!el || !('value' in el)) return;
-      const fresh = getNestedValue(values, path);
+      const fresh = getNestedValue(ctx.values, path);
       if (el instanceof HTMLInputElement && el.type === 'checkbox') {
         el.checked = el.hasAttribute('value')
           ? Array.isArray(fresh) && fresh.includes(el.value)
@@ -2786,13 +2914,13 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
     });
     // Notify all subscribers with reset state.
-    if (globalSubscribers.size > 0) {
-      notifyGlobalSubscribers(getState());
+    if (ctx.globalSubscribers.size > 0) {
+      ctx.notifyGlobalSubscribers(ctx.getState());
     }
-    notifyPathSubscribers([...pathSubscribers.keys()].filter((p) => p !== '*'));
-    const wildcardListeners = pathSubscribers.get('*');
+    ctx.notifyPathSubscribers([...ctx.pathSubscribers.keys()].filter((p) => p !== '*'));
+    const wildcardListeners = ctx.pathSubscribers.get('*');
     if (wildcardListeners) {
-      const allValues = deepClone(values);
+      const allValues = deepClone(ctx.values);
       for (const cb of wildcardListeners) {
         try {
           cb(allValues, { error: undefined, touched: undefined, dirty: undefined });
@@ -2801,61 +2929,61 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
       }
     }
-    dispatchAction({ type: 'RESET', newValues });
+    ctx.dispatchAction({ type: 'RESET', newValues });
   };
 
   const resetField = (path: Path<T>, options?: ResetFieldOptions): void => {
     const targetPath = Array.isArray(path)
       ? (path as unknown as string[]).join('.')
       : (path as string);
-    const initialVal = getNestedValue(initialValues, targetPath);
+    const initialVal = getNestedValue(ctx.initialValues, targetPath);
     const freshVal = deepClone(initialVal);
 
-    batch(() => {
-      setNestedValue(values, targetPath, freshVal);
+    ctx.batch(() => {
+      setNestedValue(ctx.values, targetPath, freshVal);
 
       if (!options?.keepError) {
-        for (const k of Object.keys(errors)) {
+        for (const k of Object.keys(ctx.errors)) {
           if (k === targetPath || k.startsWith(`${targetPath}.`)) {
-            delete errors[k];
-            unindexKey(k);
+            delete ctx.errors[k];
+            ctx.unindexKey(k);
           }
         }
       }
       if (!options?.keepTouched) {
-        for (const k of Object.keys(touched)) {
+        for (const k of Object.keys(ctx.touched)) {
           if (k === targetPath || k.startsWith(`${targetPath}.`)) {
-            delete touched[k];
-            unindexKey(k);
+            delete ctx.touched[k];
+            ctx.unindexKey(k);
           }
         }
       }
       if (!options?.keepDirty) {
-        for (const k of Object.keys(dirty)) {
+        for (const k of Object.keys(ctx.dirty)) {
           if (k === targetPath || k.startsWith(`${targetPath}.`)) {
-            delete dirty[k];
-            unindexKey(k);
+            delete ctx.dirty[k];
+            ctx.unindexKey(k);
           }
         }
-        for (const k of Object.keys(wasSet)) {
+        for (const k of Object.keys(ctx.wasSet)) {
           if (k === targetPath || k.startsWith(`${targetPath}.`)) {
-            delete wasSet[k];
-            unindexKey(k);
+            delete ctx.wasSet[k];
+            ctx.unindexKey(k);
           }
         }
       }
-      // Always clear validatedPaths for the target path and its children.
-      const toDelete = [...validatedPaths].filter(
+      // Always clear ctx.validatedPaths for the target path and its children.
+      const toDelete = [...ctx.validatedPaths].filter(
         (k) => k === targetPath || k.startsWith(`${targetPath}.`)
       );
       for (const k of toDelete) {
-        validatedPaths.delete(k);
-        unindexKey(k);
+        ctx.validatedPaths.delete(k);
+        ctx.unindexKey(k);
       }
     });
 
     // DOM sync: update the connected element if one exists for this path
-    const ref = connectionRegistry.get(targetPath);
+    const ref = ctx.connectionRegistry.get(targetPath);
     if (ref) {
       const el = ref.deref();
       if (el) {
@@ -2886,26 +3014,26 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       }
     }
 
-    notify(targetPath);
-    dispatchAction({ type: 'RESET_FIELD', path: targetPath });
+    ctx.notify(targetPath);
+    ctx.dispatchAction({ type: 'RESET_FIELD', path: targetPath });
   };
 
   const hydrate = async (): Promise<void> => {
-    const cfg = config.persistence;
+    const cfg = ctx.config.persistence;
     if (!cfg) return;
-    if (isHydrating) return;
-    isHydrating = true;
+    if (ctx.isHydrating) return;
+    ctx.isHydrating = true;
     let stored: T | null | undefined;
     try {
       stored = await cfg.adapter.read();
     } catch (err) {
-      console.error('[NeutroForm persistence] read() failed, using initialValues:', err);
-      isHydrating = false;
+      console.error('[NeutroForm persistence] read() failed, using ctx.initialValues:', err);
+      ctx.isHydrating = false;
       return;
     }
     if (stored != null) {
       const excludeSet = new Set((cfg.exclude ?? []) as string[]);
-      const filteredStored: any = deepMerge({}, stored);
+      const filteredStored: any = ctx.deepMerge({}, stored);
       for (const p of excludeSet) {
         const parts = (p as string).split('.');
         let obj = filteredStored;
@@ -2915,41 +3043,41 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
         if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
       }
-      const merged = deepMerge(config.initialValues, filteredStored) as T;
-      batch(() => {
+      const merged = ctx.deepMerge(ctx.config.initialValues, filteredStored) as T;
+      ctx.batch(() => {
         const newInitial = deepClone(merged);
-        for (const key of Object.keys(initialValues)) delete (initialValues as any)[key];
-        Object.assign(initialValues, newInitial);
-        const newVals = deepClone(initialValues);
-        for (const key of Object.keys(values)) delete (values as any)[key];
-        Object.assign(values, newVals);
-        for (const k of Object.keys(errors)) {
-          unindexKey(k);
-          delete errors[k];
+        for (const key of Object.keys(ctx.initialValues)) delete (ctx.initialValues as any)[key];
+        Object.assign(ctx.initialValues, newInitial);
+        const newVals = deepClone(ctx.initialValues);
+        for (const key of Object.keys(ctx.values)) delete (ctx.values as any)[key];
+        Object.assign(ctx.values, newVals);
+        for (const k of Object.keys(ctx.errors)) {
+          ctx.unindexKey(k);
+          delete ctx.errors[k];
         }
-        for (const k of Object.keys(touched)) {
-          unindexKey(k);
-          delete touched[k];
+        for (const k of Object.keys(ctx.touched)) {
+          ctx.unindexKey(k);
+          delete ctx.touched[k];
         }
-        for (const k of Object.keys(dirty)) {
-          unindexKey(k);
-          delete dirty[k];
+        for (const k of Object.keys(ctx.dirty)) {
+          ctx.unindexKey(k);
+          delete ctx.dirty[k];
         }
-        isSubmitting = false;
-        isValidating = false;
-        hasValidated = false;
+        ctx.isSubmitting = false;
+        ctx.isValidating = false;
+        ctx.hasValidated = false;
       });
-      if (globalSubscribers.size > 0) {
-        notifyGlobalSubscribers(getState());
+      if (ctx.globalSubscribers.size > 0) {
+        ctx.notifyGlobalSubscribers(ctx.getState());
       }
-      notifyPathSubscribers([...pathSubscribers.keys()].filter((p) => p !== '*'));
+      ctx.notifyPathSubscribers([...ctx.pathSubscribers.keys()].filter((p) => p !== '*'));
     }
     // Install write subscription AFTER hydration completes.
     // Cancel any prior subscription first (guards against double-hydrate).
-    persistenceUnsubscribe?.();
-    persistenceUnsubscribe = null;
+    ctx.persistenceUnsubscribe?.();
+    ctx.persistenceUnsubscribe = null;
 
-    const buildToWrite = (state: ReturnType<typeof getState>): T => {
+    const buildToWrite = (state: ReturnType<typeof ctx.getState>): T => {
       const excludeSet = new Set((cfg.exclude ?? []) as string[]);
       const toWrite = deepClone(state.values) as any;
       for (const p of excludeSet) {
@@ -2965,26 +3093,26 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     };
 
     if (cfg.debounceMs !== 0) {
-      // subscribe() calls the callback synchronously on registration; skip that initial invocation.
+      // ctx.subscribe() calls the callback synchronously on registration; skip that initial invocation.
       let skipFirst = true;
-      persistenceUnsubscribe = subscribe((state) => {
+      ctx.persistenceUnsubscribe = ctx.subscribe((state) => {
         if (skipFirst) {
           skipFirst = false;
           return;
         }
         const toWrite = buildToWrite(state);
-        if (persistenceWriteTimer !== null) clearTimeout(persistenceWriteTimer);
-        persistenceWriteTimer = setTimeout(() => {
-          persistenceWriteTimer = null;
+        if (ctx.persistenceWriteTimer !== null) clearTimeout(ctx.persistenceWriteTimer);
+        ctx.persistenceWriteTimer = setTimeout(() => {
+          ctx.persistenceWriteTimer = null;
           Promise.resolve(cfg.adapter.write(toWrite)).catch((err: unknown) => {
             console.error('[NeutroForm persistence] write() failed:', err);
           });
         }, cfg.debounceMs ?? 300);
       });
     } else {
-      // subscribe() calls the callback synchronously on registration; skip that initial invocation.
+      // ctx.subscribe() calls the callback synchronously on registration; skip that initial invocation.
       let skipFirst = true;
-      persistenceUnsubscribe = subscribe((state) => {
+      ctx.persistenceUnsubscribe = ctx.subscribe((state) => {
         if (skipFirst) {
           skipFirst = false;
           return;
@@ -2995,7 +3123,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         });
       });
     }
-    isHydrating = false;
+    ctx.isHydrating = false;
   };
 
   const _subscribeToActions = (fn: (action: FormAction, state: FormState<T>) => void) => {
@@ -3007,44 +3135,44 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
   const _debugPathIndex = () => {
     const snapshot = new Map<string, Set<string>>();
-    for (const [prefix, counts] of pathIndex) {
+    for (const [prefix, counts] of ctx.pathIndex) {
       snapshot.set(prefix, new Set(counts.keys()));
     }
     return snapshot;
   };
-  const _debugIndexKey = (key: string) => indexKey(key);
-  const _debugUnindexKey = (key: string) => unindexKey(key);
+  const _debugIndexKey = (key: string) => ctx.indexKey(key);
+  const _debugUnindexKey = (key: string) => ctx.unindexKey(key);
   const _debugRawState = () => ({
-    errors: { ...errors },
-    touched: { ...touched },
-    dirty: { ...dirty },
-    wasSet: { ...wasSet },
-    validatedPaths: [...validatedPaths],
-    pathSubscriberKeys: [...pathSubscribers.keys()],
+    errors: { ...ctx.errors },
+    touched: { ...ctx.touched },
+    dirty: { ...ctx.dirty },
+    wasSet: { ...ctx.wasSet },
+    validatedPaths: [...ctx.validatedPaths],
+    pathSubscriberKeys: [...ctx.pathSubscribers.keys()],
   });
 
   const destroy = () => {
-    for (const ctrl of activeAbortControllers.values()) ctrl.abort();
-    activeAbortControllers.clear();
-    persistenceUnsubscribe?.();
-    persistenceUnsubscribe = null;
-    globalSubscribers.clear();
-    for (const key of pathSubscribers.keys()) {
+    for (const ctrl of ctx.activeAbortControllers.values()) ctrl.abort();
+    ctx.activeAbortControllers.clear();
+    ctx.persistenceUnsubscribe?.();
+    ctx.persistenceUnsubscribe = null;
+    ctx.globalSubscribers.clear();
+    for (const key of ctx.pathSubscribers.keys()) {
       if (key === '*') continue;
-      unindexKey(key);
+      ctx.unindexKey(key);
     }
-    pathSubscribers.clear();
+    ctx.pathSubscribers.clear();
     actionListeners.clear();
-    connectionRegistry.clear();
-    connectedPaths.clear();
-    persistedPaths.clear();
-    if (mutationObserver) {
-      mutationObserver.disconnect();
-      mutationObserver = null;
+    ctx.connectionRegistry.clear();
+    ctx.connectedPaths.clear();
+    ctx.persistedPaths.clear();
+    if (ctx.mutationObserver) {
+      ctx.mutationObserver.disconnect();
+      ctx.mutationObserver = null;
     }
-    if (persistenceWriteTimer !== null) {
-      clearTimeout(persistenceWriteTimer);
-      persistenceWriteTimer = null;
+    if (ctx.persistenceWriteTimer !== null) {
+      clearTimeout(ctx.persistenceWriteTimer);
+      ctx.persistenceWriteTimer = null;
     }
   };
 
@@ -3079,7 +3207,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     reset,
     resetField,
     hydrate,
-    getConnectedCount: () => connectionRegistry.size,
+    getConnectedCount: () => ctx.connectionRegistry.size,
     destroy,
     _subscribeToActions,
     _debugPathIndex,
