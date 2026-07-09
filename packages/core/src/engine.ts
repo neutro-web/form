@@ -605,7 +605,8 @@ export function createCoreForm<T extends object>(
     val: any,
     options: { touch?: boolean; validate?: boolean } = {}
   ) => {
-    if (ctx.isComputedField(path)) {
+    const hasComputed = ctx.hasComputedFields();
+    if (hasComputed && ctx.isComputedField(path)) {
       if (!__isProdLocal) {
         console.warn(`[NeutroForm] "${path}" is a computed field — set() is a no-op.`);
       }
@@ -633,7 +634,7 @@ export function createCoreForm<T extends object>(
         if (!touchedAlreadySet) ctx.indexKey(path);
       }
     });
-    if (ctx.hasComputedFields()) {
+    if (hasComputed) {
       if (ctx.batchDepth > 0) {
         // Inside an outer ctx.batch: run computed pass to keep ctx.values consistent,
         // but defer all notifications until the ctx.batch flushes.

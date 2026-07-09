@@ -46,3 +46,25 @@ Both blocks operate on trivially small workloads where the entire benchmarked op
 - **No change (within ±3%):** `array-ops/remove`, `array-ops/move`, `array-ops-scale/remove-start`, `array-ops-scale/remove-end`, `schema-validate/zod/small`, `schema-validate/zod/large`, `schema-validate/yup/small`, `schema-validate/yup/large`, `nested-set`, `subscriptions/large`, `subscriptions/xlarge`.
 
 All rows tagged `Cluster: setFieldValue` per the brief (`set-get`, `subscriptions`, `dependency-scopes`, `dependency-chain`, `nested-set`) share the confirmed-or-suspected regression pattern — 5 of 9 `setFieldValue`-cluster blocks show a real (non-noise) increase, which is the strongest signal in this dataset and the most promising lead for Stage 2 root-causing.
+
+## Task 3 — post-fix re-measurement (hoist `ctx.hasComputedFields()` in `setFieldValue`)
+
+Fix: `engine.ts`'s `setFieldValue` now reads `ctx.hasComputedFields()` once at the top and reuses it at both call sites (`hasComputed && ctx.isComputedField(path)` guard, and the later `if (hasComputed)` computed-pass branch), instead of calling `ctx.isComputedField(path)` unconditionally on line 608 and `ctx.hasComputedFields()` again later. Applied universally — no group-conditional branching (see controller override in the Task 3 brief: the pre-fix code already made one hook call unconditionally for every group, including the early-return group; the fix replaces that hash-lookup with a cheaper size check via short-circuiting, it does not add a new call).
+
+Methodology note: rather than re-run against the original pre-modular-split baseline commit (which differs from HEAD by far more than this one fix and would conflate unrelated changes), this task's comparison isolates the fix's effect with a same-session, same-machine A/B: 3 runs of the 5 affected bench files against the working tree immediately before the fix (`git stash`), then 3 runs immediately after (`git stash pop`), both against a freshly rebuilt `@neutro/form-core`. Median-of-3 per block, same `bench/reporters/json-bench.ts` median metric.
+
+| Block | Pre-fix median (ms) | Post-fix median (ms) | % delta (pre→post) | Verdict |
+|---|---|---|---|---|
+| dependency-graph/deep-chain | 0.000542 | 0.000500 | -7.75% | Improved |
+| dependency-scopes/dependent | 0.000750 | 0.000625 | -16.67% | Improved |
+| set-get/small | 0.000333 | 0.000333 | 0.00% | No change (expected — early-return path) |
+| set-get/large | 0.000334 | 0.000333 | ~0% | No change (expected) |
+| set-get/xlarge | 0.000334 | 0.000333 | ~0% | No change (expected) |
+| nested-set | 0.000500 | 0.000500 | 0.00% | No change (expected) |
+| subscriptions/small | 0.000209 | 0.000208 | ~0% | No change (expected) |
+| subscriptions/large | 0.000250 | 0.000208 | -16.8% (noisy, one of 3 pre-fix runs was 0.000209) | Improved / inconclusive |
+| subscriptions/xlarge | 0.000209 | 0.000208 | ~0% | No change (expected) |
+
+**Reconciled against the original old-baseline numbers at the top of this doc:** the two blocks the fix targets (`dependency-scopes/dependent`, `dependency-graph/deep-chain`) show a real, repeatable improvement in the pre-fix-vs-post-fix A/B (-16.67% and -7.75%), consistent with removing one of the two hook calls on the value-changing path. However, comparing the post-fix absolute medians back to the *original* pre-modular-split baseline (0.00046 / 0.00058) still shows a gap larger than ±3% (post-fix ~0.0005 / ~0.000625, i.e. roughly +8.7% / +7.8% vs that much older baseline) — the modular-split regression for these two blocks was evidently not driven solely by this one redundant hook call; some other cost absorbed in the modular-split refactor accounts for the remainder. This fix is a real, verified improvement on its own terms, but does not by itself fully close the gap to the pre-modular-split baseline for `dependency-scopes`/`dependency-chain`.
+
+The early-return group (`set-get`, `subscriptions`, `nested-set`) shows no measurable change in either direction, as expected: their only hook call goes from `ctx.isComputedField(path)` (hash-lookup) to `ctx.hasComputedFields()` (size check) — both trivially cheap relative to this benchmarking harness's sub-microsecond timer resolution (see the quantization note above), so any real saving there is below the measurement floor. No regression was introduced for this group either.
