@@ -2366,387 +2366,563 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
       : fieldRules === 'required';
   }
 
-  return {
-    subscribe,
-    subscribeToPath,
-
-    subscribeToPathDynamic: (path: string, fn: (value: unknown) => void): (() => void) => {
-      if (path == null || typeof path !== 'string') {
-        if (!__isProdLocal)
-          console.error('[NeutroForm] subscribeToPathDynamic requires a non-null string path.');
-        return () => {};
-      }
-      if (path === '') {
-        if (!__isProdLocal)
-          console.warn('[NeutroForm] subscribeToPathDynamic called with empty path — ignoring.');
-        return () => {};
-      }
-      __warnUnknownPath(path);
-      if (!pathSubscribers.has(path)) {
-        pathSubscribers.set(path, new Set());
-        indexKey(path);
-      }
-      // PathSubscriber receives (value, fieldState) but fn only declares (value) — JS ignores extra args.
-      const sub = fn as PathSubscriber;
-      pathSubscribers.get(path)?.add(sub);
-      // Fire immediately with deep-cloned value (consistent with subscribeToPath)
-      try {
-        fn(deepClone(getNestedValue(values, path)));
-      } catch (err) {
-        console.error('[NeutroForm] subscribeToPathDynamic subscriber threw on initial call:', err);
-      }
-      return () => {
-        const listeners = pathSubscribers.get(path);
-        if (listeners) {
-          listeners.delete(sub);
-          if (listeners.size === 0) {
-            pathSubscribers.delete(path); // prune empty Set
-            unindexKey(path);
-          }
-        }
-      };
-    },
-
-    get: (path: Path<T> | string | string[]) => {
-      const targetPath = Array.isArray(path) ? path.join('.') : path;
-      __warnUnknownPath(targetPath);
-      return getNestedValue(values, targetPath);
-    },
-
-    set: ((path: any, val: any, options?: SetOptions) => {
-      const targetPath = Array.isArray(path) ? path.join('.') : path;
-      __warnUnknownPath(targetPath);
-      setFieldValue(targetPath, val, options);
-      dispatchAction({ type: 'SET', path: targetPath, value: val, options });
-    }) as FormInstance<T>['set'],
-
-    validate: (scopePaths?: Array<Path<T> | string[]>) => {
-      const targets = scopePaths?.map((p) => (Array.isArray(p) ? p.join('.') : p));
-      dispatchAction({ type: 'VALIDATE', paths: targets });
-      return runValidation(targets);
-    },
-
-    connect,
-    submit,
-    handleSubmit,
-    getState,
-    getPayload: () => {
-      const payload = _getPayload(values, connectionRegistry, connectedPaths, persistedPaths);
-      // Strip transient computed fields from the payload (consistent with submit() behavior).
-      for (const path of transientPaths) {
-        const parts = path.split('.');
-        let obj: any = payload;
-        for (let i = 0; i < parts.length - 1; i++) {
-          if (!obj || typeof obj !== 'object') {
-            obj = null;
-            break;
-          }
-          obj = obj[parts[i]];
-        }
-        if (obj && typeof obj === 'object') {
-          delete obj[parts[parts.length - 1]];
+  const subscribeToPathDynamic = (path: string, fn: (value: unknown) => void): (() => void) => {
+    if (path == null || typeof path !== 'string') {
+      if (!__isProdLocal)
+        console.error('[NeutroForm] subscribeToPathDynamic requires a non-null string path.');
+      return () => {};
+    }
+    if (path === '') {
+      if (!__isProdLocal)
+        console.warn('[NeutroForm] subscribeToPathDynamic called with empty path — ignoring.');
+      return () => {};
+    }
+    __warnUnknownPath(path);
+    if (!pathSubscribers.has(path)) {
+      pathSubscribers.set(path, new Set());
+      indexKey(path);
+    }
+    // PathSubscriber receives (value, fieldState) but fn only declares (value) — JS ignores extra args.
+    const sub = fn as PathSubscriber;
+    pathSubscribers.get(path)?.add(sub);
+    // Fire immediately with deep-cloned value (consistent with subscribeToPath)
+    try {
+      fn(deepClone(getNestedValue(values, path)));
+    } catch (err) {
+      console.error('[NeutroForm] subscribeToPathDynamic subscriber threw on initial call:', err);
+    }
+    return () => {
+      const listeners = pathSubscribers.get(path);
+      if (listeners) {
+        listeners.delete(sub);
+        if (listeners.size === 0) {
+          pathSubscribers.delete(path); // prune empty Set
+          unindexKey(path);
         }
       }
-      return payload;
-    },
+    };
+  };
 
-    setDynamic: (path: string, value: unknown, options?: SetOptions): void => {
-      if (path == null || typeof path !== 'string') {
-        if (!__isProdLocal)
-          console.error('[NeutroForm] setDynamic requires a non-null string path.');
-        return;
-      }
-      if (path === '') {
-        if (!__isProdLocal)
-          console.warn('[NeutroForm] setDynamic called with empty path — ignoring.');
-        return;
-      }
-      if (computedMap.has(path)) {
-        if (!__isProdLocal) {
-          console.warn(`[NeutroForm] "${path}" is a computed field — setDynamic() is a no-op.`);
+  const get = (path: Path<T> | string | string[]) => {
+    const targetPath = Array.isArray(path) ? path.join('.') : path;
+    __warnUnknownPath(targetPath);
+    return getNestedValue(values, targetPath);
+  };
+
+  const set = ((path: any, val: any, options?: SetOptions) => {
+    const targetPath = Array.isArray(path) ? path.join('.') : path;
+    __warnUnknownPath(targetPath);
+    setFieldValue(targetPath, val, options);
+    dispatchAction({ type: 'SET', path: targetPath, value: val, options });
+  }) as FormInstance<T>['set'];
+
+  const validate = (scopePaths?: Array<Path<T> | string[]>) => {
+    const targets = scopePaths?.map((p) => (Array.isArray(p) ? p.join('.') : p));
+    dispatchAction({ type: 'VALIDATE', paths: targets });
+    return runValidation(targets);
+  };
+
+  const getPayload = () => {
+    const payload = _getPayload(values, connectionRegistry, connectedPaths, persistedPaths);
+    // Strip transient computed fields from the payload (consistent with submit() behavior).
+    for (const path of transientPaths) {
+      const parts = path.split('.');
+      let obj: any = payload;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!obj || typeof obj !== 'object') {
+          obj = null;
+          break;
         }
-        return;
+        obj = obj[parts[i]];
       }
-      __warnUnknownPath(path);
-      setFieldValue(path, value, options);
-      dispatchAction({ type: 'SET', path, value, options });
-    },
-    getDynamic: <V = unknown>(path: string): V => {
-      if (path == null || typeof path !== 'string') {
-        if (!__isProdLocal)
-          console.error('[NeutroForm] getDynamic requires a non-null string path.');
-        return undefined as V;
+      if (obj && typeof obj === 'object') {
+        delete obj[parts[parts.length - 1]];
       }
-      if (path === '') {
-        if (!__isProdLocal)
-          console.warn('[NeutroForm] getDynamic called with empty path — returning undefined.');
-        return undefined as V;
+    }
+    return payload;
+  };
+
+  const setDynamic = (path: string, value: unknown, options?: SetOptions): void => {
+    if (path == null || typeof path !== 'string') {
+      if (!__isProdLocal) console.error('[NeutroForm] setDynamic requires a non-null string path.');
+      return;
+    }
+    if (path === '') {
+      if (!__isProdLocal)
+        console.warn('[NeutroForm] setDynamic called with empty path — ignoring.');
+      return;
+    }
+    if (computedMap.has(path)) {
+      if (!__isProdLocal) {
+        console.warn(`[NeutroForm] "${path}" is a computed field — setDynamic() is a no-op.`);
       }
-      __warnUnknownPath(path);
-      return getNestedValue(values, path) as V;
-    },
+      return;
+    }
+    __warnUnknownPath(path);
+    setFieldValue(path, value, options);
+    dispatchAction({ type: 'SET', path, value, options });
+  };
 
-    getAriaProps: (path: Path<T> | string, options?: AriaPropsOptions): AriaProps => {
-      const stringPath = path as string;
-      const hasError = Boolean(errors[stringPath]);
-      const id = options?.errorId ?? `error-${stringPath.replace(/\./g, '-')}`;
+  const getDynamic = <V = unknown>(path: string): V => {
+    if (path == null || typeof path !== 'string') {
+      if (!__isProdLocal) console.error('[NeutroForm] getDynamic requires a non-null string path.');
+      return undefined as V;
+    }
+    if (path === '') {
+      if (!__isProdLocal)
+        console.warn('[NeutroForm] getDynamic called with empty path — returning undefined.');
+      return undefined as V;
+    }
+    __warnUnknownPath(path);
+    return getNestedValue(values, path) as V;
+  };
 
-      let ariaRequired: true | undefined;
-      if (options?.required === true) {
-        ariaRequired = true;
-      } else if (options?.required !== false && isFieldRequired(stringPath)) {
-        ariaRequired = true;
-      }
+  const getAriaProps = (path: Path<T> | string, options?: AriaPropsOptions): AriaProps => {
+    const stringPath = path as string;
+    const hasError = Boolean(errors[stringPath]);
+    const id = options?.errorId ?? `error-${stringPath.replace(/\./g, '-')}`;
 
-      return {
-        'aria-invalid': hasError ? 'true' : 'false',
-        'aria-describedby': hasError ? id : undefined,
-        'aria-required': ariaRequired,
-      };
-    },
+    let ariaRequired: true | undefined;
+    if (options?.required === true) {
+      ariaRequired = true;
+    } else if (options?.required !== false && isFieldRequired(stringPath)) {
+      ariaRequired = true;
+    }
 
-    batch: (fn: () => void) => {
-      dispatchAction({ type: 'BATCH_START' });
-      try {
-        batch(fn);
-      } finally {
-        dispatchAction({ type: 'BATCH_END' });
-      }
-    },
-    setErrors,
-    clearErrors,
-    getFieldMode: (path: string) => resolveFieldMode(path),
-    isDirty,
-    isFieldDirty,
-    isFieldValid,
-    watch,
+    return {
+      'aria-invalid': hasError ? 'true' : 'false',
+      'aria-describedby': hasError ? id : undefined,
+      'aria-required': ariaRequired,
+    };
+  };
 
-    arrayAppend: ((path: any, item: any) => {
-      const targetPath = Array.isArray(path) ? path.join('.') : path;
-      const arr = getNestedValue(values, targetPath) || [];
-      if (!Array.isArray(arr)) return;
-      setFieldValue(targetPath, [...arr, item]);
-      dispatchAction({ type: 'ARRAY_APPEND', path: targetPath, item });
-    }) as FormInstance<T>['arrayAppend'],
+  const getFieldMode = (path: string) => resolveFieldMode(path);
 
-    arrayInsert: ((path: any, index: number, item: any) => {
-      const targetPath = Array.isArray(path) ? path.join('.') : path;
-      const arr = getNestedValue(values, targetPath) || [];
-      if (!Array.isArray(arr) || index < 0 || index > arr.length) return;
-      const wasAlreadySet = targetPath in wasSet;
-      wasSet[targetPath] = true;
-      if (!wasAlreadySet) indexKey(targetPath);
-      const copy = [...arr];
-      copy.splice(index, 0, item);
-      batch(() => {
-        setNestedValue(values, targetPath, copy);
-        const shifted = shiftStateIndices(targetPath, index, 'insert', index);
-        for (const k of shifted) notify(k);
-        notify(`${targetPath}.${index}`);
-        // Belt-and-braces: also reach an array-root subscriber explicitly via the
-        // exact-only path (skips the descendant scan, so unaffected siblings aren't
-        // re-notified). In practice notify(`${targetPath}.${index}`) above already walks
-        // 'targetPath' as an ancestor, but this makes the root-subscriber guarantee
-        // independent of that incidental path shape — see arrayRemove for the case where
-        // it isn't incidental.
-        notify(targetPath, { exact: true });
-      });
-      runValidation([targetPath]);
-      dispatchAction({ type: 'ARRAY_INSERT', path: targetPath, index, item });
-    }) as FormInstance<T>['arrayInsert'],
+  // Distinct name from the internal `batch` primitive (see naming collision warning
+  // in the Task 6 brief) — this is the public FormInstance method, wrapping the
+  // internal batch() with BATCH_START/BATCH_END action dispatches.
+  const batchPublic = (fn: () => void) => {
+    dispatchAction({ type: 'BATCH_START' });
+    try {
+      batch(fn);
+    } finally {
+      dispatchAction({ type: 'BATCH_END' });
+    }
+  };
 
-    arrayRemove: (path: Path<T> | string | string[], index: number) => {
-      const targetPath = Array.isArray(path) ? path.join('.') : path;
-      const arr = getNestedValue(values, targetPath) || [];
-      if (!Array.isArray(arr) || index < 0 || index >= arr.length) return;
-      const wasAlreadySet = targetPath in wasSet;
-      wasSet[targetPath] = true;
-      if (!wasAlreadySet) indexKey(targetPath);
-      const copy = [...arr];
-      copy.splice(index, 1);
-      batch(() => {
-        setNestedValue(values, targetPath, copy);
-        const shifted = shiftStateIndices(targetPath, index, 'remove');
-        for (const k of shifted) notify(k);
-        // Always reach a subscriber registered on the array path itself (e.g.
-        // subscribeToPath('items', cb)), regardless of whether anything shifted below
-        // it. Uses the exact-only notify — NOT a plain notify(targetPath) — so it does
-        // NOT trigger notifyPathSubscribers' descendant scan, which would re-fire every
-        // unaffected sibling item's per-field subscriber under the array root.
-        notify(targetPath, { exact: true });
-      });
-      runValidation([targetPath]);
-      dispatchAction({ type: 'ARRAY_REMOVE', path: targetPath, index });
-    },
+  const arrayAppend = ((path: any, item: any) => {
+    const targetPath = Array.isArray(path) ? path.join('.') : path;
+    const arr = getNestedValue(values, targetPath) || [];
+    if (!Array.isArray(arr)) return;
+    setFieldValue(targetPath, [...arr, item]);
+    dispatchAction({ type: 'ARRAY_APPEND', path: targetPath, item });
+  }) as FormInstance<T>['arrayAppend'];
 
-    arrayMove: (path: Path<T> | string | string[], fromIndex: number, toIndex: number) => {
-      const targetPath = Array.isArray(path) ? path.join('.') : path;
-      const arr = getNestedValue(values, targetPath) || [];
-      if (
-        !Array.isArray(arr) ||
-        fromIndex < 0 ||
-        fromIndex >= arr.length ||
-        toIndex < 0 ||
-        toIndex >= arr.length
-      )
-        return;
-      const wasAlreadySet = targetPath in wasSet;
-      wasSet[targetPath] = true;
-      if (!wasAlreadySet) indexKey(targetPath);
-      const copy = [...arr];
-      const [movedItem] = copy.splice(fromIndex, 1);
-      copy.splice(toIndex, 0, movedItem);
-      batch(() => {
-        setNestedValue(values, targetPath, copy);
-        rekeyArrayState(targetPath, fromIndex, toIndex);
-        const start = Math.min(fromIndex, toIndex);
-        const end = Math.max(fromIndex, toIndex);
-        for (let i = start; i <= end; i++) notify(`${targetPath}.${i}`);
-      });
-      runValidation([targetPath]);
-      dispatchAction({ type: 'ARRAY_MOVE', path: targetPath, from: fromIndex, to: toIndex });
-    },
+  const arrayInsert = ((path: any, index: number, item: any) => {
+    const targetPath = Array.isArray(path) ? path.join('.') : path;
+    const arr = getNestedValue(values, targetPath) || [];
+    if (!Array.isArray(arr) || index < 0 || index > arr.length) return;
+    const wasAlreadySet = targetPath in wasSet;
+    wasSet[targetPath] = true;
+    if (!wasAlreadySet) indexKey(targetPath);
+    const copy = [...arr];
+    copy.splice(index, 0, item);
+    batch(() => {
+      setNestedValue(values, targetPath, copy);
+      const shifted = shiftStateIndices(targetPath, index, 'insert', index);
+      for (const k of shifted) notify(k);
+      notify(`${targetPath}.${index}`);
+      // Belt-and-braces: also reach an array-root subscriber explicitly via the
+      // exact-only path (skips the descendant scan, so unaffected siblings aren't
+      // re-notified). In practice notify(`${targetPath}.${index}`) above already walks
+      // 'targetPath' as an ancestor, but this makes the root-subscriber guarantee
+      // independent of that incidental path shape — see arrayRemove for the case where
+      // it isn't incidental.
+      notify(targetPath, { exact: true });
+    });
+    runValidation([targetPath]);
+    dispatchAction({ type: 'ARRAY_INSERT', path: targetPath, index, item });
+  }) as FormInstance<T>['arrayInsert'];
 
-    arraySwap: (path: Path<T> | string | string[], indexA: number, indexB: number) => {
-      const targetPath = Array.isArray(path) ? path.join('.') : path;
-      const arr = getNestedValue(values, targetPath) || [];
-      if (
-        !Array.isArray(arr) ||
-        indexA < 0 ||
-        indexA >= arr.length ||
-        indexB < 0 ||
-        indexB >= arr.length
-      )
-        return;
-      const wasAlreadySet = targetPath in wasSet;
-      wasSet[targetPath] = true;
-      if (!wasAlreadySet) indexKey(targetPath);
-      const copy = [...arr];
-      [copy[indexA], copy[indexB]] = [copy[indexB], copy[indexA]];
-      batch(() => {
-        setNestedValue(values, targetPath, copy);
-        const candidates = Array.from(pathIndex.get(targetPath)?.keys() ?? []);
-        const swapKeys = (stateMap: Record<string, any>) => {
-          const prefix = `${targetPath}.`;
-          const prefixA = `${prefix}${indexA}`;
-          const prefixB = `${prefix}${indexB}`;
-          // Two-phase, same discipline as shiftStateIndices/rekeyArrayState: capture
-          // every write's value (read from the pristine stateMap) and every key slated
-          // for deletion FIRST, then apply all deletes before any write. Interleaving
-          // reads/writes/deletes directly on stateMap in a single pass would risk a
-          // later key's read of e.g. stateMap[bKey] observing an earlier iteration's
-          // write instead of the original value.
-          const writes: Array<[string, any]> = [];
-          const toDelete: string[] = [];
-          for (const key of candidates) {
-            if (!(key in stateMap)) continue;
-            // Use exact-or-dot-child match to avoid "items.1" matching "items.10", "items.11", etc.
-            const matchesA = key === prefixA || key.startsWith(`${prefixA}.`);
-            const matchesB = key === prefixB || key.startsWith(`${prefixB}.`);
-            if (matchesA) {
-              const tail = key.substring(prefixA.length);
-              const bKey = `${prefixB}${tail}`;
-              writes.push([bKey, stateMap[key]]);
-              if (stateMap[bKey] === undefined) {
-                // bKey had no prior state here, so it's genuinely gaining a new
-                // claim at this key while `key` (A-side) loses its claim.
-                indexKey(bKey);
-                toDelete.push(key);
-                unindexKey(key);
-              }
-              // else: bKey already held state here — the key identity stays put
-              // (only the values swap), so its existing claim is unchanged.
-            } else if (matchesB) {
-              const tail = key.substring(prefixB.length);
-              const aKey = `${prefixA}${tail}`;
-              writes.push([aKey, stateMap[key]]);
-              if (stateMap[aKey] === undefined) {
-                indexKey(aKey);
-                toDelete.push(key);
-                unindexKey(key);
-              }
-            }
-          }
-          for (const key of toDelete) delete stateMap[key];
-          for (const [key, value] of writes) stateMap[key] = value;
-        };
-        swapKeys(errors);
-        swapKeys(touched);
-        swapKeys(dirty);
-        swapKeys(wasSet);
-        // Swap validatedPaths entries for indexA ↔ indexB.
-        // Two-phase, mirroring shiftStateIndices/rekeyArrayState above: computing
-        // renames against the pristine `candidates` snapshot and only deleting all
-        // source keys before adding any rename target avoids a later `.add(newKey)`
-        // being re-matched by `validatedPaths.has(key)` later in this SAME pass
-        // (Set/Map iteration order is insertion order, not guaranteed to visit both
-        // members of a swap pair "atomically") — which would silently swap it AGAIN.
-        const prefixA = `${targetPath}.${indexA}`;
-        const prefixB = `${targetPath}.${indexB}`;
-        const validatedRenames: Array<[string, string]> = [];
+  const arrayRemove = (path: Path<T> | string | string[], index: number) => {
+    const targetPath = Array.isArray(path) ? path.join('.') : path;
+    const arr = getNestedValue(values, targetPath) || [];
+    if (!Array.isArray(arr) || index < 0 || index >= arr.length) return;
+    const wasAlreadySet = targetPath in wasSet;
+    wasSet[targetPath] = true;
+    if (!wasAlreadySet) indexKey(targetPath);
+    const copy = [...arr];
+    copy.splice(index, 1);
+    batch(() => {
+      setNestedValue(values, targetPath, copy);
+      const shifted = shiftStateIndices(targetPath, index, 'remove');
+      for (const k of shifted) notify(k);
+      // Always reach a subscriber registered on the array path itself (e.g.
+      // subscribeToPath('items', cb)), regardless of whether anything shifted below
+      // it. Uses the exact-only notify — NOT a plain notify(targetPath) — so it does
+      // NOT trigger notifyPathSubscribers' descendant scan, which would re-fire every
+      // unaffected sibling item's per-field subscriber under the array root.
+      notify(targetPath, { exact: true });
+    });
+    runValidation([targetPath]);
+    dispatchAction({ type: 'ARRAY_REMOVE', path: targetPath, index });
+  };
+
+  const arrayMove = (path: Path<T> | string | string[], fromIndex: number, toIndex: number) => {
+    const targetPath = Array.isArray(path) ? path.join('.') : path;
+    const arr = getNestedValue(values, targetPath) || [];
+    if (
+      !Array.isArray(arr) ||
+      fromIndex < 0 ||
+      fromIndex >= arr.length ||
+      toIndex < 0 ||
+      toIndex >= arr.length
+    )
+      return;
+    const wasAlreadySet = targetPath in wasSet;
+    wasSet[targetPath] = true;
+    if (!wasAlreadySet) indexKey(targetPath);
+    const copy = [...arr];
+    const [movedItem] = copy.splice(fromIndex, 1);
+    copy.splice(toIndex, 0, movedItem);
+    batch(() => {
+      setNestedValue(values, targetPath, copy);
+      rekeyArrayState(targetPath, fromIndex, toIndex);
+      const start = Math.min(fromIndex, toIndex);
+      const end = Math.max(fromIndex, toIndex);
+      for (let i = start; i <= end; i++) notify(`${targetPath}.${i}`);
+    });
+    runValidation([targetPath]);
+    dispatchAction({ type: 'ARRAY_MOVE', path: targetPath, from: fromIndex, to: toIndex });
+  };
+
+  const arraySwap = (path: Path<T> | string | string[], indexA: number, indexB: number) => {
+    const targetPath = Array.isArray(path) ? path.join('.') : path;
+    const arr = getNestedValue(values, targetPath) || [];
+    if (
+      !Array.isArray(arr) ||
+      indexA < 0 ||
+      indexA >= arr.length ||
+      indexB < 0 ||
+      indexB >= arr.length
+    )
+      return;
+    const wasAlreadySet = targetPath in wasSet;
+    wasSet[targetPath] = true;
+    if (!wasAlreadySet) indexKey(targetPath);
+    const copy = [...arr];
+    [copy[indexA], copy[indexB]] = [copy[indexB], copy[indexA]];
+    batch(() => {
+      setNestedValue(values, targetPath, copy);
+      const candidates = Array.from(pathIndex.get(targetPath)?.keys() ?? []);
+      const swapKeys = (stateMap: Record<string, any>) => {
+        const prefix = `${targetPath}.`;
+        const prefixA = `${prefix}${indexA}`;
+        const prefixB = `${prefix}${indexB}`;
+        // Two-phase, same discipline as shiftStateIndices/rekeyArrayState: capture
+        // every write's value (read from the pristine stateMap) and every key slated
+        // for deletion FIRST, then apply all deletes before any write. Interleaving
+        // reads/writes/deletes directly on stateMap in a single pass would risk a
+        // later key's read of e.g. stateMap[bKey] observing an earlier iteration's
+        // write instead of the original value.
+        const writes: Array<[string, any]> = [];
+        const toDelete: string[] = [];
         for (const key of candidates) {
-          if (!validatedPaths.has(key)) continue;
+          if (!(key in stateMap)) continue;
+          // Use exact-or-dot-child match to avoid "items.1" matching "items.10", "items.11", etc.
           const matchesA = key === prefixA || key.startsWith(`${prefixA}.`);
           const matchesB = key === prefixB || key.startsWith(`${prefixB}.`);
           if (matchesA) {
             const tail = key.substring(prefixA.length);
-            validatedRenames.push([key, `${prefixB}${tail}`]);
+            const bKey = `${prefixB}${tail}`;
+            writes.push([bKey, stateMap[key]]);
+            if (stateMap[bKey] === undefined) {
+              // bKey had no prior state here, so it's genuinely gaining a new
+              // claim at this key while `key` (A-side) loses its claim.
+              indexKey(bKey);
+              toDelete.push(key);
+              unindexKey(key);
+            }
+            // else: bKey already held state here — the key identity stays put
+            // (only the values swap), so its existing claim is unchanged.
           } else if (matchesB) {
             const tail = key.substring(prefixB.length);
-            validatedRenames.push([key, `${prefixA}${tail}`]);
-          }
-        }
-        for (const [oldKey] of validatedRenames) {
-          validatedPaths.delete(oldKey);
-          unindexKey(oldKey);
-        }
-        for (const [, newKey] of validatedRenames) {
-          validatedPaths.add(newKey);
-          indexKey(newKey);
-        }
-        notify(`${targetPath}.${indexA}`);
-        notify(`${targetPath}.${indexB}`);
-      });
-      runValidation([targetPath]);
-      dispatchAction({ type: 'ARRAY_SWAP', path: targetPath, i: indexA, j: indexB });
-    },
-
-    reset: (newValues?: T) => {
-      const cfg = config.persistence;
-      // Only write to the adapter if hydrate() has run — persistenceUnsubscribe is null until then.
-      if (cfg && persistenceUnsubscribe !== null) {
-        if (newValues) {
-          // Apply exclude filter before writing — same logic as buildToWrite in hydrate()
-          const excludeSet = new Set((cfg.exclude ?? []) as string[]);
-          const toWrite = deepClone(newValues) as any;
-          for (const p of excludeSet) {
-            const parts = (p as string).split('.');
-            let obj = toWrite;
-            for (let i = 0; i < parts.length - 1; i++) {
-              if (!obj || typeof obj !== 'object') break;
-              obj = obj[parts[i]];
+            const aKey = `${prefixA}${tail}`;
+            writes.push([aKey, stateMap[key]]);
+            if (stateMap[aKey] === undefined) {
+              indexKey(aKey);
+              toDelete.push(key);
+              unindexKey(key);
             }
-            if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
           }
-          Promise.resolve(cfg.adapter.write(toWrite as T)).catch((err: unknown) => {
-            console.error('[NeutroForm persistence] write() on reset failed:', err);
-          });
-        } else {
-          Promise.resolve(cfg.adapter.clear()).catch((err: unknown) => {
-            console.error('[NeutroForm persistence] clear() failed:', err);
-          });
+        }
+        for (const key of toDelete) delete stateMap[key];
+        for (const [key, value] of writes) stateMap[key] = value;
+      };
+      swapKeys(errors);
+      swapKeys(touched);
+      swapKeys(dirty);
+      swapKeys(wasSet);
+      // Swap validatedPaths entries for indexA ↔ indexB.
+      // Two-phase, mirroring shiftStateIndices/rekeyArrayState above: computing
+      // renames against the pristine `candidates` snapshot and only deleting all
+      // source keys before adding any rename target avoids a later `.add(newKey)`
+      // being re-matched by `validatedPaths.has(key)` later in this SAME pass
+      // (Set/Map iteration order is insertion order, not guaranteed to visit both
+      // members of a swap pair "atomically") — which would silently swap it AGAIN.
+      const prefixA = `${targetPath}.${indexA}`;
+      const prefixB = `${targetPath}.${indexB}`;
+      const validatedRenames: Array<[string, string]> = [];
+      for (const key of candidates) {
+        if (!validatedPaths.has(key)) continue;
+        const matchesA = key === prefixA || key.startsWith(`${prefixA}.`);
+        const matchesB = key === prefixB || key.startsWith(`${prefixB}.`);
+        if (matchesA) {
+          const tail = key.substring(prefixA.length);
+          validatedRenames.push([key, `${prefixB}${tail}`]);
+        } else if (matchesB) {
+          const tail = key.substring(prefixB.length);
+          validatedRenames.push([key, `${prefixA}${tail}`]);
         }
       }
-      batch(() => {
-        if (newValues) {
-          const newInitial = deepClone(newValues);
-          for (const key of Object.keys(initialValues)) delete (initialValues as any)[key];
-          Object.assign(initialValues, newInitial);
+      for (const [oldKey] of validatedRenames) {
+        validatedPaths.delete(oldKey);
+        unindexKey(oldKey);
+      }
+      for (const [, newKey] of validatedRenames) {
+        validatedPaths.add(newKey);
+        indexKey(newKey);
+      }
+      notify(`${targetPath}.${indexA}`);
+      notify(`${targetPath}.${indexB}`);
+    });
+    runValidation([targetPath]);
+    dispatchAction({ type: 'ARRAY_SWAP', path: targetPath, i: indexA, j: indexB });
+  };
+
+  const reset = (newValues?: T) => {
+    const cfg = config.persistence;
+    // Only write to the adapter if hydrate() has run — persistenceUnsubscribe is null until then.
+    if (cfg && persistenceUnsubscribe !== null) {
+      if (newValues) {
+        // Apply exclude filter before writing — same logic as buildToWrite in hydrate()
+        const excludeSet = new Set((cfg.exclude ?? []) as string[]);
+        const toWrite = deepClone(newValues) as any;
+        for (const p of excludeSet) {
+          const parts = (p as string).split('.');
+          let obj = toWrite;
+          for (let i = 0; i < parts.length - 1; i++) {
+            if (!obj || typeof obj !== 'object') break;
+            obj = obj[parts[i]];
+          }
+          if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
         }
+        Promise.resolve(cfg.adapter.write(toWrite as T)).catch((err: unknown) => {
+          console.error('[NeutroForm persistence] write() on reset failed:', err);
+        });
+      } else {
+        Promise.resolve(cfg.adapter.clear()).catch((err: unknown) => {
+          console.error('[NeutroForm persistence] clear() failed:', err);
+        });
+      }
+    }
+    batch(() => {
+      if (newValues) {
+        const newInitial = deepClone(newValues);
+        for (const key of Object.keys(initialValues)) delete (initialValues as any)[key];
+        Object.assign(initialValues, newInitial);
+      }
+      const newVals = deepClone(initialValues);
+      for (const key of Object.keys(values)) delete (values as any)[key];
+      Object.assign(values, newVals);
+      runComputedPass(); // re-derive computed fields from reset state
+      for (const k of Object.keys(errors)) {
+        unindexKey(k);
+        delete errors[k];
+      }
+      for (const k of Object.keys(touched)) {
+        unindexKey(k);
+        delete touched[k];
+      }
+      for (const k of Object.keys(dirty)) {
+        unindexKey(k);
+        delete dirty[k];
+      }
+      for (const k of Object.keys(wasSet)) {
+        unindexKey(k);
+        delete wasSet[k];
+      }
+      for (const k of validatedPaths) unindexKey(k);
+      validatedPaths.clear();
+      isSubmitting = false;
+      isValidating = false;
+      hasValidated = false;
+      submissionAttempts = 0;
+      lastSubmittedValues = null;
+    });
+    connectionRegistry.forEach((ref, path) => {
+      const el = ref.deref();
+      if (!el || !('value' in el)) return;
+      const fresh = getNestedValue(values, path);
+      if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+        el.checked = el.hasAttribute('value')
+          ? Array.isArray(fresh) && fresh.includes(el.value)
+          : !!fresh;
+      } else if (el instanceof HTMLInputElement && el.type === 'radio') {
+        el.checked = el.value === fresh;
+      } else if (el instanceof HTMLSelectElement && el.multiple) {
+        const arr = Array.isArray(fresh) ? fresh : [];
+        for (const opt of el.options) opt.selected = arr.includes(opt.value);
+      } else if (el instanceof HTMLInputElement && el.type === 'date' && fresh instanceof Date) {
+        el.value = fresh.toISOString().substring(0, 10);
+      } else if (
+        el instanceof HTMLInputElement &&
+        el.type === 'datetime-local' &&
+        fresh instanceof Date
+      ) {
+        el.value = fresh.toISOString().substring(0, 16);
+      } else {
+        (el as any).value = fresh !== undefined ? fresh : '';
+      }
+    });
+    // Notify all subscribers with reset state.
+    if (globalSubscribers.size > 0) {
+      notifyGlobalSubscribers(getState());
+    }
+    notifyPathSubscribers([...pathSubscribers.keys()].filter((p) => p !== '*'));
+    const wildcardListeners = pathSubscribers.get('*');
+    if (wildcardListeners) {
+      const allValues = deepClone(values);
+      for (const cb of wildcardListeners) {
+        try {
+          cb(allValues, { error: undefined, touched: undefined, dirty: undefined });
+        } catch (err) {
+          console.error('[NeutroForm] path subscriber threw:', err);
+        }
+      }
+    }
+    dispatchAction({ type: 'RESET', newValues });
+  };
+
+  const resetField = (path: Path<T>, options?: ResetFieldOptions): void => {
+    const targetPath = Array.isArray(path)
+      ? (path as unknown as string[]).join('.')
+      : (path as string);
+    const initialVal = getNestedValue(initialValues, targetPath);
+    const freshVal = deepClone(initialVal);
+
+    batch(() => {
+      setNestedValue(values, targetPath, freshVal);
+
+      if (!options?.keepError) {
+        for (const k of Object.keys(errors)) {
+          if (k === targetPath || k.startsWith(`${targetPath}.`)) {
+            delete errors[k];
+            unindexKey(k);
+          }
+        }
+      }
+      if (!options?.keepTouched) {
+        for (const k of Object.keys(touched)) {
+          if (k === targetPath || k.startsWith(`${targetPath}.`)) {
+            delete touched[k];
+            unindexKey(k);
+          }
+        }
+      }
+      if (!options?.keepDirty) {
+        for (const k of Object.keys(dirty)) {
+          if (k === targetPath || k.startsWith(`${targetPath}.`)) {
+            delete dirty[k];
+            unindexKey(k);
+          }
+        }
+        for (const k of Object.keys(wasSet)) {
+          if (k === targetPath || k.startsWith(`${targetPath}.`)) {
+            delete wasSet[k];
+            unindexKey(k);
+          }
+        }
+      }
+      // Always clear validatedPaths for the target path and its children.
+      const toDelete = [...validatedPaths].filter(
+        (k) => k === targetPath || k.startsWith(`${targetPath}.`)
+      );
+      for (const k of toDelete) {
+        validatedPaths.delete(k);
+        unindexKey(k);
+      }
+    });
+
+    // DOM sync: update the connected element if one exists for this path
+    const ref = connectionRegistry.get(targetPath);
+    if (ref) {
+      const el = ref.deref();
+      if (el) {
+        if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+          el.checked = el.hasAttribute('value')
+            ? Array.isArray(freshVal) && freshVal.includes(el.value)
+            : !!freshVal;
+        } else if (el instanceof HTMLInputElement && el.type === 'radio') {
+          el.checked = el.value === freshVal;
+        } else if (el instanceof HTMLSelectElement && el.multiple) {
+          const arr = Array.isArray(freshVal) ? freshVal : [];
+          for (const opt of el.options) opt.selected = arr.includes(opt.value);
+        } else if (
+          el instanceof HTMLInputElement &&
+          el.type === 'date' &&
+          freshVal instanceof Date
+        ) {
+          el.value = freshVal.toISOString().substring(0, 10);
+        } else if (
+          el instanceof HTMLInputElement &&
+          el.type === 'datetime-local' &&
+          freshVal instanceof Date
+        ) {
+          el.value = freshVal.toISOString().substring(0, 16);
+        } else if ('value' in el) {
+          (el as any).value = freshVal !== undefined ? freshVal : '';
+        }
+      }
+    }
+
+    notify(targetPath);
+    dispatchAction({ type: 'RESET_FIELD', path: targetPath });
+  };
+
+  const hydrate = async (): Promise<void> => {
+    const cfg = config.persistence;
+    if (!cfg) return;
+    if (isHydrating) return;
+    isHydrating = true;
+    let stored: T | null | undefined;
+    try {
+      stored = await cfg.adapter.read();
+    } catch (err) {
+      console.error('[NeutroForm persistence] read() failed, using initialValues:', err);
+      isHydrating = false;
+      return;
+    }
+    if (stored != null) {
+      const excludeSet = new Set((cfg.exclude ?? []) as string[]);
+      const filteredStored: any = deepMerge({}, stored);
+      for (const p of excludeSet) {
+        const parts = (p as string).split('.');
+        let obj = filteredStored;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!obj || typeof obj !== 'object') break;
+          obj = obj[parts[i]];
+        }
+        if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
+      }
+      const merged = deepMerge(config.initialValues, filteredStored) as T;
+      batch(() => {
+        const newInitial = deepClone(merged);
+        for (const key of Object.keys(initialValues)) delete (initialValues as any)[key];
+        Object.assign(initialValues, newInitial);
         const newVals = deepClone(initialValues);
         for (const key of Object.keys(values)) delete (values as any)[key];
         Object.assign(values, newVals);
-        runComputedPass(); // re-derive computed fields from reset state
         for (const k of Object.keys(errors)) {
           unindexKey(k);
           delete errors[k];
@@ -2759,309 +2935,159 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           unindexKey(k);
           delete dirty[k];
         }
-        for (const k of Object.keys(wasSet)) {
-          unindexKey(k);
-          delete wasSet[k];
-        }
-        for (const k of validatedPaths) unindexKey(k);
-        validatedPaths.clear();
         isSubmitting = false;
         isValidating = false;
         hasValidated = false;
-        submissionAttempts = 0;
-        lastSubmittedValues = null;
       });
-      connectionRegistry.forEach((ref, path) => {
-        const el = ref.deref();
-        if (!el || !('value' in el)) return;
-        const fresh = getNestedValue(values, path);
-        if (el instanceof HTMLInputElement && el.type === 'checkbox') {
-          el.checked = el.hasAttribute('value')
-            ? Array.isArray(fresh) && fresh.includes(el.value)
-            : !!fresh;
-        } else if (el instanceof HTMLInputElement && el.type === 'radio') {
-          el.checked = el.value === fresh;
-        } else if (el instanceof HTMLSelectElement && el.multiple) {
-          const arr = Array.isArray(fresh) ? fresh : [];
-          for (const opt of el.options) opt.selected = arr.includes(opt.value);
-        } else if (el instanceof HTMLInputElement && el.type === 'date' && fresh instanceof Date) {
-          el.value = fresh.toISOString().substring(0, 10);
-        } else if (
-          el instanceof HTMLInputElement &&
-          el.type === 'datetime-local' &&
-          fresh instanceof Date
-        ) {
-          el.value = fresh.toISOString().substring(0, 16);
-        } else {
-          (el as any).value = fresh !== undefined ? fresh : '';
-        }
-      });
-      // Notify all subscribers with reset state.
       if (globalSubscribers.size > 0) {
         notifyGlobalSubscribers(getState());
       }
       notifyPathSubscribers([...pathSubscribers.keys()].filter((p) => p !== '*'));
-      const wildcardListeners = pathSubscribers.get('*');
-      if (wildcardListeners) {
-        const allValues = deepClone(values);
-        for (const cb of wildcardListeners) {
-          try {
-            cb(allValues, { error: undefined, touched: undefined, dirty: undefined });
-          } catch (err) {
-            console.error('[NeutroForm] path subscriber threw:', err);
-          }
+    }
+    // Install write subscription AFTER hydration completes.
+    // Cancel any prior subscription first (guards against double-hydrate).
+    persistenceUnsubscribe?.();
+    persistenceUnsubscribe = null;
+
+    const buildToWrite = (state: ReturnType<typeof getState>): T => {
+      const excludeSet = new Set((cfg.exclude ?? []) as string[]);
+      const toWrite = deepClone(state.values) as any;
+      for (const p of excludeSet) {
+        const parts = (p as string).split('.');
+        let obj = toWrite;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!obj || typeof obj !== 'object') break;
+          obj = obj[parts[i]];
         }
+        if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
       }
-      dispatchAction({ type: 'RESET', newValues });
-    },
+      return toWrite as T;
+    };
 
-    resetField: (path: Path<T>, options?: ResetFieldOptions): void => {
-      const targetPath = Array.isArray(path)
-        ? (path as unknown as string[]).join('.')
-        : (path as string);
-      const initialVal = getNestedValue(initialValues, targetPath);
-      const freshVal = deepClone(initialVal);
-
-      batch(() => {
-        setNestedValue(values, targetPath, freshVal);
-
-        if (!options?.keepError) {
-          for (const k of Object.keys(errors)) {
-            if (k === targetPath || k.startsWith(`${targetPath}.`)) {
-              delete errors[k];
-              unindexKey(k);
-            }
-          }
+    if (cfg.debounceMs !== 0) {
+      // subscribe() calls the callback synchronously on registration; skip that initial invocation.
+      let skipFirst = true;
+      persistenceUnsubscribe = subscribe((state) => {
+        if (skipFirst) {
+          skipFirst = false;
+          return;
         }
-        if (!options?.keepTouched) {
-          for (const k of Object.keys(touched)) {
-            if (k === targetPath || k.startsWith(`${targetPath}.`)) {
-              delete touched[k];
-              unindexKey(k);
-            }
-          }
-        }
-        if (!options?.keepDirty) {
-          for (const k of Object.keys(dirty)) {
-            if (k === targetPath || k.startsWith(`${targetPath}.`)) {
-              delete dirty[k];
-              unindexKey(k);
-            }
-          }
-          for (const k of Object.keys(wasSet)) {
-            if (k === targetPath || k.startsWith(`${targetPath}.`)) {
-              delete wasSet[k];
-              unindexKey(k);
-            }
-          }
-        }
-        // Always clear validatedPaths for the target path and its children.
-        const toDelete = [...validatedPaths].filter(
-          (k) => k === targetPath || k.startsWith(`${targetPath}.`)
-        );
-        for (const k of toDelete) {
-          validatedPaths.delete(k);
-          unindexKey(k);
-        }
-      });
-
-      // DOM sync: update the connected element if one exists for this path
-      const ref = connectionRegistry.get(targetPath);
-      if (ref) {
-        const el = ref.deref();
-        if (el) {
-          if (el instanceof HTMLInputElement && el.type === 'checkbox') {
-            el.checked = el.hasAttribute('value')
-              ? Array.isArray(freshVal) && freshVal.includes(el.value)
-              : !!freshVal;
-          } else if (el instanceof HTMLInputElement && el.type === 'radio') {
-            el.checked = el.value === freshVal;
-          } else if (el instanceof HTMLSelectElement && el.multiple) {
-            const arr = Array.isArray(freshVal) ? freshVal : [];
-            for (const opt of el.options) opt.selected = arr.includes(opt.value);
-          } else if (
-            el instanceof HTMLInputElement &&
-            el.type === 'date' &&
-            freshVal instanceof Date
-          ) {
-            el.value = freshVal.toISOString().substring(0, 10);
-          } else if (
-            el instanceof HTMLInputElement &&
-            el.type === 'datetime-local' &&
-            freshVal instanceof Date
-          ) {
-            el.value = freshVal.toISOString().substring(0, 16);
-          } else if ('value' in el) {
-            (el as any).value = freshVal !== undefined ? freshVal : '';
-          }
-        }
-      }
-
-      notify(targetPath);
-      dispatchAction({ type: 'RESET_FIELD', path: targetPath });
-    },
-
-    hydrate: async (): Promise<void> => {
-      const cfg = config.persistence;
-      if (!cfg) return;
-      if (isHydrating) return;
-      isHydrating = true;
-      let stored: T | null | undefined;
-      try {
-        stored = await cfg.adapter.read();
-      } catch (err) {
-        console.error('[NeutroForm persistence] read() failed, using initialValues:', err);
-        isHydrating = false;
-        return;
-      }
-      if (stored != null) {
-        const excludeSet = new Set((cfg.exclude ?? []) as string[]);
-        const filteredStored: any = deepMerge({}, stored);
-        for (const p of excludeSet) {
-          const parts = (p as string).split('.');
-          let obj = filteredStored;
-          for (let i = 0; i < parts.length - 1; i++) {
-            if (!obj || typeof obj !== 'object') break;
-            obj = obj[parts[i]];
-          }
-          if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
-        }
-        const merged = deepMerge(config.initialValues, filteredStored) as T;
-        batch(() => {
-          const newInitial = deepClone(merged);
-          for (const key of Object.keys(initialValues)) delete (initialValues as any)[key];
-          Object.assign(initialValues, newInitial);
-          const newVals = deepClone(initialValues);
-          for (const key of Object.keys(values)) delete (values as any)[key];
-          Object.assign(values, newVals);
-          for (const k of Object.keys(errors)) {
-            unindexKey(k);
-            delete errors[k];
-          }
-          for (const k of Object.keys(touched)) {
-            unindexKey(k);
-            delete touched[k];
-          }
-          for (const k of Object.keys(dirty)) {
-            unindexKey(k);
-            delete dirty[k];
-          }
-          isSubmitting = false;
-          isValidating = false;
-          hasValidated = false;
-        });
-        if (globalSubscribers.size > 0) {
-          notifyGlobalSubscribers(getState());
-        }
-        notifyPathSubscribers([...pathSubscribers.keys()].filter((p) => p !== '*'));
-      }
-      // Install write subscription AFTER hydration completes.
-      // Cancel any prior subscription first (guards against double-hydrate).
-      persistenceUnsubscribe?.();
-      persistenceUnsubscribe = null;
-
-      const buildToWrite = (state: ReturnType<typeof getState>): T => {
-        const excludeSet = new Set((cfg.exclude ?? []) as string[]);
-        const toWrite = deepClone(state.values) as any;
-        for (const p of excludeSet) {
-          const parts = (p as string).split('.');
-          let obj = toWrite;
-          for (let i = 0; i < parts.length - 1; i++) {
-            if (!obj || typeof obj !== 'object') break;
-            obj = obj[parts[i]];
-          }
-          if (obj && typeof obj === 'object') delete obj[parts[parts.length - 1]];
-        }
-        return toWrite as T;
-      };
-
-      if (cfg.debounceMs !== 0) {
-        // subscribe() calls the callback synchronously on registration; skip that initial invocation.
-        let skipFirst = true;
-        persistenceUnsubscribe = subscribe((state) => {
-          if (skipFirst) {
-            skipFirst = false;
-            return;
-          }
-          const toWrite = buildToWrite(state);
-          if (persistenceWriteTimer !== null) clearTimeout(persistenceWriteTimer);
-          persistenceWriteTimer = setTimeout(() => {
-            persistenceWriteTimer = null;
-            Promise.resolve(cfg.adapter.write(toWrite)).catch((err: unknown) => {
-              console.error('[NeutroForm persistence] write() failed:', err);
-            });
-          }, cfg.debounceMs ?? 300);
-        });
-      } else {
-        // subscribe() calls the callback synchronously on registration; skip that initial invocation.
-        let skipFirst = true;
-        persistenceUnsubscribe = subscribe((state) => {
-          if (skipFirst) {
-            skipFirst = false;
-            return;
-          }
-          const toWrite = buildToWrite(state);
+        const toWrite = buildToWrite(state);
+        if (persistenceWriteTimer !== null) clearTimeout(persistenceWriteTimer);
+        persistenceWriteTimer = setTimeout(() => {
+          persistenceWriteTimer = null;
           Promise.resolve(cfg.adapter.write(toWrite)).catch((err: unknown) => {
             console.error('[NeutroForm persistence] write() failed:', err);
           });
+        }, cfg.debounceMs ?? 300);
+      });
+    } else {
+      // subscribe() calls the callback synchronously on registration; skip that initial invocation.
+      let skipFirst = true;
+      persistenceUnsubscribe = subscribe((state) => {
+        if (skipFirst) {
+          skipFirst = false;
+          return;
+        }
+        const toWrite = buildToWrite(state);
+        Promise.resolve(cfg.adapter.write(toWrite)).catch((err: unknown) => {
+          console.error('[NeutroForm persistence] write() failed:', err);
         });
-      }
-      isHydrating = false;
-    },
+      });
+    }
+    isHydrating = false;
+  };
 
-    _subscribeToActions: (fn) => {
-      actionListeners.add(fn);
-      return () => {
-        actionListeners.delete(fn);
-      };
-    },
+  const _subscribeToActions = (fn: (action: FormAction, state: FormState<T>) => void) => {
+    actionListeners.add(fn);
+    return () => {
+      actionListeners.delete(fn);
+    };
+  };
 
-    _debugPathIndex: () => {
-      const snapshot = new Map<string, Set<string>>();
-      for (const [prefix, counts] of pathIndex) {
-        snapshot.set(prefix, new Set(counts.keys()));
-      }
-      return snapshot;
-    },
-    _debugIndexKey: (key: string) => indexKey(key),
-    _debugUnindexKey: (key: string) => unindexKey(key),
-    _debugRawState: () => ({
-      errors: { ...errors },
-      touched: { ...touched },
-      dirty: { ...dirty },
-      wasSet: { ...wasSet },
-      validatedPaths: [...validatedPaths],
-      pathSubscriberKeys: [...pathSubscribers.keys()],
-    }),
+  const _debugPathIndex = () => {
+    const snapshot = new Map<string, Set<string>>();
+    for (const [prefix, counts] of pathIndex) {
+      snapshot.set(prefix, new Set(counts.keys()));
+    }
+    return snapshot;
+  };
+  const _debugIndexKey = (key: string) => indexKey(key);
+  const _debugUnindexKey = (key: string) => unindexKey(key);
+  const _debugRawState = () => ({
+    errors: { ...errors },
+    touched: { ...touched },
+    dirty: { ...dirty },
+    wasSet: { ...wasSet },
+    validatedPaths: [...validatedPaths],
+    pathSubscriberKeys: [...pathSubscribers.keys()],
+  });
 
+  const destroy = () => {
+    for (const ctrl of activeAbortControllers.values()) ctrl.abort();
+    activeAbortControllers.clear();
+    persistenceUnsubscribe?.();
+    persistenceUnsubscribe = null;
+    globalSubscribers.clear();
+    for (const key of pathSubscribers.keys()) {
+      if (key === '*') continue;
+      unindexKey(key);
+    }
+    pathSubscribers.clear();
+    actionListeners.clear();
+    connectionRegistry.clear();
+    connectedPaths.clear();
+    persistedPaths.clear();
+    if (mutationObserver) {
+      mutationObserver.disconnect();
+      mutationObserver = null;
+    }
+    if (persistenceWriteTimer !== null) {
+      clearTimeout(persistenceWriteTimer);
+      persistenceWriteTimer = null;
+    }
+  };
+
+  return {
+    subscribe,
+    subscribeToPath,
+    subscribeToPathDynamic,
+    get,
+    set,
+    validate,
+    connect,
+    submit,
+    handleSubmit,
+    getState,
+    getPayload,
+    setDynamic,
+    getDynamic,
+    getAriaProps,
+    batch: batchPublic,
+    setErrors,
+    clearErrors,
+    getFieldMode,
+    isDirty,
+    isFieldDirty,
+    isFieldValid,
+    watch,
+    arrayAppend,
+    arrayInsert,
+    arrayRemove,
+    arrayMove,
+    arraySwap,
+    reset,
+    resetField,
+    hydrate,
+    getConnectedCount: () => connectionRegistry.size,
+    destroy,
+    _subscribeToActions,
+    _debugPathIndex,
+    _debugIndexKey,
+    _debugUnindexKey,
+    _debugRawState,
     focus,
     focusFirstError,
-    getConnectedCount: () => connectionRegistry.size,
-
-    destroy: () => {
-      for (const ctrl of activeAbortControllers.values()) ctrl.abort();
-      activeAbortControllers.clear();
-      persistenceUnsubscribe?.();
-      persistenceUnsubscribe = null;
-      globalSubscribers.clear();
-      for (const key of pathSubscribers.keys()) {
-        if (key === '*') continue;
-        unindexKey(key);
-      }
-      pathSubscribers.clear();
-      actionListeners.clear();
-      connectionRegistry.clear();
-      connectedPaths.clear();
-      persistedPaths.clear();
-      if (mutationObserver) {
-        mutationObserver.disconnect();
-        mutationObserver = null;
-      }
-      if (persistenceWriteTimer !== null) {
-        clearTimeout(persistenceWriteTimer);
-        persistenceWriteTimer = null;
-      }
-    },
   };
 }
 
