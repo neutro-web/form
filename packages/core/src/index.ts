@@ -1079,8 +1079,8 @@ interface FormEngineContext<T extends object> {
   indexKey: (key: string) => void;
   unindexKey: (key: string) => void;
   getState: () => FormState<T>;
-  resolveFieldMode: (path: string) => ValidationMode;
-  deepMerge: (base: any, override: any) => any;
+  resolveFieldMode: (path: string, connectOverride?: ValidationMode) => ValidationMode;
+  deepMerge: (base: any, override: any, seen?: WeakSet<any>) => any;
   setFieldValue: (path: string, value: unknown, options?: SetOptions) => void;
   subscribeToPath: <V>(path: string, fn: PathSubscriber<V>) => () => void;
   __warnUnknownPath: (path: string) => void;
@@ -1089,20 +1089,6 @@ interface FormEngineContext<T extends object> {
 }
 
 export function createForm<T extends object>(config: FormConfig<T>): FormInstance<T> {
-  const deepMerge = (base: any, override: any, seen = new WeakSet()): any => {
-    if (override === null || override === undefined) return base;
-    if (typeof override !== 'object' || Array.isArray(override)) return override;
-    if (typeof base !== 'object' || base === null) return override;
-    if (seen.has(override)) return base;
-    seen.add(override);
-    const result: any = { ...base };
-    for (const key of Object.keys(override)) {
-      if (DANGEROUS_PATH_KEYS.has(key)) continue; // prevent prototype pollution from adapter data
-      result[key] = deepMerge(base[key], override[key], seen);
-    }
-    return result;
-  };
-
   // `values`/`initialValues` are the sole two documented exceptions kept as
   // standalone `const` (not inlined into ctx below, not deleted): several
   // top-level statements between here and `ctx`'s declaration (the
@@ -1954,17 +1940,6 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     });
   };
 
-  const resolveFieldMode = (path: string, connectOverride?: ValidationMode): ValidationMode => {
-    if (connectOverride) return connectOverride;
-    if (ctx.config.validationMode) {
-      if (typeof ctx.config.validationMode === 'string') return ctx.config.validationMode;
-      const fieldMode = ctx.config.validationMode.fields?.[path];
-      if (fieldMode) return fieldMode;
-      if (ctx.config.validationMode.default) return ctx.config.validationMode.default;
-    }
-    return 'onTouched';
-  };
-
   const isDirty = (): boolean => Object.keys(ctx.wasSet).length > 0;
 
   const isFieldValid = (path: string): boolean | null => {
@@ -2103,7 +2078,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     if (!element || typeof window === 'undefined') return () => {};
     const stringPath = Array.isArray(path) ? path.join('.') : path;
     ctx.__warnUnknownPath(stringPath);
-    const mode = resolveFieldMode(stringPath, options.validateOn);
+    const mode = ctx.resolveFieldMode(stringPath, options.validateOn);
     initMutationObserver();
     ctx.connectionRegistry.set(stringPath, new WeakRef(element));
     ctx.connectedPaths.add(stringPath);
@@ -2480,8 +2455,29 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     indexKey,
     unindexKey,
     getState,
-    resolveFieldMode,
-    deepMerge,
+    resolveFieldMode: (path: string, connectOverride?: ValidationMode): ValidationMode => {
+      if (connectOverride) return connectOverride;
+      if (ctx.config.validationMode) {
+        if (typeof ctx.config.validationMode === 'string') return ctx.config.validationMode;
+        const fieldMode = ctx.config.validationMode.fields?.[path];
+        if (fieldMode) return fieldMode;
+        if (ctx.config.validationMode.default) return ctx.config.validationMode.default;
+      }
+      return 'onTouched';
+    },
+    deepMerge: (base: any, override: any, seen = new WeakSet()): any => {
+      if (override === null || override === undefined) return base;
+      if (typeof override !== 'object' || Array.isArray(override)) return override;
+      if (typeof base !== 'object' || base === null) return override;
+      if (seen.has(override)) return base;
+      seen.add(override);
+      const result: any = { ...base };
+      for (const key of Object.keys(override)) {
+        if (DANGEROUS_PATH_KEYS.has(key)) continue; // prevent prototype pollution from adapter data
+        result[key] = ctx.deepMerge(base[key], override[key], seen);
+      }
+      return result;
+    },
     setFieldValue,
     subscribeToPath,
     __warnUnknownPath,
