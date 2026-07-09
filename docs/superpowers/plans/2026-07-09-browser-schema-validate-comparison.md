@@ -160,7 +160,7 @@ const mode = new URLSearchParams(window.location.search).get('mode') ?? 'onSubmi
 const form = createForm({
   initialValues,
   validator: zodAdapter(zodSmallSchema),
-  validationMode: mode === 'onChange' ? 'onChange' : 'onSubmit',
+  validationMode: mode === 'onChange' ? 'onChange' : 'onSubmitOnly', // ValidationMode has no 'onSubmit' member -- it's 'onSubmitOnly' (packages/core/src/index.ts)
 })
 
 function Field({ name }: { name: string }) {
@@ -287,7 +287,10 @@ export function SchemaValidateTanStackPage() {
       <form.Field name="field0">
         {(field0) => (
           <div data-testid="tanstack-error" style={{ display: field0.state.meta.errors.length ? 'block' : 'none' }}>
-            {field0.state.meta.errors[0]}
+            {/* TanStack v1's Standard Schema validation may produce issue objects rather than
+                bare strings in meta.errors -- verify the actual shape during implementation.
+                This only affects cosmetic text; visibility is gated on .length, not this value. */}
+            {(field0.state.meta.errors[0] as any)?.message ?? field0.state.meta.errors[0]}
           </div>
         )}
       </form.Field>
@@ -378,7 +381,7 @@ const mode = new URLSearchParams(window.location.search).get('mode') ?? 'onSubmi
 const form = createForm({
   initialValues,
   validator: zodAdapter(zodSmallSchema),
-  validationMode: mode === 'onChange' ? 'onChange' : 'onSubmit',
+  validationMode: mode === 'onChange' ? 'onChange' : 'onSubmitOnly', // ValidationMode has no 'onSubmit' member -- it's 'onSubmitOnly' (packages/core/src/index.ts)
 })
 const state = ref(form.getState())
 const unsubscribe = form.subscribe((s) => { state.value = s })
@@ -490,10 +493,13 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
 
 **Critical correctness note (found in plan review): a plain `let state` reassigned inside `form.subscribe` is NOT reactive in Svelte 5 runes mode** (every other component in this app, e.g. `FelteField.svelte`, uses `$state`/`$effect.pre` — runes mode does not treat bare `let` reassignment inside a callback as a reactivity trigger the template will re-render for). Without this fix, `neutro-error` never becomes visible on submit and `schema-validate-submit.spec.ts` (Task 7) hangs until timeout for this route. Also, the earlier draft incremented the render counter inside an `oninput` handler — that counts input *events* (always exactly 20 for a 20-keystroke sequence into one field, regardless of real re-render fan-out), not actual re-renders; fixed below using `$effect.pre` per field, matching `FelteField.svelte`'s established, correct pattern.
 
+**Second correctness note, found in a later review round: the `{@const _ = (() => {...})()}` increment pattern shown in an earlier draft does NOT re-fire on re-render.** Svelte 5 only re-evaluates a `{@const}` when its expression reads a reactive dependency (a `$state`/store value); the IIFE above reads only the plain module-level `neutroSchemaRenders` object and the `{#each}` item `name`, neither of which is reactive, so it evaluates exactly once at mount and never again — after `measureReRenders`' `__resetRenders()` call zeros the counter, it would report `0` for the rest of the test, silently flattering neutro. **Fixed below by reusing the existing, proven `NeutroField.svelte`** (already used correctly elsewhere in this app), which increments inside `$effect.pre(() => { void $field.value; renders[name]++ })` — reading the reactive field value is exactly what makes the effect re-run on every real re-render.
+
 ```svelte
 <!-- bench/apps/svelte/src/SchemaValidateNeutro.svelte -->
 <script lang="ts">
   import { createForm, zodAdapter } from '@neutro/form-core'
+  import NeutroField from './NeutroField.svelte'
   import { zodSmallSchema, FIELDS, initialValues } from './schemaValidateSchema.js'
 
   const neutroSchemaRenders: Record<string, number> = {}
@@ -503,7 +509,7 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
   const form = createForm({
     initialValues,
     validator: zodAdapter(zodSmallSchema),
-    validationMode: mode === 'onChange' ? 'onChange' : 'onSubmit',
+    validationMode: mode === 'onChange' ? 'onChange' : 'onSubmitOnly', // ValidationMode has no 'onSubmit' member -- it's 'onSubmitOnly' (packages/core/src/index.ts)
   })
   let state = $state(form.getState())
   form.subscribe((s) => { state = s })
@@ -511,12 +517,7 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
 
 <section data-testid="neutro-schema-form">
   {#each FIELDS as name}
-    {@const _ = (() => { neutroSchemaRenders[name] = (neutroSchemaRenders[name] ?? 0) + 1 })()}
-    <input
-      data-testid={`neutro-${name}`}
-      value={state.values[name]}
-      oninput={(e: Event) => form.set(name as any, (e.target as HTMLInputElement).value)}
-    />
+    <NeutroField {form} {name} renders={neutroSchemaRenders} />
   {/each}
   <button data-testid="neutro-submit" onclick={() => form.validate()}>Submit</button>
   <div data-testid="neutro-error" style:display={state.errors.field0 ? 'block' : 'none'}>
@@ -524,16 +525,16 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
   </div>
 </section>
 ```
-(The `{@const _ = (() => {...})()}` immediately-invoked increment runs once per `{#each}` iteration's re-evaluation, i.e. once per real re-render of that row — verify this actually fires on every re-render, not just initial mount, during Task 4's manual-verification step; if it doesn't, extract each field into its own tiny child component using `$effect.pre` exactly like `FelteField.svelte` does, which is the more proven-correct pattern and the fallback if the inline `{@const}` approach doesn't behave as expected.)
 
 - [ ] **Step 2: `SchemaValidateTanStack.svelte`**
 
-**Correctness note (found in plan review): the earlier draft only counted renders for the outer `field0` wrapper snippet, never the inner per-field snippets — structurally unable to observe re-renders of any field but field0, silently flattering TanStack's number. Fixed below by counting inside every field's own snippet, matching the corrected React TanStack component's pattern (Task 2, Step 3).**
+**Two correctness notes from review, both fixed below by reusing the existing `TanStackField.svelte`:** (1) an earlier draft only counted renders for the outer `field0` wrapper snippet, never the inner per-field snippets — structurally unable to observe re-renders of any field but field0, silently flattering TanStack's number; (2) a later draft's inline `{@const}`-based increment doesn't re-fire on re-render at all (same root cause as the neutro component above — it reads no reactive dependency). `TanStackField.svelte` already exists in this app and correctly increments inside `$effect.pre(() => { void field.state.value; renders[name]++ })`, taking `{ field, name, renders }` props.
 
 ```svelte
 <!-- bench/apps/svelte/src/SchemaValidateTanStack.svelte -->
 <script lang="ts">
   import { createForm as createTsForm } from '@tanstack/svelte-form'
+  import TanStackField from './TanStackField.svelte'
   import { zodSmallSchema, FIELDS, initialValues } from './schemaValidateSchema.js'
 
   const tanstackSchemaRenders: Record<string, number> = {}
@@ -550,12 +551,7 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
   {#each FIELDS as name}
     <form.Field {name}>
       {#snippet children(f)}
-        {@const _ = (() => { tanstackSchemaRenders[name] = (tanstackSchemaRenders[name] ?? 0) + 1 })()}
-        <input
-          data-testid={`tanstack-${name}`}
-          value={f.state.value}
-          oninput={(e: Event) => f.handleChange((e.target as HTMLInputElement).value)}
-        />
+        <TanStackField field={f} {name} renders={tanstackSchemaRenders} />
       {/snippet}
     </form.Field>
   {/each}
@@ -563,12 +559,13 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
   <form.Field name="field0">
     {#snippet children(field0)}
       <div data-testid="tanstack-error" style:display={field0.state.meta.errors.length ? 'block' : 'none'}>
-        {field0.state.meta.errors[0]}
+        {field0.state.meta.errors[0]?.message ?? field0.state.meta.errors[0]}
       </div>
     {/snippet}
   </form.Field>
 </section>
 ```
+(The error-region text uses `?.message ?? ...` since TanStack v1's Standard Schema validation may produce issue objects rather than bare strings in `meta.errors` — verify the actual shape during implementation; this only affects the cosmetic text content, not the `.length`-gated visibility check either spec actually asserts on.)
 
 - [ ] **Step 3: `SchemaValidateFelte.svelte`**
 
@@ -882,7 +879,7 @@ test.describe('schema-validate-rerenders', () => {
 cd /Users/kofi/_/agw-form/bench
 pnpm exec playwright test suites/browser/schema-validate-rerenders.spec.ts --reporter=list
 ```
-Read the actual `renderCount` each test produces (via the test output or by temporarily logging `total` before the assertion). Update each `limit` in the `COMBOS` array to a value comfortably above (e.g. 1.5-2x) what was actually observed, then re-run to confirm all pass.
+Read the actual `renderCount` each test produces (via the test output or by temporarily logging `total` before the assertion). **Treat a count of exactly `0`, exactly `20` (the keystroke count), or exactly `10`/`FIELD_COUNT` (the field count) as a red flag, not a real measurement** — these are the telltale signatures of a broken counter (never incrementing, counting input events instead of renders, or counting once per field instead of per render) rather than genuine re-render behavior; if any library produces one of these suspicious values, go back and check that library's component for the counting-methodology bugs already found and fixed elsewhere in this plan (oninput-based counting, non-reactive `{@const}`, outer-wrapper-only counting) before trusting the number. The neutro rows specifically are expected to land roughly in the 20-30 range (one increment per keystroke on field0, since onChange validation may also touch field0's own error state) — the seeded `limit: 30` in Step 2's COMBOS array is a placeholder, not a derived value; set each library's real limit to comfortably above (1.5-2x) whatever is actually observed once counters are confirmed genuine, then re-run to confirm all pass.
 
 - [ ] **Step 4: Commit**
 
@@ -992,7 +989,7 @@ This builds all apps, runs core/correctness/browser/bundle-size, merges results,
 ```bash
 grep -A 20 "Schema Validation" docs/benchmarks/index.md
 ```
-Confirm both new surfaces appear with real per-library numbers, Formik shows `— N/A` with a footnote reason visible (not just present in source — actually rendered), and neither surface appears in the Scorecard summary table at the top of the page (per this plan's Global Constraint).
+Confirm both new surfaces appear with real per-library numbers, Formik shows `— N/A` with a footnote reason visible (not just present in source — actually rendered), and neither surface appears in the Scorecard summary table at the top of the page (per this plan's Global Constraint). **Also sanity-check the re-render numbers specifically, not just their presence**: flag any library whose count is exactly `0`, exactly `20`, or exactly `10`/`FIELD_COUNT` as a probable counting-methodology bug (per Task 6 Step 3's note) rather than accepting it as a real result — these loose assertions (`toBeGreaterThanOrEqual(0)` / a generous ceiling) will pass even for a degenerate, meaningless count, so this manual page-inspection step is the actual backstop that catches it.
 
 - [ ] **Step 3: Fix any issues found, re-run Step 1**
 
