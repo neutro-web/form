@@ -4,6 +4,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
+      '@neutro/form-core/minimal': resolve(__dirname, 'packages/core/src/minimal.ts'),
       '@neutro/form-core': resolve(__dirname, 'packages/core/src/index.ts'),
       '@neutro/form-testing': resolve(__dirname, 'packages/testing/src/index.ts'),
     },

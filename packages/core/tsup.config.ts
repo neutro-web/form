@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/devtools.ts'],
+  entry: ['src/index.ts', 'src/minimal.ts', 'src/devtools.ts'],
   format: ['esm', 'cjs', 'iife'],
   globalName: 'agwForm',
   dts: true,

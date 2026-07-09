@@ -21,8 +21,14 @@
       "@neutro/form-core/devtools": [
         "packages/core/src/devtools.ts"
       ],
+      "@neutro/form-core/minimal": [
+        "packages/core/src/minimal.ts"
+      ],
       "@neutro/form/core": [
         "packages/core/src/index.ts"
+      ],
+      "@neutro/form/core/minimal": [
+        "packages/core/src/minimal.ts"
       ],
       "@neutro/form/devtools": [
         "packages/core/src/devtools.ts"

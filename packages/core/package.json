@@ -12,6 +12,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./minimal": {
+      "types": "./dist/minimal.d.ts",
+      "import": "./dist/minimal.js",
+      "require": "./dist/minimal.cjs"
+    },
     "./devtools": {
       "types": "./dist/devtools.d.ts",
       "import": "./dist/devtools.js",

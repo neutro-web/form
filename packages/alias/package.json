@@ -30,6 +30,11 @@
       "import": "./dist/core.js",
       "require": "./dist/core.cjs"
     },
+    "./core/minimal": {
+      "types": "./dist/core/minimal.d.ts",
+      "import": "./dist/core/minimal.js",
+      "require": "./dist/core/minimal.cjs"
+    },
     "./devtools": {
       "types": "./dist/devtools.d.ts",
       "import": "./dist/devtools.js",
@@ -70,6 +75,9 @@
     "*": {
       "core": [
         "./dist/core.d.ts"
+      ],
+      "core/minimal": [
+        "./dist/core/minimal.d.ts"
       ],
       "devtools": [
         "./dist/devtools.d.ts"

@@ -3,6 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     core: 'src/core.ts',
+    'core/minimal': 'src/core-minimal.ts',
     devtools: 'src/devtools.ts',
     'adapters/react': 'src/adapters/react.ts',
     'adapters/svelte': 'src/adapters/svelte.ts',
