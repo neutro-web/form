@@ -1512,9 +1512,10 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
 
           if (activeEpoch === asyncEpoch && !abortController?.signal.aborted) {
             const combined = { ...builtInErrors, ...resolvedErrors };
-            const oldErrors = errors;
-            errors = expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined;
-            reindexErrors(oldErrors, errors);
+            applyRecordDiff(
+              errors,
+              expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined
+            );
           }
         } else {
           if (!isValidatorReturn(validationResult)) {
@@ -1524,16 +1525,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
           }
           const safeResult = isValidatorReturn(validationResult) ? validationResult : {};
           const combined = { ...builtInErrors, ...safeResult };
-          const oldErrorsSync = errors;
-          errors = expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined;
-          reindexErrors(oldErrorsSync, errors);
+          applyRecordDiff(
+            errors,
+            expandedScope ? mergeScopedErrors(errors, combined, expandedScope) : combined
+          );
         }
       } else {
-        const oldErrorsNoValidator = errors;
-        errors = expandedScope
-          ? mergeScopedErrors(errors, builtInErrors, expandedScope)
-          : builtInErrors;
-        reindexErrors(oldErrorsNoValidator, errors);
+        applyRecordDiff(
+          errors,
+          expandedScope ? mergeScopedErrors(errors, builtInErrors, expandedScope) : builtInErrors
+        );
       }
     } finally {
       if (expandedScope) {
@@ -1600,14 +1601,20 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     }
   };
 
-  // Diff-based reindex for structures that get wholesale-reassigned rather than
-  // mutated key-by-key (currently only runValidation's `errors` reassignment).
-  const reindexErrors = (oldErrors: Record<string, string>, newErrors: Record<string, string>) => {
-    for (const key of Object.keys(oldErrors)) {
-      if (!(key in newErrors)) unindexKey(key);
+  // In-place diff applier for `errors`, which runValidation updates via a computed
+  // next-value map rather than mutating key-by-key. Clears keys absent from `next`,
+  // assigns/updates keys present in `next`, keeping pathIndex in sync via
+  // indexKey/unindexKey — without reassigning `target`'s identity.
+  const applyRecordDiff = (target: Record<string, string>, next: Record<string, string>): void => {
+    for (const key of Object.keys(target)) {
+      if (!(key in next)) {
+        delete target[key];
+        unindexKey(key);
+      }
     }
-    for (const key of Object.keys(newErrors)) {
-      if (!(key in oldErrors)) indexKey(key);
+    for (const key of Object.keys(next)) {
+      if (!(key in target)) indexKey(key);
+      target[key] = next[key];
     }
   };
 
