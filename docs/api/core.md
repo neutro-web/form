@@ -369,7 +369,7 @@ Links an `HTMLElement` to a form field path. See [DOM Connect Bridge](/api/conne
 form.getPayload(): Partial<T>
 ```
 
-Returns a partial values object containing only the paths that are currently connected to a live DOM element or were connected with `persist: true`. Useful for collecting only the visible step's data in a multi-step form.
+Returns a partial values object containing only the paths that are currently connected to a live DOM element or were connected with `persist: true`. Useful for collecting only the visible step's data in a multi-step form. If nothing is connected or persisted, falls back to returning the full values object instead of `{}`.
 
 Transient computed fields are excluded from the returned object — consistent with `submit()` behavior. Non-transient computed fields (e.g. a `total` derived from `qty * unitPrice`) are included.
 

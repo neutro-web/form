@@ -32,7 +32,7 @@ features:
     details: Built-in arrayAppend, arrayInsert, arrayRemove, arrayMove, and arraySwap keep errors, touched, and dirty maps in sync with the array's new indices automatically.
 
   - title: DOM Bridge
-    details: connect() links any HTMLElement to a form field path. getPayload() returns only values for currently-connected or persisted paths — perfect for multi-step wizards that unmount fields.
+    details: connect() links any HTMLElement to a form field path. getPayload() returns only values for currently-connected or persisted paths (falling back to full values if none are connected) — perfect for multi-step wizards that unmount fields.
 ---
 
 ## Why @neutro/form?

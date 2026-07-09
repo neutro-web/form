@@ -31,7 +31,7 @@ See [Validation Adapters](/api/validation) for schema library integrations and [
 
 `form.connect(path, element, options?)` registers an `HTMLElement` under a form field path using a `WeakRef`. A lazy `MutationObserver` on `document.body` monitors node removals; when an element leaves the DOM its registry entry is pruned and its field state is cleared — unless the path was connected with `persist: true`, in which case the value is retained.
 
-`form.getPayload()` returns a partial values object containing only the paths that are currently connected or persisted. This makes it straightforward to collect only the data belonging to the currently-visible step of a multi-step form.
+`form.getPayload()` returns a partial values object containing only the paths that are currently connected or persisted (falling back to the full values object if nothing is connected or persisted). This makes it straightforward to collect only the data belonging to the currently-visible step of a multi-step form.
 
 See [DOM Connect Bridge](/api/connect) for full usage.
 

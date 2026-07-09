@@ -137,7 +137,8 @@ async function submitWizard() {
     return
   }
 
-  // getPayload() returns only connected + persisted paths —
+  // getPayload() returns only connected + persisted paths (falling back to
+  // the full values object if nothing is connected or persisted) —
   // all persisted step fields are included even though they're now unmounted
   const payload = form.getPayload()
 

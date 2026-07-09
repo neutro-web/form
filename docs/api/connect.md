@@ -106,6 +106,8 @@ Returns a partial values object containing only the paths that are:
 - Currently connected to a live DOM element, **or**
 - Connected with `persist: true` (even if the element has since been removed)
 
+If nothing is connected or persisted, `getPayload()` falls back to returning the full values object rather than `{}`.
+
 This is the recommended way to collect form data for submission because it excludes any fields that are conditionally hidden and not persisted — preventing stale or irrelevant data from reaching your API.
 
 ```ts
