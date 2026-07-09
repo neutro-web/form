@@ -81,6 +81,10 @@ The alias package is a zero-code shell: its `package.json` `exports` map re-rout
 
 **DOM bridge (`connect`):** Registers a `WeakRef<HTMLElement>` in `connectionRegistry`. A lazy `MutationObserver` on `document.body` fires whenever nodes are removed; it prunes GC'd or removed elements from the registry and clears their state (unless the path is in `persistedPaths`). `getPayload()` returns only values for paths that are currently connected or persisted — not the full form values object.
 
+### Mutation invariant
+
+`ctx.errors`, `ctx.touched`, `ctx.dirty`, `ctx.wasSet`, `ctx.values`, `ctx.initialValues` are never reassigned — only cleared-and-repopulated in place. This is what makes cross-module `ctx` composition (see `engine.ts`/`features/*.ts`) safe: a feature function that destructures `const { values } = ctx` at setup time keeps observing the live object forever, never a stale snapshot. **Exceptions, all deliberately reassigned rather than mutated in place — always read these fresh via `ctx.X`, never destructure-and-cache:** `ctx.lastSubmittedValues` (read only by the engine's own `getState()`, never by feature-cluster code); `ctx.mutationObserver`/`ctx.persistenceUnsubscribe`/`ctx.persistenceWriteTimer` (the three nullable engine-owned slots reassigned by `features/dom-bridge.ts`'s `initMutationObserver` and `features/persistence.ts`'s `hydrate`, then read/nulled again by `engine.ts`'s `destroy()` and, for `persistenceUnsubscribe`, by `reset()`'s `onReset` hook guard — these cross module boundaries in both directions, so the staleness risk is real despite being an accepted, documented exception).
+
 ### Release Flow
 
 Releases are gated on a `release` branch — pushing to `main` never triggers a release PR.
