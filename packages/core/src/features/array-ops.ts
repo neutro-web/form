@@ -17,7 +17,8 @@
  * delegation to `ctx.setFieldValue` rather than reimplementing write +
  * validate + notify itself.
  */
-import type { FormEngineContext, FormInstance, Path } from '../index.js';
+import type { FormEngineContext } from '../engine.js';
+import type { FormInstance, Path } from '../index.js';
 import { getNestedValue, setNestedValue } from '../index.js';
 
 export function attachArrayOps<T extends object>(

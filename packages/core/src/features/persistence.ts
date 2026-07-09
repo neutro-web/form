@@ -8,7 +8,8 @@
  * implementation that writes/clears the persistence adapter on reset. It
  * returns `hydrate`, which the caller assigns onto the form instance.
  */
-import { deepClone, type FormConfig, type FormEngineContext } from '../index.js';
+import type { FormEngineContext } from '../engine.js';
+import { deepClone, type FormConfig } from '../index.js';
 
 export function attachPersistence<T extends object>(
   ctx: FormEngineContext<T>,

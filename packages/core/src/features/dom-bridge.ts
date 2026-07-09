@@ -11,14 +11,8 @@
  * parameters — it is exported here so `index.ts`'s `submit`/`getPayload`
  * methods, which remain engine-level and call it directly, can import it.
  */
-import type {
-  AriaProps,
-  AriaPropsOptions,
-  ConnectOptions,
-  FormConfig,
-  FormEngineContext,
-  Path,
-} from '../index.js';
+import type { FormEngineContext } from '../engine.js';
+import type { AriaProps, AriaPropsOptions, ConnectOptions, FormConfig, Path } from '../index.js';
 import { deepClone, getNestedValue, setNestedValue } from '../index.js';
 
 export function _getPayload<T>(

@@ -8,11 +8,11 @@
  * defaults installed in the `ctx` literal with real implementations, and
  * populates `ctx.transientPaths` in place.
  */
+import type { FormEngineContext } from '../engine.js';
 import {
   __isProduction,
   DANGEROUS_PATH_KEYS,
   type FormConfig,
-  type FormEngineContext,
   getNestedValue,
   isDeepEqual,
   setNestedValue,
