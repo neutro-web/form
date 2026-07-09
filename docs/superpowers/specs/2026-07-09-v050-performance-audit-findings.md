@@ -68,3 +68,21 @@ Methodology note: rather than re-run against the original pre-modular-split base
 **Reconciled against the original old-baseline numbers at the top of this doc:** the two blocks the fix targets (`dependency-scopes/dependent`, `dependency-graph/deep-chain`) show a real, repeatable improvement in the pre-fix-vs-post-fix A/B (-16.67% and -7.75%), consistent with removing one of the two hook calls on the value-changing path. However, comparing the post-fix absolute medians back to the *original* pre-modular-split baseline (0.00046 / 0.00058) still shows a gap larger than ±3% (post-fix ~0.0005 / ~0.000625, i.e. roughly +8.7% / +7.8% vs that much older baseline) — the modular-split regression for these two blocks was evidently not driven solely by this one redundant hook call; some other cost absorbed in the modular-split refactor accounts for the remainder. This fix is a real, verified improvement on its own terms, but does not by itself fully close the gap to the pre-modular-split baseline for `dependency-scopes`/`dependency-chain`.
 
 The early-return group (`set-get`, `subscriptions`, `nested-set`) shows no measurable change in either direction, as expected: their only hook call goes from `ctx.isComputedField(path)` (hash-lookup) to `ctx.hasComputedFields()` (size check) — both trivially cheap relative to this benchmarking harness's sub-microsecond timer resolution (see the quantization note above), so any real saving there is below the measurement floor. No regression was introduced for this group either.
+
+## Task 4 — `applyValidatedRenames` consolidation (bundle-size fix)
+
+Fix: extracted the byte-for-byte-identical 8-line `validatedPaths` rename-apply loop pair (delete-all-old-keys-with-`unindexKey`, then add-all-new-keys-with-`indexKey`) out of `rekeyArrayState` (array-ops.ts, move path) and `arraySwap` into a shared module-scope helper `applyValidatedRenames(ctx, renames)`. `shiftStateIndices` was left untouched — it stores/deletes `validatedPaths` entries inline during its compute loop with a `string[]` shape, not a separated `[old, new][]` pair list, so it is not a drop-in third caller.
+
+**Bundle size (gzip, full tier `neutro/form`):** 12,107 → 12,099 bytes (-8 bytes, -0.07%). Measured via `bench:bundle-size` (`tsx suites/bundle/measure.ts`) after `pnpm --filter @neutro/form-core --filter @neutro/form run build`. The saving is small because gzip already compresses the repeated 8-line pattern efficiently across two call sites — the win here is source-level de-duplication and maintainability more than raw byte count, and the change did not regress bundle size.
+
+**Array-ops/array-ops-scale guardrail (median-of-3, compared against this doc's post-split "new" column, not the original pre-split baseline):**
+
+| Block | Post-split median (ms) | Post-consolidation median (ms) | % delta | Verdict |
+|---|---|---|---|---|
+| array-ops/remove | 0.01063 | 0.01058 | -0.47% | No change |
+| array-ops/move | 0.00529 | 0.00533 | +0.76% | No change |
+| array-ops-scale/remove-start | 1.22917 | 1.25654 | +2.23% | No change |
+| array-ops-scale/remove-end | 0.16354 | 0.16621 | +1.63% | No change |
+| array-ops-scale/remove-start-with-unrelated-fields | 1.47806 | 1.49763 | +1.32% | No change |
+
+All five blocks stayed within the ±3% no-change band, confirming the consolidation did not regress array-op runtime.

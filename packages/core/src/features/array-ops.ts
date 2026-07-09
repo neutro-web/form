@@ -21,6 +21,28 @@ import type { FormEngineContext } from '../engine.js';
 import type { FormInstance, Path } from '../index.js';
 import { getNestedValue, setNestedValue } from '../index.js';
 
+/**
+ * Applies a batch of `validatedPaths` renames using the delete-all-old-keys,
+ * then add-all-new-keys discipline required to avoid a freshly-added key
+ * being clobbered by a later delete in the same pass. Shared by
+ * `rekeyArrayState` (move) and `arraySwap`. Not used by `shiftStateIndices`,
+ * which computes and mutates `validatedPaths` inline during its scan rather
+ * than staging a separate `[old, new][]` list.
+ */
+function applyValidatedRenames(
+  ctx: FormEngineContext<any>,
+  renames: Array<[string, string]>
+): void {
+  for (const [oldKey] of renames) {
+    ctx.validatedPaths.delete(oldKey);
+    ctx.unindexKey(oldKey);
+  }
+  for (const [, newKey] of renames) {
+    ctx.validatedPaths.add(newKey);
+    ctx.indexKey(newKey);
+  }
+}
+
 export function attachArrayOps<T extends object>(
   ctx: FormEngineContext<T>
 ): Pick<
@@ -214,14 +236,7 @@ export function attachArrayOps<T extends object>(
         if (newIndex === index) continue;
         validatedRenames.push([key, `${prefix}${newIndex}${tail}`]);
       }
-      for (const [oldKey] of validatedRenames) {
-        ctx.validatedPaths.delete(oldKey);
-        ctx.unindexKey(oldKey);
-      }
-      for (const [, newKey] of validatedRenames) {
-        ctx.validatedPaths.add(newKey);
-        ctx.indexKey(newKey);
-      }
+      applyValidatedRenames(ctx, validatedRenames);
     });
   };
 
@@ -400,14 +415,7 @@ export function attachArrayOps<T extends object>(
           validatedRenames.push([key, `${prefixA}${tail}`]);
         }
       }
-      for (const [oldKey] of validatedRenames) {
-        ctx.validatedPaths.delete(oldKey);
-        ctx.unindexKey(oldKey);
-      }
-      for (const [, newKey] of validatedRenames) {
-        ctx.validatedPaths.add(newKey);
-        ctx.indexKey(newKey);
-      }
+      applyValidatedRenames(ctx, validatedRenames);
       ctx.notify(`${targetPath}.${indexA}`);
       ctx.notify(`${targetPath}.${indexB}`);
     });
