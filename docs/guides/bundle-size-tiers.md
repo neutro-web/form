@@ -33,9 +33,13 @@ const form = createForm({
 
 If your form uses any of the four, use `@neutro/form/core` instead — don't reach for `minimal` and try to work around the gap.
 
-### Computed fields are a silent no-op under `minimal` — same as persistence
+### Computed fields are a silent no-op under `minimal`
 
-This is the one that's easy to miss: passing a `computed` config to `createForm` from `@neutro/form/core/minimal` **does not throw and does not warn**. The engine simply never evaluates the computed function, so the field just holds whatever value you gave it in `initialValues` and never updates. This mirrors exactly how `persistence` behaves under `minimal` — the config option is accepted, but `hydrate()`/auto-save wiring never happens. If a field that's supposed to be derived (a `total`, a `fullName`) is staying frozen at its initial value, check whether the form was created from `minimal` before you check the computed function itself.
+This is easy to miss: passing a `computed` config to `createForm` from `@neutro/form/core/minimal` **does not throw and does not warn**. The engine simply never evaluates the computed function, so the field just holds whatever value you gave it in `initialValues` and never updates. If a field that's supposed to be derived (a `total`, a `fullName`) is staying frozen at its initial value, check whether the form was created from `minimal` before you check the computed function itself.
+
+### Persistence is a silent no-op under `minimal` — same shape of gap
+
+Passing a `persistence` config to `createForm` from `@neutro/form/core/minimal` **also does not throw and does not warn**. `hydrate()` doesn't exist on the minimal instance, so the adapter is never wired up: nothing reads stored values on load, and nothing writes on change or on `reset()`. The config is accepted at the type level (so switching import paths never causes a config-shape error), but nothing about it actually runs. If a form built from `minimal` isn't restoring or saving drafts, check the import path before debugging the adapter itself.
 
 ## Upgrade path
 
