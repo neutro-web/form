@@ -145,22 +145,29 @@ git commit -m "bench(schema-validate): install zod + resolver packages, add shar
 
 - [ ] **Step 1: `SchemaValidateNeutro.tsx`**
 
+**Critical correctness note (found in plan review, not present in an earlier draft):** `useSyncExternalStore`'s `getSnapshot` MUST return a referentially-stable value across calls when nothing relevant changed — `form.getState()` (per `packages/core/src/engine.ts`) deep-clones and rebuilds a brand-new object on every single call, so using it directly as `getSnapshot` triggers React's "getSnapshot should be cached" infinite-loop error. The existing async-page pattern in `App.tsx` (`NeutroAsyncPage`) avoids this by snapshotting a single primitive (`form.getState().errors['email'] ?? ''`), not the whole state object — follow that exact pattern here, not a whole-state snapshot.
+
 ```tsx
 // bench/apps/react/src/SchemaValidateNeutro.tsx
-import { useSyncExternalStore } from 'react'
-import { createForm } from '@neutro/form-core'
-import { zodAdapter } from '@neutro/form-core'
+import { useCallback, useSyncExternalStore } from 'react'
+import { createForm, zodAdapter } from '@neutro/form-core'
 import { zodSmallSchema, FIELDS, initialValues } from './schemaValidateSchema.js'
 
 const neutroSchemaRenders: Record<string, number> = {}
 ;(window as any).__neutroSchemaRenders = neutroSchemaRenders
 
+const mode = new URLSearchParams(window.location.search).get('mode') ?? 'onSubmit'
 const form = createForm({
   initialValues,
   validator: zodAdapter(zodSmallSchema),
+  validationMode: mode === 'onChange' ? 'onChange' : 'onSubmit',
 })
 
 function Field({ name }: { name: string }) {
+  // Increments once per component render, i.e. once per actual re-render this field
+  // undergoes -- NOT once per keystroke/input-event. This is the pattern the existing
+  // re-renders.spec.ts methodology depends on (see NeutroField.vue/onBeforeUpdate for
+  // the Vue equivalent, FelteField.svelte's $effect.pre for the Svelte equivalent).
   neutroSchemaRenders[name] = (neutroSchemaRenders[name] ?? 0) + 1
   const value = useSyncExternalStore(
     (cb) => form.subscribeToPath(name as any, cb),
@@ -176,7 +183,13 @@ function Field({ name }: { name: string }) {
 }
 
 export function SchemaValidateNeutroPage() {
-  const state = useSyncExternalStore((cb) => form.subscribe(cb), () => form.getState())
+  // Snapshot ONLY field0's error as a primitive string -- never the whole getState()
+  // object, which is a fresh object every call and would infinite-loop useSyncExternalStore.
+  const getField0Error = useCallback(() => form.getState().errors.field0 ?? '', [])
+  const field0Error = useSyncExternalStore(
+    (cb) => form.subscribeToPath('field0' as any, cb),
+    getField0Error,
+  )
   return (
     <section data-testid="neutro-schema-form">
       {FIELDS.map((name) => <Field key={name} name={name} />)}
@@ -186,8 +199,8 @@ export function SchemaValidateNeutroPage() {
       >
         Submit
       </button>
-      <div data-testid="neutro-error" style={{ display: state.errors.field0 ? 'block' : 'none' }}>
-        {state.errors.field0}
+      <div data-testid="neutro-error" style={{ display: field0Error ? 'block' : 'none' }}>
+        {field0Error}
       </div>
     </section>
   )
@@ -248,32 +261,37 @@ export function SchemaValidateTanStackPage() {
     validators: mode === 'onChange' ? { onChange: zodSmallSchema } : { onSubmit: zodSmallSchema },
   })
   return (
-    <form.Field name="field0">
-      {(field0) => {
-        tanstackSchemaRenders.field0 = (tanstackSchemaRenders.field0 ?? 0) + 1
-        return (
-          <section data-testid="tanstack-schema-form">
-            {FIELDS.map((name) => (
-              <form.Field key={name} name={name as any}>
-                {(f) => (
-                  <input
-                    data-testid={`tanstack-${name}`}
-                    value={f.state.value as string}
-                    onChange={(e) => f.handleChange(e.target.value)}
-                  />
-                )}
-              </form.Field>
-            ))}
-            <button data-testid="tanstack-submit" onClick={() => form.handleSubmit()}>
-              Submit
-            </button>
-            <div data-testid="tanstack-error" style={{ display: field0.state.meta.errors.length ? 'block' : 'none' }}>
-              {field0.state.meta.errors[0]}
-            </div>
-          </section>
-        )
-      }}
-    </form.Field>
+    <section data-testid="tanstack-schema-form">
+      {FIELDS.map((name) => (
+        <form.Field key={name} name={name as any}>
+          {(f) => {
+            // Increment INSIDE each field's own render-prop callback (matching the
+            // existing established pattern in App.tsx's TanStack array-field render
+            // counting) -- NOT only inside one outer field0 wrapper. Every field must
+            // be independently counted so the sum reflects the real re-render fan-out
+            // across the whole form, not just field0's own render count.
+            tanstackSchemaRenders[name] = (tanstackSchemaRenders[name] ?? 0) + 1
+            return (
+              <input
+                data-testid={`tanstack-${name}`}
+                value={f.state.value as string}
+                onChange={(e) => f.handleChange(e.target.value)}
+              />
+            )
+          }}
+        </form.Field>
+      ))}
+      <button data-testid="tanstack-submit" onClick={() => form.handleSubmit()}>
+        Submit
+      </button>
+      <form.Field name="field0">
+        {(field0) => (
+          <div data-testid="tanstack-error" style={{ display: field0.state.meta.errors.length ? 'block' : 'none' }}>
+            {field0.state.meta.errors[0]}
+          </div>
+        )}
+      </form.Field>
+    </section>
   )
 }
 ```
@@ -343,35 +361,38 @@ git commit -m "bench(schema-validate): add React routes for neutro/rhf/tanstack"
 
 - [ ] **Step 1: `SchemaValidateNeutro.vue`**
 
+**Correctness note (found in plan review): reuse the existing `NeutroField.vue` directly, don't reinvent render counting.** `bench/apps/vue/src/NeutroField.vue` already exists and correctly counts real reactive re-renders via `onBeforeUpdate` (not an `oninput` handler, which would only count input *events*, always exactly 20 regardless of true Vue re-render fan-out — a distinct, wrong metric). It takes `{ form, name, renders }` as props and internally uses `useVueFormPath`. Reuse it here rather than writing new field-rendering logic:
+
 ```vue
 <!-- bench/apps/vue/src/SchemaValidateNeutro.vue -->
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { createForm, zodAdapter } from '@neutro/form-core'
+import NeutroField from './NeutroField.vue'
 import { zodSmallSchema, FIELDS, initialValues } from './schemaValidateSchema.js'
 
 const neutroSchemaRenders: Record<string, number> = {}
 ;(window as any).__neutroSchemaRenders = neutroSchemaRenders
 
-const form = createForm({ initialValues, validator: zodAdapter(zodSmallSchema) })
+const mode = new URLSearchParams(window.location.search).get('mode') ?? 'onSubmit'
+const form = createForm({
+  initialValues,
+  validator: zodAdapter(zodSmallSchema),
+  validationMode: mode === 'onChange' ? 'onChange' : 'onSubmit',
+})
 const state = ref(form.getState())
 const unsubscribe = form.subscribe((s) => { state.value = s })
 onUnmounted(unsubscribe)
-
-function onInput(name: string, value: string) {
-  neutroSchemaRenders[name] = (neutroSchemaRenders[name] ?? 0) + 1
-  form.set(name as any, value)
-}
 </script>
 
 <template>
   <section data-testid="neutro-schema-form">
-    <input
+    <NeutroField
       v-for="name in FIELDS"
       :key="name"
-      :data-testid="`neutro-${name}`"
-      :value="state.values[name]"
-      @input="onInput(name, ($event.target as HTMLInputElement).value)"
+      :form="form"
+      :name="name"
+      :renders="neutroSchemaRenders"
     />
     <button data-testid="neutro-submit" @click="form.validate()">Submit</button>
     <div data-testid="neutro-error" v-show="state.errors.field0">{{ state.errors.field0 }}</div>
@@ -381,17 +402,21 @@ function onInput(name: string, value: string) {
 
 - [ ] **Step 2: `SchemaValidateVee.vue`**
 
+**Correctness note (found in plan review): an earlier draft referenced an undefined `<VeeField>` component (never imported — vee-validate's own field component is named `Field`, and this app already has its own custom `VeeField.vue` at a different path) and counted render via `oninput` (input events, not real re-renders) instead of the established `onBeforeUpdate` pattern. Fixed below by importing and reusing the existing `bench/apps/vue/src/VeeField.vue`, which already implements `onBeforeUpdate`-based counting correctly — same reuse strategy as the neutro component above.**
+
 ```vue
 <!-- bench/apps/vue/src/SchemaValidateVee.vue -->
 <script setup lang="ts">
-import { useForm, useField } from 'vee-validate'
+import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
+import VeeField from './VeeField.vue'
 import { zodSmallSchema, FIELDS } from './schemaValidateSchema.js'
 
 const veeSchemaRenders: Record<string, number> = {}
 ;(window as any).__veeSchemaRenders = veeSchemaRenders
 
-const mode = new URLSearchParams(window.location.search).get('mode') ?? 'onSubmit'
+// Task 6 adds mode-passthrough wiring here (see note below) -- not declared yet
+// to avoid an unused-variable lint/dead-code flag before that wiring exists.
 const { handleSubmit, errors } = useForm({
   validationSchema: toTypedSchema(zodSmallSchema),
   validateOnMount: false,
@@ -400,15 +425,13 @@ const { handleSubmit, errors } = useForm({
 
 <template>
   <section data-testid="vee-schema-form">
-    <VeeField v-for="name in FIELDS" :key="name" :name="name" v-slot="{ field }">
-      <input :data-testid="`vee-${name}`" v-bind="field" />
-    </VeeField>
+    <VeeField v-for="name in FIELDS" :key="name" :name="name" :renders="veeSchemaRenders" />
     <button data-testid="vee-submit" @click="handleSubmit(() => {})">Submit</button>
     <div data-testid="vee-error" v-show="errors.field0">{{ errors.field0 }}</div>
   </section>
 </template>
 ```
-**Note for Task 6/7:** vee-validate's per-field validate-trigger mode (`validateOnValueUpdate`, passed to `useField`/`VeeField`) controls change-vs-submit-only validation, separately from the `useForm`-level `validateOnMount`. Task 6 (re-render spec) needs each field's `validateOnValueUpdate` explicitly set (`true` for the onChange-mode variant of this page, `false` for the onSubmit-mode variant) — read vee-validate's actual current docs for the exact prop name/location during Task 6's implementation and adjust this component's `VeeField` usage accordingly; the render-counter increment itself should happen inside a `v-slot` callback or a small wrapper component, not inline in the template as sketched above (Vue's reactivity means the render count must be incremented where Vue actually re-evaluates the render function, which needs verifying against Vue's real re-render triggering behavior for `v-slot` scoped slots specifically).
+**Note for Task 6:** the existing `VeeField.vue` calls `useField<string>(props.name)` with no explicit validate-trigger option, inheriting vee-validate's default per-field behavior. Whether this defaults to onChange or needs an explicit `validateOnValueUpdate: true`/`false` passed through `useField`'s second argument — and whether `VeeField.vue` needs a new optional prop to pass that through for the two different spec runs (`mode=onChange` vs `mode=onSubmit`) — must be confirmed against vee-validate's actual current API during Task 6's implementation, since this wasn't verified during spec/plan review. If a mode-passthrough prop is needed, add it to `VeeField.vue` as an optional prop (default preserving today's behavior) rather than forking a separate component, so the existing plain re-renders demo (which also uses `VeeField.vue`) is unaffected.
 
 - [ ] **Step 3: Wire the routing switch and render-counter reset in `App.vue`**
 
@@ -465,6 +488,8 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
 
 - [ ] **Step 1: `SchemaValidateNeutro.svelte`**
 
+**Critical correctness note (found in plan review): a plain `let state` reassigned inside `form.subscribe` is NOT reactive in Svelte 5 runes mode** (every other component in this app, e.g. `FelteField.svelte`, uses `$state`/`$effect.pre` — runes mode does not treat bare `let` reassignment inside a callback as a reactivity trigger the template will re-render for). Without this fix, `neutro-error` never becomes visible on submit and `schema-validate-submit.spec.ts` (Task 7) hangs until timeout for this route. Also, the earlier draft incremented the render counter inside an `oninput` handler — that counts input *events* (always exactly 20 for a 20-keystroke sequence into one field, regardless of real re-render fan-out), not actual re-renders; fixed below using `$effect.pre` per field, matching `FelteField.svelte`'s established, correct pattern.
+
 ```svelte
 <!-- bench/apps/svelte/src/SchemaValidateNeutro.svelte -->
 <script lang="ts">
@@ -474,22 +499,23 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
   const neutroSchemaRenders: Record<string, number> = {}
   ;(window as any).__neutroSchemaRenders = neutroSchemaRenders
 
-  const form = createForm({ initialValues, validator: zodAdapter(zodSmallSchema) })
-  let state = form.getState()
+  const mode = new URLSearchParams(window.location.search).get('mode') ?? 'onSubmit'
+  const form = createForm({
+    initialValues,
+    validator: zodAdapter(zodSmallSchema),
+    validationMode: mode === 'onChange' ? 'onChange' : 'onSubmit',
+  })
+  let state = $state(form.getState())
   form.subscribe((s) => { state = s })
-
-  function onInput(name: string, value: string) {
-    neutroSchemaRenders[name] = (neutroSchemaRenders[name] ?? 0) + 1
-    form.set(name as any, value)
-  }
 </script>
 
 <section data-testid="neutro-schema-form">
   {#each FIELDS as name}
+    {@const _ = (() => { neutroSchemaRenders[name] = (neutroSchemaRenders[name] ?? 0) + 1 })()}
     <input
       data-testid={`neutro-${name}`}
       value={state.values[name]}
-      oninput={(e: Event) => onInput(name, (e.target as HTMLInputElement).value)}
+      oninput={(e: Event) => form.set(name as any, (e.target as HTMLInputElement).value)}
     />
   {/each}
   <button data-testid="neutro-submit" onclick={() => form.validate()}>Submit</button>
@@ -498,8 +524,11 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
   </div>
 </section>
 ```
+(The `{@const _ = (() => {...})()}` immediately-invoked increment runs once per `{#each}` iteration's re-evaluation, i.e. once per real re-render of that row — verify this actually fires on every re-render, not just initial mount, during Task 4's manual-verification step; if it doesn't, extract each field into its own tiny child component using `$effect.pre` exactly like `FelteField.svelte` does, which is the more proven-correct pattern and the fallback if the inline `{@const}` approach doesn't behave as expected.)
 
 - [ ] **Step 2: `SchemaValidateTanStack.svelte`**
+
+**Correctness note (found in plan review): the earlier draft only counted renders for the outer `field0` wrapper snippet, never the inner per-field snippets — structurally unable to observe re-renders of any field but field0, silently flattering TanStack's number. Fixed below by counting inside every field's own snippet, matching the corrected React TanStack component's pattern (Task 2, Step 3).**
 
 ```svelte
 <!-- bench/apps/svelte/src/SchemaValidateTanStack.svelte -->
@@ -517,45 +546,46 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
   }))
 </script>
 
-<form.Field name="field0">
-  {#snippet children(field0)}
-    <section data-testid="tanstack-schema-form">
-      {#each FIELDS as name}
-        <form.Field {name}>
-          {#snippet children(f)}
-            <input
-              data-testid={`tanstack-${name}`}
-              value={f.state.value}
-              oninput={(e: Event) => {
-                tanstackSchemaRenders[name] = (tanstackSchemaRenders[name] ?? 0) + 1
-                f.handleChange((e.target as HTMLInputElement).value)
-              }}
-            />
-          {/snippet}
-        </form.Field>
-      {/each}
-      <button data-testid="tanstack-submit" onclick={() => form.handleSubmit()}>Submit</button>
+<section data-testid="tanstack-schema-form">
+  {#each FIELDS as name}
+    <form.Field {name}>
+      {#snippet children(f)}
+        {@const _ = (() => { tanstackSchemaRenders[name] = (tanstackSchemaRenders[name] ?? 0) + 1 })()}
+        <input
+          data-testid={`tanstack-${name}`}
+          value={f.state.value}
+          oninput={(e: Event) => f.handleChange((e.target as HTMLInputElement).value)}
+        />
+      {/snippet}
+    </form.Field>
+  {/each}
+  <button data-testid="tanstack-submit" onclick={() => form.handleSubmit()}>Submit</button>
+  <form.Field name="field0">
+    {#snippet children(field0)}
       <div data-testid="tanstack-error" style:display={field0.state.meta.errors.length ? 'block' : 'none'}>
         {field0.state.meta.errors[0]}
       </div>
-    </section>
-  {/snippet}
-</form.Field>
+    {/snippet}
+  </form.Field>
+</section>
 ```
 
 - [ ] **Step 3: `SchemaValidateFelte.svelte`**
+
+**Correctness note (found in plan review): reuse the existing `FelteField.svelte` directly rather than reinventing render counting.** It already correctly increments via `$effect.pre` (a real reactive-re-render trigger), not an `oninput` handler (which the earlier draft used, counting input events instead of renders).
 
 ```svelte
 <!-- bench/apps/svelte/src/SchemaValidateFelte.svelte -->
 <script lang="ts">
   import { createForm as createFelteForm } from 'felte'
   import { validator } from '@felte/validator-zod'
+  import FelteField from './FelteField.svelte'
   import { zodSmallSchema, FIELDS, initialValues } from './schemaValidateSchema.js'
 
   const felteSchemaRenders: Record<string, number> = {}
   ;(window as any).__felteSchemaRenders = felteSchemaRenders
 
-  const { form: felteAction, data, errors } = createFelteForm({
+  const { form: felteAction, data, errors, setFields } = createFelteForm({
     initialValues,
     extend: validator({ schema: zodSmallSchema }),
   })
@@ -564,12 +594,7 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
 <form use:felteAction>
   <section data-testid="felte-schema-form">
     {#each FIELDS as name}
-      <input
-        data-testid={`felte-${name}`}
-        name={name}
-        value={$data[name]}
-        oninput={() => { felteSchemaRenders[name] = (felteSchemaRenders[name] ?? 0) + 1 }}
-      />
+      <FelteField {name} {data} renders={felteSchemaRenders} {setFields} />
     {/each}
     <button data-testid="felte-submit" type="submit">Submit</button>
     <div data-testid="felte-error" style:display={$errors.field0 ? 'block' : 'none'}>
@@ -578,7 +603,7 @@ git commit -m "bench(schema-validate): add Vue routes for neutro/vee-validate"
   </section>
 </form>
 ```
-**Note for Task 6/7:** felte's validate-trigger timing (validate on every input vs validate on submit only) is controlled by its `validate`/`onSubmit` config interaction with the `@felte/validator-zod` extend — read felte's actual current docs during Task 6's implementation for the exact option to force onChange-vs-onSubmit-only behavior; the sketch above validates via the extend's default behavior, which needs confirming against whichever mode a given spec run needs.
+**Note for Task 6:** `FelteField.svelte`'s testid is currently hardcoded as `felte-${name}`, which already matches this route's `{prefix}-field{i}` convention (prefix `felte`) — no change needed there. felte's validate-trigger timing (validate on every input vs validate on submit only) is controlled by its `validate`/`onSubmit` config interaction with the `@felte/validator-zod` extend — read felte's actual current docs during Task 6's implementation for the exact option to force onChange-vs-onSubmit-only behavior; the sketch above validates via the extend's default behavior, which needs confirming against whichever mode a given spec run needs.
 
 - [ ] **Step 4: Wire the routing and render-counter reset in `App.svelte`**
 
@@ -614,7 +639,7 @@ git commit -m "bench(schema-validate): add Svelte routes for neutro/tanstack/fel
 ### Task 5: Reporting pipeline — widen `BrowserResult`, extend `browserTable()`, add `SURFACE_TITLES` + Formik annotations
 
 **Files:**
-- Modify: `bench/types/schema.ts:33-43` (`BrowserResult`)
+- Modify: `bench/types/schema.ts:33-44` (`BrowserResult`)
 - Modify: `bench/scripts/generate-page.ts:13-23` (`SURFACE_TITLES`), `:66-99` (`browserTable`)
 - Modify: `bench/annotations.ts` (`ANNOTATIONS`)
 
@@ -735,13 +760,13 @@ git commit -m "bench(schema-validate): widen BrowserResult, add N/A-aware browse
 
 **Files:**
 - Create: `bench/suites/browser/schema-validate-rerenders.spec.ts`
-- Modify: `bench/apps/react/src/SchemaValidateRhf.tsx`, `bench/apps/svelte/src/SchemaValidateTanStack.svelte` (apply the `?mode=` query-param fix flagged in Task 2/4's notes, since this spec needs `onChange` mode)
-- Modify: `bench/apps/vue/src/SchemaValidateVee.vue` (apply the `validateOnValueUpdate` fix flagged in Task 3's note)
+- Modify: `bench/apps/react/src/SchemaValidateRhf.tsx` (apply the deferred `?mode=` query-param fix — this is the ONLY component still hardcoded, per Task 2's note; every other component (both neutro variants across all 3 apps, both TanStack variants, and the Vue vee-validate variant's own `useForm`-level config) already reads `mode` from the query string as of Tasks 2-4)
+- Modify: `bench/apps/vue/src/VeeField.vue` (add the optional mode-passthrough prop flagged in Task 3's note, needed for `SchemaValidateVee.vue`'s per-field validate-trigger control)
 
 **Interfaces:**
-- Consumes: routes from Tasks 2-4, each visited with `?mode=onChange` where the component reads that param (RHF, TanStack, vee-validate all need this — re-read each component's Task 2-4 "Note for Task 6/7" before writing this spec, since those components were deliberately left with a TODO-style forward reference to this exact task).
+- Consumes: routes from Tasks 2-4, visited with `?mode=onChange` for this spec (every component defaults to `onSubmit` when the param is absent, per Tasks 2-4's `?? 'onSubmit'` fallback).
 
-- [ ] **Step 1: Apply the deferred `mode=onChange` wiring to the 3 flagged components**
+- [ ] **Step 1: Apply the deferred `mode=onChange` wiring to `SchemaValidateRhf.tsx`**
 
 In `SchemaValidateRhf.tsx`, change the hardcoded `mode: 'onSubmit'` to:
 ```tsx
@@ -753,8 +778,46 @@ const { register, handleSubmit, formState: { errors } } = useForm({
   mode: mode as 'onSubmit' | 'onChange',
 })
 ```
-In `SchemaValidateTanStack.svelte` (Svelte version) — already reads `mode` from the query string per Task 4's Step 2, no change needed there; confirm the React version (Task 2 Step 3) also already reads it — it does, per that step's code. No change needed for TanStack in either app.
-In `SchemaValidateVee.vue`, wire each `VeeField`'s `validateOnValueUpdate` prop to `mode === 'onChange'` (read vee-validate's actual current prop name/location by checking the installed `vee-validate` version's type definitions or documentation at implementation time — the exact API surface for this wasn't confirmed during spec review, only that some mechanism for it exists).
+Both TanStack variants (React Task 2 Step 3, Svelte Task 4 Step 2) already read `mode` from the query string — no change needed there. Both neutro variants (all 3 apps) and `SchemaValidateVee.vue`'s own `useForm`-level config also already read/wire `mode` — no change needed there either.
+
+**Add the mode-passthrough prop to `VeeField.vue`** (this is the one remaining real gap, flagged but not resolved in Task 3): read vee-validate's actual current documentation for the exact per-field validate-trigger option name (likely `validateOnValueUpdate`, passed as part of `useField`'s second options argument — confirm against the installed version's type definitions before writing this). Add an optional prop, defaulting to preserve today's behavior so the existing plain re-renders demo (which also uses this component) is unaffected:
+```vue
+<!-- bench/apps/vue/src/VeeField.vue -- add to existing props/useField call -->
+<script setup lang="ts">
+import { onBeforeUpdate } from 'vue'
+import { useField } from 'vee-validate'
+
+const props = defineProps<{
+  name: string
+  renders: Record<string, number>
+  validateOnValueUpdate?: boolean  // NEW optional prop
+}>()
+props.renders[props.name] = (props.renders[props.name] ?? 0) + 1
+onBeforeUpdate(() => {
+  props.renders[props.name] = (props.renders[props.name] ?? 0) + 1
+})
+
+const { value, handleChange } = useField<string>(props.name, undefined, {
+  validateOnValueUpdate: props.validateOnValueUpdate, // undefined preserves existing default
+})
+</script>
+<!-- template unchanged -->
+```
+Then update `SchemaValidateVee.vue` to declare and pass `mode`:
+```vue
+<script setup lang="ts">
+// add near the top, alongside the existing useForm() call:
+const mode = new URLSearchParams(window.location.search).get('mode') ?? 'onSubmit'
+</script>
+<!-- in the template, change the VeeField loop to: -->
+<VeeField
+  v-for="name in FIELDS"
+  :key="name"
+  :name="name"
+  :renders="veeSchemaRenders"
+  :validate-on-value-update="mode === 'onChange'"
+/>
+```
 
 - [ ] **Step 2: Write the spec file**
 
