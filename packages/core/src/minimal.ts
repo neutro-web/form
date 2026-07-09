@@ -7,6 +7,9 @@
  * those are full-tier-only, attached by `./index.ts`'s `createForm`. A
  * `computed` config option passed here is accepted but silently not honored,
  * matching the no-op defaults `createCoreForm` leaves in place.
+ *
+ * Need array operations, DOM binding, persistence, or computed fields? Import from
+ * `@neutro/form/core` instead — it's a drop-in superset.
  */
 import { createCoreForm } from './engine.js';
 import type { FormConfig, MinimalFormInstance } from './index.js';

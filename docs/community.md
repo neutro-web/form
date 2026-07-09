@@ -58,6 +58,18 @@ form.subscribe(state => console.log(state.values))
 
 No — and that's intentional. Each `createForm()` call produces a fully isolated instance. If you need two forms to coordinate, read values from one and pass them to the other explicitly.
 
+#### Which import should I use — `@neutro/form/core` or `@neutro/form/core/minimal`?
+
+Use this decision tree:
+
+- Does your form use dynamic arrays (`arrayAppend`/`arrayRemove`/`arrayMove`/`arraySwap`)? → `@neutro/form/core`
+- Does it call `connect()`, `focus()`, or `focusFirstError()` (vanilla-DOM binding)? → `@neutro/form/core`
+- Does it auto-save/restore via `persistence`/`hydrate()`? → `@neutro/form/core`
+- Does it derive a field's value from other fields via `computed`? → `@neutro/form/core`
+- None of the above? → `@neutro/form/core/minimal` (~7.9 KB gzip vs ~11.8 KB gzip for the full tier)
+
+`minimal` is a strict subset — the `createForm` it exports covers `set`/`get`/`validate`/`subscribe`/`reset`/`submit`/`batch` and friends, but silently no-ops on `computed` and `persistence` config (exactly like passing them without the feature would). See the [Bundle Size Tiers guide](/guides/bundle-size-tiers) for the full breakdown and the one-line upgrade path.
+
 ---
 
 ### Validation

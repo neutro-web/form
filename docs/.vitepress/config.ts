@@ -66,6 +66,7 @@ export default defineConfig({
             { text: 'TypeScript', link: '/guides/typescript' },
             { text: 'Persistence', link: '/guides/persistence' },
             { text: 'Computed Fields', link: '/guides/computed-fields' },
+            { text: 'Bundle Size Tiers', link: '/guides/bundle-size-tiers' },
           ],
         },
         {

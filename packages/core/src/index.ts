@@ -996,6 +996,8 @@ export const __isProduction = ((): boolean => {
  * `createCoreForm` — so that `minimal.ts`'s `createForm` (which calls
  * `createCoreForm` directly and returns its `instance` unmodified) never
  * gets computed-field support. See engine.ts's module doc comment.
+ *
+ * Only need set/get/validate/subscribe? `@neutro/form/core/minimal` ships a smaller bundle.
  */
 export function createForm<T extends object>(config: FormConfig<T>): FormInstance<T> {
   const { ctx, instance } = createCoreForm(config);
