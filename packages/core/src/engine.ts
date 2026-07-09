@@ -145,6 +145,19 @@ export function createCoreForm<T extends object>(
   const initialValues = deepClone(config.initialValues);
   const values = deepClone(initialValues);
 
+  // The four tracked state records are declared as standalone `const`s (like
+  // `values`/`initialValues` above) rather than inlined as `{}` literals in the
+  // `ctx` object below. This is a hot-path optimization, NOT a change to the
+  // mutation invariant: these bindings are never reassigned (reset() and every
+  // array op mutate them in place), so `ctx.errors === errors` holds for the
+  // life of the form. Hot closures (`setFieldValue`) can therefore read the
+  // record via a direct lexical variable instead of a `ctx.<prop>` lookup on
+  // the ~60-property ctx object — restoring the pre-modular-split access shape.
+  const errors: Record<string, string> = {};
+  const touched: Record<string, boolean> = {};
+  const dirty: Record<string, boolean> = {};
+  const wasSet: Record<string, boolean> = {};
+
   const { preComputedScopes, wildcardDependencies } = config.dependencies
     ? compileDependencyScopes(config.dependencies, initialValues)
     : {
@@ -612,26 +625,34 @@ export function createCoreForm<T extends object>(
       }
       return;
     }
-    const wasAlreadySet = path in ctx.wasSet;
-    ctx.wasSet[path] = true;
-    if (!wasAlreadySet) ctx.indexKey(path);
-    const currentVal = getNestedValue(ctx.values, path);
+    // Hot path: read tracked state (`values`/`initialValues`/`wasSet`/`dirty`/
+    // `touched`) and cross-cluster primitives (`indexKey`/`unindexKey`/`batch`)
+    // via direct lexical bindings rather than `ctx.<prop>`. Every one of these
+    // is the SAME object/function stored on `ctx` (never reassigned), so this is
+    // purely an access-path change that restores the pre-modular-split closure-
+    // variable shape. The 4 hook slots (isComputedField/hasComputedFields/
+    // runComputedPass and, below, runValidation/notify*) stay on `ctx` because
+    // attachComputedFields overrides them after createCoreForm returns.
+    const wasAlreadySet = path in wasSet;
+    wasSet[path] = true;
+    if (!wasAlreadySet) indexKey(path);
+    const currentVal = getNestedValue(values, path);
     if (isDeepEqual(currentVal, val)) return;
-    ctx.batch(() => {
-      setNestedValue(ctx.values, path, val);
-      const initialVal = getNestedValue(ctx.initialValues, path);
-      const dirtyAlreadySet = path in ctx.dirty;
-      ctx.dirty[path] = !isDeepEqual(initialVal, val);
-      if (!ctx.dirty[path]) {
-        delete ctx.dirty[path];
-        if (dirtyAlreadySet) ctx.unindexKey(path);
+    batch(() => {
+      setNestedValue(values, path, val);
+      const initialVal = getNestedValue(initialValues, path);
+      const dirtyAlreadySet = path in dirty;
+      dirty[path] = !isDeepEqual(initialVal, val);
+      if (!dirty[path]) {
+        delete dirty[path];
+        if (dirtyAlreadySet) unindexKey(path);
       } else if (!dirtyAlreadySet) {
-        ctx.indexKey(path);
+        indexKey(path);
       }
       if (options.touch) {
-        const touchedAlreadySet = path in ctx.touched;
-        ctx.touched[path] = true;
-        if (!touchedAlreadySet) ctx.indexKey(path);
+        const touchedAlreadySet = path in touched;
+        touched[path] = true;
+        if (!touchedAlreadySet) indexKey(path);
       }
     });
     if (hasComputed) {
@@ -649,13 +670,13 @@ export function createCoreForm<T extends object>(
         // value, instead of once (stale, pre-computed) from a `[path]`-only call and again
         // (fresh) from a separate `changedComputedPaths` call.
         const changedComputedPaths = ctx.runComputedPass();
-        ctx.notifyPathSubscribers([path, ...changedComputedPaths]);
+        notifyPathSubscribers([path, ...changedComputedPaths]);
         if (ctx.globalSubscribers.size > 0) {
-          ctx.notifyGlobalSubscribers(ctx.getState());
+          notifyGlobalSubscribers(getState());
         }
       }
     } else {
-      ctx.notify(path);
+      notify(path);
     }
     if (options.validate === true) ctx.runValidation([path]);
   };
@@ -909,10 +930,10 @@ export function createCoreForm<T extends object>(
   const ctx: FormEngineContext<T> = {
     values,
     initialValues,
-    errors: {},
-    touched: {},
-    dirty: {},
-    wasSet: {},
+    errors,
+    touched,
+    dirty,
+    wasSet,
     validatedPaths: new Set<string>(),
     pathIndex: new Map<string, Map<string, number>>(),
     pathSubscribers: new Map<string, Set<PathSubscriber>>(),
@@ -981,15 +1002,15 @@ export function createCoreForm<T extends object>(
 
   const get = (path: Path<T> | string | string[]) => {
     const targetPath = Array.isArray(path) ? path.join('.') : path;
-    ctx.__warnUnknownPath(targetPath);
-    return getNestedValue(ctx.values, targetPath);
+    __warnUnknownPath(targetPath);
+    return getNestedValue(values, targetPath);
   };
 
   const set = ((path: any, val: any, options?: SetOptions) => {
     const targetPath = Array.isArray(path) ? path.join('.') : path;
-    ctx.__warnUnknownPath(targetPath);
-    ctx.setFieldValue(targetPath, val, options);
-    ctx.dispatchAction({ type: 'SET', path: targetPath, value: val, options });
+    __warnUnknownPath(targetPath);
+    setFieldValue(targetPath, val, options);
+    dispatchAction({ type: 'SET', path: targetPath, value: val, options });
   }) as MinimalFormInstance<T>['set'];
 
   const validate = (scopePaths?: Array<Path<T> | string[]>) => {

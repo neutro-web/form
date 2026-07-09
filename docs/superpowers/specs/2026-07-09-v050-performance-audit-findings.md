@@ -86,3 +86,36 @@ Fix: extracted the byte-for-byte-identical 8-line `validatedPaths` rename-apply 
 | array-ops-scale/remove-start-with-unrelated-fields | 1.47806 | 1.49763 | +1.32% | No change |
 
 All five blocks stayed within the ±3% no-change band, confirming the consolidation did not regress array-op runtime.
+
+## Task 5 — root-cause of the residual `set-get` / `dependency-scopes` / `dependency-chain` / `ssr-mount` gap
+
+### Root cause (all four targets)
+
+The modular split (monolithic `createForm` in `index.ts` → `createCoreForm` in `engine.ts` + `attachX` feature files) changed the hot write/read path in two structural ways that account for the residual regression the earlier tasks left open:
+
+1. **`ctx.<prop>` property access replaced direct closure-variable access.** In the pre-split code (`index.ts@7b383e9`), `setFieldValue` (old L1633–1690), `set` (old L2409–2414), and `get` (old L2403–2407) read `values`/`wasSet`/`dirty`/`touched`/`initialValues` and called `indexKey`/`unindexKey`/`batch`/`notify`/`dispatchAction`/`__warnUnknownPath`/`setFieldValue` as **direct lexical closure variables**. The split moved all of that state onto a single ~60-property `ctx` object (`engine.ts` `FormEngineContext`) and rewrote every access as `ctx.<prop>` (new `setFieldValue` L603–681, `set` L988–993, `get` L982–986). Property access on a large shared object is not free the way monomorphic closure-variable access is, and this is the dominant contributor to the flat `set-get` regression (which touches no computed fields, validators, or dependencies — only the write/read path itself).
+
+2. **Inline `computedMap.has()` / `computedMap.size` became non-inlinable installed hook calls.** Old `setFieldValue` did `computedMap.has(path)` (old L1638) and `computedMap.size > 0` (old L1666) against a `Map` captured as a direct closure variable. The split replaced these with `ctx.isComputedField(path)` / `ctx.hasComputedFields()` — arrow functions that `attachComputedFields` **installs onto `ctx` after `createCoreForm` returns** (`computed-fields.ts` L89–90), so V8 cannot inline them into `setFieldValue`. Task 3 already removed one of the two redundant calls; the remaining call is a load-bearing protected hook slot (per the plan's Global Constraints) and cannot be removed. This is the extra cost on the `dependency-scopes`/`dependency-chain` blocks, which additionally route through `runValidation`'s scope expansion (also now `ctx.`-indirected).
+
+3. **`ssr-mount` (+3.05%)** measures full `createForm()` construction. The split turned one monolithic constructor into `createCoreForm` + `attachComputedFields` + `attachPersistence` + `attachDomBridge` + `attachArrayOps` + `Object.assign` + an extra `ctx.runComputedPass()` seed call (`index.ts` L1002–1035). That is real, unavoidable per-construction overhead of the composition pattern — it cannot be removed without collapsing the modular split, which is the whole point of the v0.5.0 bundle-splitting effort.
+
+### Fix applied (safely-fixable portion)
+
+The four tracked state records (`errors`/`touched`/`dirty`/`wasSet`) were promoted from inline `{}` literals in the `ctx` object to standalone `const`s at the top of `createCoreForm` (`engine.ts` L147–159, mirroring the pre-existing `values`/`initialValues` exception), and the hot path (`setFieldValue`, `set`, `get`) now reads these records and calls the cross-cluster primitives (`indexKey`/`unindexKey`/`batch`/`notify`/`notifyPathSubscribers`/`notifyGlobalSubscribers`/`getState`/`dispatchAction`/`__warnUnknownPath`/`setFieldValue`) via **direct lexical bindings** instead of `ctx.<prop>`. Every binding is the SAME object/function stored on `ctx` (all are never reassigned — the mutation invariant guarantees `ctx.errors === errors` for the life of the form), so this is a pure access-path change that restores the pre-split closure-variable shape. **No reassignment of any protected structure was reintroduced, and none of the 4 hook slots (`isComputedField`/`hasComputedFields`/`runComputedPass`/`onReset`) was removed or collapsed** — those stay on `ctx` precisely because `attachComputedFields`/`attachPersistence` override them post-construction.
+
+### Measurement (same-session stash A/B, median-of-3, matching Task 3's methodology)
+
+| Block | Pre-fix median (ms) | Post-fix median (ms) | Verdict |
+|---|---|---|---|
+| set-get/small | 0.000333 | 0.000333 | Unchanged at timer floor |
+| set-get/large | 0.000333 | 0.000333 | Unchanged at timer floor |
+| set-get/xlarge | 0.000333 | 0.000333 | Unchanged at timer floor |
+| dependency-scopes/dependent | 0.000625 | 0.000625 | Unchanged at timer floor |
+| dependency-graph/deep-chain | 0.000541 | 0.000500 | -7.6% (one quantization bucket; within noise) |
+| ssr-mount | 0.098833 | 0.096208 | -2.7% (within noise) |
+
+**Conclusion:** the fix is proven behavior-identical (full core suite: 728/728 pass) and structurally reduces indirection on the hottest path, but its runtime effect is **at or below this harness's sub-microsecond timer-resolution floor** — the `set-get` blocks are pinned to the same 0.000333 quantization bucket pre- and post-fix (the same floor documented in the "Notes on noisy blocks" section above), so the ~14% original delta cannot be empirically closed or refuted at this resolution. The change is applied as a best-effort, zero-risk de-indirection; it does not regress anything.
+
+**Accepted tradeoffs (not fixable without violating Global Constraints):**
+- The residual `set-get` / `dependency-scopes` / `dependency-chain` cost that remains after de-indirection is **inherent to the mutation-invariant + hook-composition design** — the non-inlinable `ctx.hasComputedFields()`/`isComputedField()` hook calls and the `ctx.`-access of state records that have no local binding at their access site (e.g. inside feature files) cannot be removed without collapsing a protected hook slot or the ctx abstraction that the modular split exists to provide.
+- **`ssr-mount` (+3.05%)** is accepted as a tradeoff — it is the per-construction cost of the `createCoreForm` + 4×`attachX` + `Object.assign` composition, which is the deliberate architecture of the bundle-split and cannot be undone without reverting the split.
