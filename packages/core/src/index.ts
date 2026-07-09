@@ -1749,9 +1749,9 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // order processes the rename before the drop, the drop (keyed only by string,
     // not by "was this a rename target") silently wipes out the just-renamed value.
     const shiftMap = (stateMap: Record<string, any>) => {
-      const updated: Record<string, any> = { ...stateMap };
       const prefix = `${basePath}.`;
-      const renames: Array<[string, string]> = [];
+      const toDelete: string[] = [];
+      const renames: Array<[string, string, any]> = [];
       for (const key of candidates) {
         if (!(key in stateMap)) continue;
         if (!key.startsWith(prefix)) continue;
@@ -1762,33 +1762,35 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const tail = match[2];
         if (action === 'remove') {
           if (index === fromIndex) {
-            delete updated[key];
+            toDelete.push(key);
             unindexKey(key);
           } else if (index > fromIndex) {
-            delete updated[key];
+            toDelete.push(key);
             unindexKey(key);
-            renames.push([key, `${prefix}${index - 1}${tail}`]);
+            renames.push([key, `${prefix}${index - 1}${tail}`, stateMap[key]]);
           }
         } else if (action === 'insert' && targetIndex !== undefined) {
           if (index >= targetIndex) {
-            delete updated[key];
+            toDelete.push(key);
             unindexKey(key);
-            renames.push([key, `${prefix}${index + 1}${tail}`]);
+            renames.push([key, `${prefix}${index + 1}${tail}`, stateMap[key]]);
           }
         }
       }
-      for (const [oldKey, newKey] of renames) {
-        updated[newKey] = stateMap[oldKey];
+      // Value captured in the renames triple ABOVE, before any delete below — reading
+      // stateMap[oldKey] after deletion would return undefined.
+      for (const key of toDelete) delete stateMap[key];
+      for (const [, newKey, value] of renames) {
+        stateMap[newKey] = value;
         indexKey(newKey);
         shiftedKeys.push(newKey);
       }
-      return updated;
     };
     batch(() => {
-      errors = shiftMap(errors);
-      touched = shiftMap(touched);
-      dirty = shiftMap(dirty);
-      wasSet = shiftMap(wasSet) as Record<string, boolean>;
+      shiftMap(errors);
+      shiftMap(touched);
+      shiftMap(dirty);
+      shiftMap(wasSet);
       // Update validatedPaths for the structural change.
       // For insert: shift existing indices ≥ targetIndex up by 1 so tracking follows items.
       // For remove: drop the removed index, renumber survivors above it.
@@ -1875,7 +1877,6 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     // affected source keys, then writes all renamed values - deletes-before-writes
     // guarantees a write can never be clobbered by a later delete of the same key.
     const shiftMap = (stateMap: Record<string, any>) => {
-      const updated: Record<string, any> = { ...stateMap };
       const renames: Array<[string, string, any]> = [];
       for (const key of candidates) {
         if (!(key in stateMap)) continue;
@@ -1890,20 +1891,19 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         renames.push([key, `${prefix}${newIndex}${tail}`, stateMap[key]]);
       }
       for (const [oldKey] of renames) {
-        delete updated[oldKey];
+        delete stateMap[oldKey];
         unindexKey(oldKey);
       }
       for (const [, newKey, value] of renames) {
-        updated[newKey] = value;
+        stateMap[newKey] = value;
         indexKey(newKey);
       }
-      return updated;
     };
     batch(() => {
-      errors = shiftMap(errors);
-      touched = shiftMap(touched);
-      dirty = shiftMap(dirty);
-      wasSet = shiftMap(wasSet) as Record<string, boolean>;
+      shiftMap(errors);
+      shiftMap(touched);
+      shiftMap(dirty);
+      shiftMap(wasSet);
       // Re-key validatedPaths (Set) with the same sliding-window logic and the same
       // delete-all-then-write-all discipline as shiftMap above.
       const validatedRenames: Array<[string, string]> = [];
@@ -2628,9 +2628,16 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         const candidates = Array.from(pathIndex.get(targetPath)?.keys() ?? []);
         const swapKeys = (stateMap: Record<string, any>) => {
           const prefix = `${targetPath}.`;
-          const updated = { ...stateMap };
           const prefixA = `${prefix}${indexA}`;
           const prefixB = `${prefix}${indexB}`;
+          // Two-phase, same discipline as shiftStateIndices/rekeyArrayState: capture
+          // every write's value (read from the pristine stateMap) and every key slated
+          // for deletion FIRST, then apply all deletes before any write. Interleaving
+          // reads/writes/deletes directly on stateMap in a single pass would risk a
+          // later key's read of e.g. stateMap[bKey] observing an earlier iteration's
+          // write instead of the original value.
+          const writes: Array<[string, any]> = [];
+          const toDelete: string[] = [];
           for (const key of candidates) {
             if (!(key in stateMap)) continue;
             // Use exact-or-dot-child match to avoid "items.1" matching "items.10", "items.11", etc.
@@ -2639,12 +2646,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
             if (matchesA) {
               const tail = key.substring(prefixA.length);
               const bKey = `${prefixB}${tail}`;
-              updated[bKey] = stateMap[key];
+              writes.push([bKey, stateMap[key]]);
               if (stateMap[bKey] === undefined) {
                 // bKey had no prior state here, so it's genuinely gaining a new
                 // claim at this key while `key` (A-side) loses its claim.
                 indexKey(bKey);
-                delete updated[key];
+                toDelete.push(key);
                 unindexKey(key);
               }
               // else: bKey already held state here — the key identity stays put
@@ -2652,20 +2659,21 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
             } else if (matchesB) {
               const tail = key.substring(prefixB.length);
               const aKey = `${prefixA}${tail}`;
-              updated[aKey] = stateMap[key];
+              writes.push([aKey, stateMap[key]]);
               if (stateMap[aKey] === undefined) {
                 indexKey(aKey);
-                delete updated[key];
+                toDelete.push(key);
                 unindexKey(key);
               }
             }
           }
-          return updated;
+          for (const key of toDelete) delete stateMap[key];
+          for (const [key, value] of writes) stateMap[key] = value;
         };
-        errors = swapKeys(errors);
-        touched = swapKeys(touched);
-        dirty = swapKeys(dirty);
-        wasSet = swapKeys(wasSet) as Record<string, boolean>;
+        swapKeys(errors);
+        swapKeys(touched);
+        swapKeys(dirty);
+        swapKeys(wasSet);
         // Swap validatedPaths entries for indexA ↔ indexB.
         // Two-phase, mirroring shiftStateIndices/rekeyArrayState above: computing
         // renames against the pristine `candidates` snapshot and only deleting all

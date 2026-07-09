@@ -27,3 +27,29 @@ describe('mutation invariant: errors', () => {
     expect(idx.get('profile')?.has('profile.name')).toBe(true);
   });
 });
+
+describe('mutation invariant: array-ops error/touched/dirty/wasSet shifting', () => {
+  it('shiftStateIndices (via arrayRemove) preserves error/touched/dirty state on shifted items', () => {
+    const form = createForm({
+      initialValues: { items: [{ name: 'a' }, { name: 'b' }, { name: 'c' }] },
+    });
+    form.set('items.0.name', 'a', { touch: true });
+    form.setErrors({ 'items.1.name': 'bad' });
+    form.arrayRemove('items', 0);
+    // item that was at index 1 (errored) is now at index 0
+    expect(form.getState().errors['items.0.name']).toBe('bad');
+    expect(form.getState().errors['items.1.name']).toBeUndefined();
+  });
+
+  it('arraySwap swaps touched/dirty/error state along with values', () => {
+    const form = createForm({
+      initialValues: { items: [{ name: 'a' }, { name: 'b' }] },
+    });
+    form.set('items.0.name', 'x', { touch: true });
+    form.setErrors({ 'items.0.name': 'bad' });
+    form.arraySwap('items', 0, 1);
+    expect(form.getState().errors['items.1.name']).toBe('bad');
+    expect(form.getState().touched['items.1.name']).toBe(true);
+    expect(form.getState().errors['items.0.name']).toBeUndefined();
+  });
+});
