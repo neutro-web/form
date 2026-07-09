@@ -655,9 +655,9 @@ describe('Reset', () => {
 // ---------------------------------------------------------------------------
 
 describe('Payload isolation', () => {
-  it('getPayload() returns empty object when no inputs are connected', () => {
+  it('getPayload() returns full values when no inputs are connected', () => {
     const form = createForm({ initialValues: { a: 1, b: 2 } });
-    expect(form.getPayload()).toEqual({});
+    expect(form.getPayload()).toEqual({ a: 1, b: 2 });
   });
 
   test('getPayload() strips transient computed fields from submit payload', async () => {
@@ -2537,14 +2537,14 @@ describe('submit', () => {
     expect(await first).toBe(true);
   });
 
-  it('callback receives the getPayload result (empty when no DOM connections)', async () => {
+  it('callback receives the getPayload result (full values when no DOM connections)', async () => {
     const form = createForm({ initialValues: { a: 1, b: 2 } });
     let receivedPayload: any;
     await form.submit((p) => {
       receivedPayload = p;
     });
-    // No connected elements → payload is empty object
-    expect(receivedPayload).toEqual({});
+    // No connected elements → payload falls back to full values
+    expect(receivedPayload).toEqual({ a: 1, b: 2 });
   });
 
   it('returns false and calls catch path when callback throws', async () => {

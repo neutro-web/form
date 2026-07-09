@@ -3071,6 +3071,9 @@ function _getPayload<T>(
   connected: Set<string>,
   persisted: Set<string>
 ): Partial<T> {
+  if (connected.size === 0 && persisted.size === 0) {
+    return deepClone(values) as Partial<T>;
+  }
   const payload = {} as any;
   registry.forEach((ref, path) => {
     if (connected.has(path) || persisted.has(path)) {
