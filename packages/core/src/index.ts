@@ -1041,12 +1041,12 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
     return result;
   };
 
-  let initialValues = deepClone(config.initialValues);
-  let values = deepClone(initialValues);
-  let errors: Record<string, string> = {};
-  let touched: Record<string, boolean> = {};
-  let dirty: Record<string, boolean> = {};
-  let wasSet: Record<string, boolean> = {};
+  const initialValues = deepClone(config.initialValues);
+  const values = deepClone(initialValues);
+  const errors: Record<string, string> = {};
+  const touched: Record<string, boolean> = {};
+  const dirty: Record<string, boolean> = {};
+  const wasSet: Record<string, boolean> = {};
   const validatedPaths = new Set<string>();
   // Refcounted shadow index: maps every ancestor prefix of a tracked key (from
   // errors/touched/dirty/wasSet/validatedPaths/pathSubscribers) to a Map of
@@ -2738,17 +2738,31 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
       }
       batch(() => {
-        if (newValues) initialValues = deepClone(newValues);
-        values = deepClone(initialValues);
+        if (newValues) {
+          const newInitial = deepClone(newValues);
+          for (const key of Object.keys(initialValues)) delete (initialValues as any)[key];
+          Object.assign(initialValues, newInitial);
+        }
+        const newVals = deepClone(initialValues);
+        for (const key of Object.keys(values)) delete (values as any)[key];
+        Object.assign(values, newVals);
         runComputedPass(); // re-derive computed fields from reset state
-        for (const k of Object.keys(errors)) unindexKey(k);
-        errors = {};
-        for (const k of Object.keys(touched)) unindexKey(k);
-        touched = {};
-        for (const k of Object.keys(dirty)) unindexKey(k);
-        dirty = {};
-        for (const k of Object.keys(wasSet)) unindexKey(k);
-        wasSet = {};
+        for (const k of Object.keys(errors)) {
+          unindexKey(k);
+          delete errors[k];
+        }
+        for (const k of Object.keys(touched)) {
+          unindexKey(k);
+          delete touched[k];
+        }
+        for (const k of Object.keys(dirty)) {
+          unindexKey(k);
+          delete dirty[k];
+        }
+        for (const k of Object.keys(wasSet)) {
+          unindexKey(k);
+          delete wasSet[k];
+        }
         for (const k of validatedPaths) unindexKey(k);
         validatedPaths.clear();
         isSubmitting = false;
@@ -2914,14 +2928,24 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
         }
         const merged = deepMerge(config.initialValues, filteredStored) as T;
         batch(() => {
-          initialValues = deepClone(merged);
-          values = deepClone(initialValues);
-          for (const k of Object.keys(errors)) unindexKey(k);
-          errors = {};
-          for (const k of Object.keys(touched)) unindexKey(k);
-          touched = {};
-          for (const k of Object.keys(dirty)) unindexKey(k);
-          dirty = {};
+          const newInitial = deepClone(merged);
+          for (const key of Object.keys(initialValues)) delete (initialValues as any)[key];
+          Object.assign(initialValues, newInitial);
+          const newVals = deepClone(initialValues);
+          for (const key of Object.keys(values)) delete (values as any)[key];
+          Object.assign(values, newVals);
+          for (const k of Object.keys(errors)) {
+            unindexKey(k);
+            delete errors[k];
+          }
+          for (const k of Object.keys(touched)) {
+            unindexKey(k);
+            delete touched[k];
+          }
+          for (const k of Object.keys(dirty)) {
+            unindexKey(k);
+            delete dirty[k];
+          }
           isSubmitting = false;
           isValidating = false;
           hasValidated = false;

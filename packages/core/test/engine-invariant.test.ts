@@ -53,3 +53,29 @@ describe('mutation invariant: array-ops error/touched/dirty/wasSet shifting', ()
     expect(form.getState().errors['items.0.name']).toBeUndefined();
   });
 });
+
+describe('mutation invariant: reset/hydrate values/initialValues/error-state', () => {
+  it('reset() clears values, errors, touched, dirty, wasSet back to newValues/defaults', () => {
+    const form = createForm({ initialValues: { name: '' } });
+    form.set('name', 'x', { touch: true });
+    form.setErrors({ name: 'bad' });
+    form.reset({ name: 'seeded' });
+    const state = form.getState();
+    expect(state.values.name).toBe('seeded');
+    expect(state.errors.name).toBeUndefined();
+    expect(state.touched.name).toBeUndefined();
+    expect(state.dirty.name).toBeUndefined();
+  });
+
+  it('no cluster observes a stale values/initialValues reference across reset()', () => {
+    const form = createForm({ initialValues: { name: '' } });
+    const seen: unknown[] = [];
+    form.subscribeToPath('name', (val) => seen.push(val));
+    form.set('name', 'a');
+    form.reset({ name: 'b' });
+    form.set('name', 'c');
+    // If a stale `values` reference were held anywhere, the second set() after reset()
+    // would not be observed correctly on the fresh values object.
+    expect(seen).toEqual(['', 'a', 'b', 'c']);
+  });
+});
