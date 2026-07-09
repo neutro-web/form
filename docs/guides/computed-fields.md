@@ -98,7 +98,7 @@ Transient fields are also excluded from `form.getState().lastSubmittedValues` (t
 
 ## Circular dependency guard
 
-If computed fields never stabilize (field A reads B, B reads A), a dev warning fires after the pass limit is reached.
+If computed fields never stabilize (field A reads B, B reads A), a dev warning fires after the pass limit is reached. The warning includes the names of the fields that are still changing so you can identify the cycle immediately.
 
 ```ts
 const form = createForm({
@@ -110,11 +110,13 @@ const form = createForm({
   },
 })
 // [NeutroForm] Computed fields did not stabilize after 3 passes.
+// Check for circular dependencies. Still changing: x, y
 ```
 
 ## Constraints
 
 - **Read-only**: calling `set('total', 999)` on a computed path is a no-op with a dev warning. Use `setDynamic` when you need to set a non-computed field via a runtime path — it also respects the computed guard. `getDynamic` can read any path, including computed fields, which is correct behavior.
+- **Not available under `@neutro/form/core/minimal`**: the `computed` config option is accepted (no type error) if you build a form from the [minimal bundle tier](/guides/bundle-size-tiers), but it's silently never evaluated — the field just holds whatever value you gave it in `initialValues`. If a computed field looks frozen, check whether the form was created from `minimal` before debugging the function itself.
 - **Never dirty**: computed paths never appear in `isDirty()` or `isFieldDirty()`.
 - **Pure functions only**: `fn` runs on every `set()` call, for every computed field, unconditionally. Do not use side effects (network calls, logging) inside `fn`.
 - **No array wildcards**: `items.*.price` as a computed target is out of scope. Compute at the item level instead.

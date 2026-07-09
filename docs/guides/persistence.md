@@ -61,3 +61,7 @@ const myAdapter: PersistenceAdapter<MyValues> = {
 ## SSR
 
 Both built-in adapters guard against SSR: if `localStorage`/`sessionStorage` is not available, `read()` returns `null` and `write()`/`clear()` are no-ops. `hydrate()` is safe to call on the server — it returns immediately with no effect when the adapter returns `null`.
+
+## Not available under `@neutro/form/core/minimal`
+
+`hydrate()` doesn't exist on a form built from the [minimal bundle tier](/guides/bundle-size-tiers). A `persistence` config passed to `createForm` there is accepted (no type error) but nothing ever runs — no read on load, no write on change or `reset()`. If a form isn't restoring or saving drafts, check the import path (`@neutro/form/core` vs `@neutro/form/core/minimal`) before debugging the adapter.
