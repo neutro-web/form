@@ -5,6 +5,9 @@ import { useFormPath } from '@neutro/form-react'
 import { useForm as useRhfForm, Controller, useFieldArray } from 'react-hook-form'
 import { Formik, useFormikContext, FieldArray } from 'formik'
 import { useForm as useTsForm } from '@tanstack/react-form'
+import { SchemaValidateNeutroPage } from './SchemaValidateNeutro.js'
+import { SchemaValidateRhfPage } from './SchemaValidateRhf.js'
+import { SchemaValidateTanStackPage } from './SchemaValidateTanStack.js'
 
 // --- Module-level render counters (survive re-renders; exposed on window) ---
 const neutroRenders: Record<string, number> = {}
@@ -32,6 +35,12 @@ window.__resetRenders = () => {
   for (const k in rhfRenders) rhfRenders[k] = 0
   for (const k in formikRenders) formikRenders[k] = 0
   for (const k in tanstackRenders) tanstackRenders[k] = 0
+  const neutroSchemaRenders = (window as any).__neutroSchemaRenders as Record<string, number> | undefined
+  const rhfSchemaRenders = (window as any).__rhfSchemaRenders as Record<string, number> | undefined
+  const tanstackSchemaRenders = (window as any).__tanstackSchemaRenders as Record<string, number> | undefined
+  if (neutroSchemaRenders) for (const k in neutroSchemaRenders) neutroSchemaRenders[k] = 0
+  if (rhfSchemaRenders) for (const k in rhfSchemaRenders) rhfSchemaRenders[k] = 0
+  if (tanstackSchemaRenders) for (const k in tanstackSchemaRenders) tanstackSchemaRenders[k] = 0
 }
 
 const FIELD_COUNT = Number(new URLSearchParams(window.location.search).get('fields')) || 10
@@ -578,6 +587,15 @@ export default function App() {
   if (path.startsWith('/cancel/')) {
     const lib = path.slice('/cancel/'.length)
     return CANCEL_PAGES[lib] ?? <div data-testid="not-found">Unknown: {lib}</div>
+  }
+  if (path.startsWith('/schema-validate/')) {
+    const lib = path.slice('/schema-validate/'.length)
+    const pages: Record<string, () => React.ReactElement> = {
+      neutro: () => <SchemaValidateNeutroPage />,
+      rhf: () => <SchemaValidateRhfPage />,
+      tanstack: () => <SchemaValidateTanStackPage />,
+    }
+    return pages[lib]?.() ?? <div data-testid="not-found">Unknown: {lib}</div>
   }
   if (path === '/cleanup') {
     return <CleanupPage />
