@@ -20,6 +20,8 @@ const SURFACE_TITLES: Record<string, string> = {
   'dom-cleanup': 'DOM Cleanup (connect/disconnect, neutro only)',
   'mount-cost': 'Mount Cost (time to interactive, Navigation Timing API)',
   'memory-churn': 'Memory Churn (heap delta across mount/unmount cycles, post-GC)',
+  'schema-validate-rerenders': 'Schema Validation — Re-renders per 20-keystroke sequence (Zod, 10-field form)',
+  'schema-validate-submit': 'Schema Validation — Submit Latency (Zod, click-to-error-visible)',
 }
 
 const BADGE_LABEL: Record<Verdict, string> = {
@@ -70,6 +72,7 @@ function browserTable(surface: string, results: BrowserResult[]): string {
   const hasCleanup = results.some(r => r.connectedCountAfterCleanup != null)
   const hasMount = results.some(r => r.mountMs != null)
   const hasHeap = results.some(r => r.heapDeltaBytes != null)
+  const hasSubmitLatency = results.some(r => r.submitLatencyMs != null)
 
   const headers: string[] = ['Library']
   if (hasRender) headers.push('Renders')
@@ -78,8 +81,13 @@ function browserTable(surface: string, results: BrowserResult[]): string {
   if (hasCleanup) headers.push('Connected after cleanup')
   if (hasMount) headers.push('Time to interactive')
   if (hasHeap) headers.push('Heap delta (post-GC)')
+  if (hasSubmitLatency) headers.push('Submit latency')
 
   const rows = results.map(r => {
+    if (r.status === 'na') {
+      const naCell = `— N/A${reasonMarker(surface, r.library)}`
+      return `| ${r.library} | ${headers.slice(1).map(() => naCell).join(' | ')} |`
+    }
     const cells: string[] = [r.library]
     if (hasRender) cells.push(r.renderCount != null ? `${r.renderCount}${reasonMarker(surface, r.library)}` : '—')
     if (hasLatency) cells.push(
@@ -92,6 +100,7 @@ function browserTable(surface: string, results: BrowserResult[]): string {
     if (hasCleanup) cells.push(r.connectedCountAfterCleanup != null ? String(r.connectedCountAfterCleanup) : '—')
     if (hasMount) cells.push(r.mountMs != null ? `${r.mountMs.toFixed(1)}ms` : '—')
     if (hasHeap) cells.push(r.heapDeltaBytes != null ? `${(r.heapDeltaBytes / 1024).toFixed(1)} KB` : '—')
+    if (hasSubmitLatency) cells.push(r.submitLatencyMs != null ? `${r.submitLatencyMs.toFixed(1)}ms${reasonMarker(surface, r.library)}` : '—')
     return `| ${cells.join(' | ')} |`
   }).join('\n')
 

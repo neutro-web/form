@@ -87,4 +87,16 @@ export const ANNOTATIONS: Record<string, Record<string, Annotation>> = {
       detail: "TanStack's own Svelte bench harness never defines window.__resetArrayRenders, so its render counter (window.__tanstackArrayRenders) stays permanently empty and reports an artificial 0 — not a real absence of render work. Confirmed by direct inspection during this project's own v0.5.0 verification; not a neutro/form architectural gap.",
     },
   },
+  'schema-validate-rerenders': {
+    formik: {
+      brief: 'no official Zod resolver',
+      detail: 'Formik has no first-party Zod integration (only an unofficial zod-formik-adapter package) — excluded from this Zod-specific comparison. Formik participates fully in every other browser surface.',
+    },
+  },
+  'schema-validate-submit': {
+    formik: {
+      brief: 'no official Zod resolver',
+      detail: 'Formik has no first-party Zod integration (only an unofficial zod-formik-adapter package) — excluded from this Zod-specific comparison. Formik participates fully in every other browser surface.',
+    },
+  },
 }
