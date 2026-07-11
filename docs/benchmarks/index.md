@@ -143,7 +143,7 @@ _Note: render counts are not directly comparable across all libraries on this su
 | Library | Heap delta (post-GC) |
 |---|---|
 | neutro/form (React) | 590.6 KB |
-| react-hook-form | 638.6 KB |
+| react-hook-form | 603.6 KB |
 
 ### Async Cancellation (stale-result race)
 
@@ -163,15 +163,15 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 | Library | Time to interactive |
 |---|---|
-| neutro/form (React) | 3.5ms |
-| react-hook-form | 3.9ms |
-| formik | 4.0ms |
-| tanstack-form (React) | 4.6ms |
-| neutro/form (Vue) | 3.5ms |
-| vee-validate | 3.7ms |
-| neutro/form (Svelte) | 3.3ms |
+| neutro/form (React) | 3.2ms |
+| react-hook-form | 3.4ms |
+| formik | 4.1ms |
+| tanstack-form (React) | 3.8ms |
+| neutro/form (Vue) | 3.9ms |
+| vee-validate | 4.5ms |
+| neutro/form (Svelte) | 3.5ms |
 | tanstack-form (Svelte) | 3.9ms |
-| felte | 4.2ms |
+| felte | 4.0ms |
 
 ### Re-renders per 20-keystroke sequence (10-field form)
 
@@ -191,14 +191,14 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 | Library | Submit latency |
 |---|---|
-| neutro/form (React) | 50.9ms |
-| react-hook-form | 39.0ms |
-| tanstack-form (React) | 40.7ms |
-| neutro/form (Vue) | 45.0ms |
-| vee-validate | 59.9ms |
-| neutro/form (Svelte) | 40.9ms |
-| tanstack-form (Svelte) | 44.9ms |
-| felte | 47.6ms |
+| neutro/form (React) | 51.7ms |
+| react-hook-form | 56.2ms |
+| tanstack-form (React) | 44.6ms |
+| neutro/form (Vue) | 51.2ms |
+| vee-validate | 62.4ms |
+| neutro/form (Svelte) | 38.0ms |
+| tanstack-form (Svelte) | 44.6ms |
+| felte | 36.8ms |
 | formik | — N/A[^schema-validate-submit-formik] |
 
 ### Schema Validation — Re-renders per 20-keystroke sequence (Zod, 10-field form)
@@ -208,8 +208,8 @@ _Note: render counts are not directly comparable across all libraries on this su
 | neutro/form (React) | 40 |
 | react-hook-form | 0 |
 | tanstack-form (React) | 200 |
-| neutro/form (Vue) | 30 |
-| vee-validate | 30 |
+| neutro/form (Vue) | 20 |
+| vee-validate | 20 |
 | neutro/form (Svelte) | 20 |
 | tanstack-form (Svelte) | 200 |
 | felte | 200 |
@@ -234,11 +234,11 @@ _Note: render counts are not directly comparable across all libraries on this su
 | Library | p50 | p99 |
 |---|---|---|
 | neutro/form (React) | 302ms[^async-latency-neutro-form-react] | 302ms |
-| react-hook-form | 202ms | 202ms |
+| react-hook-form | 202ms | 203ms |
 | formik | 202ms | 203ms |
-| tanstack-form (React) | 201ms | 201ms |
+| tanstack-form (React) | 201ms | 202ms |
 | neutro/form (Vue) | 302ms[^async-latency-neutro-form-vue] | 302ms |
-| vee-validate | 202ms | 202ms |
+| vee-validate | 201ms | 202ms |
 | neutro/form (Svelte) | 302ms[^async-latency-neutro-form-svelte] | 302ms |
 | tanstack-form (Svelte) | 201ms | 202ms |
 | felte | 201ms | 202ms |
@@ -248,7 +248,7 @@ _Note: render counts are not directly comparable across all libraries on this su
 | Library | p50 | p99 |
 |---|---|---|
 | neutro/form (React) [debounce=0] | 202ms | 202ms |
-| neutro/form (Vue) [debounce=0] | 201ms | 202ms |
+| neutro/form (Vue) [debounce=0] | 202ms | 202ms |
 | neutro/form (Svelte) [debounce=0] | 202ms | 202ms |
 
 ## Bundle Size

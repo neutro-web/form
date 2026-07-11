@@ -28,16 +28,20 @@ const neutroRenders: Record<string, number> = {}
 const veeRenders: Record<string, number> = {}
 ;(window as any).__veeRenders = veeRenders
 
-const neutroSchemaRenders: Record<string, number> = {}
-;(window as any).__neutroSchemaRenders = neutroSchemaRenders
-const veeSchemaRenders: Record<string, number> = {}
-;(window as any).__veeSchemaRenders = veeSchemaRenders
-
 ;(window as any).__resetRenders = () => {
   for (const k in neutroRenders) neutroRenders[k] = 0
   for (const k in veeRenders) veeRenders[k] = 0
-  for (const k in neutroSchemaRenders) neutroSchemaRenders[k] = 0
-  for (const k in veeSchemaRenders) veeSchemaRenders[k] = 0
+  // The schema-validate routes' own components (SchemaValidateNeutro.vue/SchemaValidateVee.vue)
+  // create and own their counter objects, assigning them directly to
+  // window.__neutroSchemaRenders/__veeSchemaRenders when mounted -- App.vue must never declare
+  // its own local copies here (a prior version did, and __resetRenders zeroed that orphaned local
+  // object instead of the live one the fields/spec actually read, silently leaking ~10 mount-time
+  // increments across every reset). Read back off window with a guard, since these only exist
+  // once the corresponding route has mounted.
+  const schemaNeutro = (window as any).__neutroSchemaRenders
+  if (schemaNeutro) for (const k in schemaNeutro) schemaNeutro[k] = 0
+  const schemaVee = (window as any).__veeSchemaRenders
+  if (schemaVee) for (const k in schemaVee) schemaVee[k] = 0
 }
 
 // Vee-Validate requires useForm() to establish the provide/inject form context.
