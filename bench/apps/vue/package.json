@@ -10,7 +10,9 @@
     "@neutro/form-core": "link:../../../packages/core",
     "@neutro/form-vue": "link:../../../packages/adapters/vue",
     "vee-validate": "^4.13.2",
-    "vue": "^3.4.31"
+    "vue": "^3.4.31",
+    "zod": "^3.24.0",
+    "@vee-validate/zod": "^4.13.2"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.1.2",

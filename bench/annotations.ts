@@ -9,6 +9,9 @@ export const COMPETITOR_VERSIONS: Record<string, string> = {
   'tanstack-form': '1.33.0',
   'tanstack-form (React)': '1.33.0',
   'tanstack-form (Svelte)': '1.33.0',
+  '@hookform/resolvers': '3.10.0',       // update to match Step 1's actually-installed version
+  '@vee-validate/zod': '4.15.1',        // update to match Step 1's actually-installed version
+  '@felte/validator-zod': '1.0.18',      // update to match Step 1's actually-installed version
 }
 
 // Hand-maintained map of surface -> "why neutro/form passes" explanation, shown in the

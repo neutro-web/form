@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@felte/validator-zod':
+        specifier: ^1.0.18
+        version: 1.0.18(zod@3.25.76)
       '@neutro/form-core':
         specifier: link:../../../packages/core
         version: link:../../../packages/core
@@ -23,6 +26,9 @@ importers:
       svelte:
         specifier: ^5.0.0
         version: 5.56.4
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^4.0.0
@@ -184,6 +190,12 @@ packages:
   '@felte/core@1.4.4':
     resolution: {integrity: sha512-qXEofmfc0tKvd1MOP9T1ixoI4+u0ZcUtC7JpBfb2A/lr/mhc8HrkvVWGatrGBnNovTc4lgIKWOySVVFswa4BYg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
+  '@felte/validator-zod@1.0.18':
+    resolution: {integrity: sha512-nLhy3qhCrL14iMxIHXtIH0MckZr/dmpqRd/KcqQ6HJoT2tjvv8gPpgOGJdOR15Wfzd25n/UUr3tyX7ydgXA5xQ==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+    peerDependencies:
+      zod: ^3.2.0
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -575,6 +587,9 @@ packages:
   zimmerframe@1.1.4:
     resolution: {integrity: sha512-B58NGBEoc8Y9MWWCQGl/gq9xBCe4IiKM0a2x7GZdQKOW5Exr8S1W24J6OgM1njK8xCRGvAJIL/MxXHf6SkmQKQ==}
 
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
 snapshots:
 
   '@esbuild/aix-ppc64@0.21.5':
@@ -651,6 +666,11 @@ snapshots:
   '@felte/core@1.4.4':
     dependencies:
       '@felte/common': 1.1.9
+
+  '@felte/validator-zod@1.0.18(zod@3.25.76)':
+    dependencies:
+      '@felte/common': 1.1.9
+      zod: 3.25.76
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -977,3 +997,5 @@ snapshots:
       vite: 5.4.21
 
   zimmerframe@1.1.4: {}
+
+  zod@3.25.76: {}
