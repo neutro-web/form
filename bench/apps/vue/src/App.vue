@@ -10,6 +10,8 @@ import VeeCancelPage from './VeeCancelPage.vue'
 import NeutroArraySection from './NeutroArraySection.vue'
 import VeeArraySection from './VeeArraySection.vue'
 import CleanupPage from './CleanupPage.vue'
+import SchemaValidateNeutro from './SchemaValidateNeutro.vue'
+import SchemaValidateVee from './SchemaValidateVee.vue'
 
 const path = window.location.pathname
 
@@ -26,9 +28,16 @@ const neutroRenders: Record<string, number> = {}
 const veeRenders: Record<string, number> = {}
 ;(window as any).__veeRenders = veeRenders
 
+const neutroSchemaRenders: Record<string, number> = {}
+;(window as any).__neutroSchemaRenders = neutroSchemaRenders
+const veeSchemaRenders: Record<string, number> = {}
+;(window as any).__veeSchemaRenders = veeSchemaRenders
+
 ;(window as any).__resetRenders = () => {
   for (const k in neutroRenders) neutroRenders[k] = 0
   for (const k in veeRenders) veeRenders[k] = 0
+  for (const k in neutroSchemaRenders) neutroSchemaRenders[k] = 0
+  for (const k in veeSchemaRenders) veeSchemaRenders[k] = 0
 }
 
 // Vee-Validate requires useForm() to establish the provide/inject form context.
@@ -49,6 +58,9 @@ useVeeForm()
     <NeutroArraySection />
     <VeeArraySection />
   </div>
+
+  <SchemaValidateNeutro v-else-if="path === '/schema-validate/neutro'" />
+  <SchemaValidateVee v-else-if="path === '/schema-validate/vee'" />
 
   <!-- Re-renders page -->
   <div v-else>
