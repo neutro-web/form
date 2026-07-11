@@ -6,10 +6,11 @@ const rhfSchemaRenders: Record<string, number> = {}
 ;(window as any).__rhfSchemaRenders = rhfSchemaRenders
 
 export function SchemaValidateRhfPage() {
+  const mode = new URLSearchParams(window.location.search).get('mode') ?? 'onSubmit'
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: initialValues,
     resolver: zodResolver(zodSmallSchema),
-    mode: 'onSubmit', // validate on submit only -- matches the submit-latency spec's intent
+    mode: mode as 'onSubmit' | 'onChange',
   })
   for (const name of FIELDS) rhfSchemaRenders[name] = (rhfSchemaRenders[name] ?? 0) + 1
   return (

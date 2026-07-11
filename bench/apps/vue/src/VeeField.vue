@@ -2,7 +2,11 @@
 import { onBeforeUpdate } from 'vue'
 import { useField } from 'vee-validate'
 
-const props = defineProps<{ name: string; renders: Record<string, number> }>()
+const props = defineProps<{
+  name: string
+  renders: Record<string, number>
+  validateOnValueUpdate?: boolean
+}>()
 // Count initial render
 props.renders[props.name] = (props.renders[props.name] ?? 0) + 1
 // Count reactive re-renders
@@ -10,7 +14,9 @@ onBeforeUpdate(() => {
   props.renders[props.name] = (props.renders[props.name] ?? 0) + 1
 })
 
-const { value, handleChange } = useField<string>(props.name)
+const { value, handleChange } = useField<string>(props.name, undefined, {
+  validateOnValueUpdate: props.validateOnValueUpdate,
+})
 </script>
 
 <template>

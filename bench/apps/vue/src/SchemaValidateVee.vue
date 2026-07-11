@@ -7,8 +7,8 @@ import { zodSmallSchema, FIELDS } from './schemaValidateSchema.js'
 const veeSchemaRenders: Record<string, number> = {}
 ;(window as any).__veeSchemaRenders = veeSchemaRenders
 
-// Task 6 adds mode-passthrough wiring here (see note below) -- not declared yet
-// to avoid an unused-variable lint/dead-code flag before that wiring exists.
+const mode = new URLSearchParams(window.location.search).get('mode') ?? 'onSubmit'
+
 const { handleSubmit, errors } = useForm({
   validationSchema: toTypedSchema(zodSmallSchema),
   validateOnMount: false,
@@ -17,7 +17,13 @@ const { handleSubmit, errors } = useForm({
 
 <template>
   <section data-testid="vee-schema-form">
-    <VeeField v-for="name in FIELDS" :key="name" :name="name" :renders="veeSchemaRenders" />
+    <VeeField
+      v-for="name in FIELDS"
+      :key="name"
+      :name="name"
+      :renders="veeSchemaRenders"
+      :validate-on-value-update="mode === 'onChange'"
+    />
     <button data-testid="vee-submit" @click="handleSubmit(() => {})()">Submit</button>
     <div data-testid="vee-error" v-show="errors.field0">{{ errors.field0 }}</div>
   </section>
