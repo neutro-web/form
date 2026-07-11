@@ -15,6 +15,9 @@
   import TanStackArraySection from './TanStackArraySection.svelte'
   import FelteArraySection from './FelteArraySection.svelte'
   import CleanupPage from './CleanupPage.svelte'
+  import SchemaValidateNeutro from './SchemaValidateNeutro.svelte'
+  import SchemaValidateTanStack from './SchemaValidateTanStack.svelte'
+  import SchemaValidateFelte from './SchemaValidateFelte.svelte'
 
   const path = window.location.pathname
 
@@ -32,6 +35,12 @@
     for (const k in neutroRenders) neutroRenders[k] = 0
     for (const k in tanstackRenders) tanstackRenders[k] = 0
     for (const k in felteRenders) felteRenders[k] = 0
+    const neutroSchemaRenders = (window as any).__neutroSchemaRenders
+    const tanstackSchemaRenders = (window as any).__tanstackSchemaRenders
+    const felteSchemaRenders = (window as any).__felteSchemaRenders
+    if (neutroSchemaRenders) for (const k in neutroSchemaRenders) neutroSchemaRenders[k] = 0
+    if (tanstackSchemaRenders) for (const k in tanstackSchemaRenders) tanstackSchemaRenders[k] = 0
+    if (felteSchemaRenders) for (const k in felteSchemaRenders) felteSchemaRenders[k] = 0
   }
 
   const neutroForm = createForm({
@@ -65,6 +74,12 @@
   <NeutroArraySection />
   <TanStackArraySection />
   <FelteArraySection />
+{:else if path === '/schema-validate/neutro'}
+  <SchemaValidateNeutro />
+{:else if path === '/schema-validate/tanstack'}
+  <SchemaValidateTanStack />
+{:else if path === '/schema-validate/felte'}
+  <SchemaValidateFelte />
 {:else}
   <!-- Re-renders page -->
   <section data-testid="neutro-form">
