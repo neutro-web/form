@@ -24,6 +24,10 @@ async function attachNA(testInfo: TestInfo, library: string) {
 
 const COMBOS: Array<{ name: string; port: number; prefix: string; key: string; library: string; limit: number }> = [
   { name: 'neutro/form (React)',    port: 4173, prefix: 'neutro',   key: '__neutroSchemaRenders',   library: 'neutro/form (React)',   limit: 70 },
+  // limit: 20 is an arbitrary small ceiling, not a derived 1.5-2x value — the observed count was 0,
+  // and the calibration rule (~1.5-2x observed) is vacuous for 0. This coincides numerically with
+  // the 20-keystroke count but is unrelated to the "counted 20, matches keystrokes" red-flag pattern
+  // that applies to *observed* values, not limits.
   { name: 'react-hook-form',        port: 4173, prefix: 'rhf',      key: '__rhfSchemaRenders',      library: 'react-hook-form',       limit: 20 },
   { name: 'tanstack-form (React)',  port: 4173, prefix: 'tanstack', key: '__tanstackSchemaRenders', library: 'tanstack-form (React)', limit: 350 },
   { name: 'neutro/form (Vue)',      port: 4174, prefix: 'neutro',   key: '__neutroSchemaRenders',   library: 'neutro/form (Vue)',     limit: 55 },
