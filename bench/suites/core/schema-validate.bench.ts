@@ -2,6 +2,7 @@ import { bench, describe } from 'vitest'
 import { createAdapter as neutroAdapter } from '../../adapters/neutro.js'
 import { schemaZodSmallFixture, schemaZodLargeFixture } from '../../fixtures/schema-zod.js'
 import { schemaYupSmallFixture, schemaYupLargeFixture } from '../../fixtures/schema-yup.js'
+import { schemaClassValidatorSmallFixture, schemaClassValidatorLargeFixture } from '../../fixtures/schema-class-validator.js'
 
 describe('schema-validate/zod/small', () => {
   const a = neutroAdapter(schemaZodSmallFixture)
@@ -29,6 +30,22 @@ describe('schema-validate/yup/small', () => {
 
 describe('schema-validate/yup/large', () => {
   const a = neutroAdapter(schemaYupLargeFixture)
+  bench(a.name, async () => {
+    a.set('field0', 'x')
+    await a.validate()
+  })
+})
+
+describe('schema-validate/class-validator/small', () => {
+  const a = neutroAdapter(schemaClassValidatorSmallFixture)
+  bench(a.name, async () => {
+    a.set('field0', 'x')
+    await a.validate()
+  })
+})
+
+describe('schema-validate/class-validator/large', () => {
+  const a = neutroAdapter(schemaClassValidatorLargeFixture)
   bench(a.name, async () => {
     a.set('field0', 'x')
     await a.validate()
