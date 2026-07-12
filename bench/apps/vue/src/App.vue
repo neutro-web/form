@@ -12,6 +12,8 @@ import VeeArraySection from './VeeArraySection.vue'
 import CleanupPage from './CleanupPage.vue'
 import SchemaValidateNeutro from './SchemaValidateNeutro.vue'
 import SchemaValidateVee from './SchemaValidateVee.vue'
+import DependencyChainNeutro from './DependencyChainNeutro.vue'
+import DependencyChainVee from './DependencyChainVee.vue'
 
 const path = window.location.pathname
 
@@ -65,6 +67,9 @@ useVeeForm()
 
   <SchemaValidateNeutro v-else-if="path === '/schema-validate/neutro'" />
   <SchemaValidateVee v-else-if="path === '/schema-validate/vee'" />
+
+  <DependencyChainNeutro v-else-if="path === '/dependency-chain/neutro'" />
+  <DependencyChainVee v-else-if="path === '/dependency-chain/vee'" />
 
   <!-- Re-renders page -->
   <div v-else>
