@@ -18,6 +18,8 @@
   import SchemaValidateNeutro from './SchemaValidateNeutro.svelte'
   import SchemaValidateTanStack from './SchemaValidateTanStack.svelte'
   import SchemaValidateFelte from './SchemaValidateFelte.svelte'
+  import DependencyChainNeutro from './DependencyChainNeutro.svelte'
+  import DependencyChainTanStack from './DependencyChainTanStack.svelte'
 
   const path = window.location.pathname
 
@@ -80,6 +82,10 @@
   <SchemaValidateTanStack />
 {:else if path === '/schema-validate/felte'}
   <SchemaValidateFelte />
+{:else if path === '/dependency-chain/neutro'}
+  <DependencyChainNeutro />
+{:else if path === '/dependency-chain/tanstack'}
+  <DependencyChainTanStack />
 {:else}
   <!-- Re-renders page -->
   <section data-testid="neutro-form">
