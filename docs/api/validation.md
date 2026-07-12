@@ -41,7 +41,7 @@ const form = createForm({
 
 `zodAdapter` calls `schema.safeParse(values)`. On failure it flattens `ZodError.flatten().fieldErrors` into a `Record<string, string>` (first error message per field).
 
-> Overhead relative to the plain-function-validator baseline is benchmarked in `bench/suites/core/schema-validate.bench.ts` (`schema-validate/zod/small`, `/large`).
+> Throughput is benchmarked in `bench/suites/core/schema-validate.bench.ts` (`schema-validate/zod/small`, `/large`).
 
 ---
 
@@ -85,7 +85,7 @@ const form = createForm({
 
 `yupAdapter` calls `schema.validate(values, { abortEarly: false })` asynchronously. On a `ValidationError`, it reduces `error.inner` into a `Record<string, string>` keyed by `err.path`. Because `yup.validate` is async the adapter returns a `Promise` — the engine handles this transparently.
 
-> Overhead relative to the plain-function-validator baseline is benchmarked in `bench/suites/core/schema-validate.bench.ts` (`schema-validate/yup/small`, `/large`).
+> Throughput is benchmarked in `bench/suites/core/schema-validate.bench.ts` (`schema-validate/yup/small`, `/large`).
 
 ---
 
@@ -112,7 +112,7 @@ const form = createForm({
 
 `classValidatorAdapter` constructs an instance of `cls`, assigns the current values onto it using `Object.assign`, then calls `validate(instance)`. The resulting `ValidationError[]` array is reduced into a `Record<string, string>` using each error's `property` as the key and the first constraint message as the value. Returns a `Promise`.
 
-> Overhead relative to the plain-function-validator baseline is benchmarked in `bench/suites/core/schema-validate.bench.ts` (`schema-validate/class-validator/small`, `/large`).
+> Throughput of the real `classValidatorAdapter` (including its own `Object.assign`/flattening cost, not just `validate()`) is benchmarked in `bench/suites/core/schema-validate.bench.ts` (`schema-validate/class-validator/small`, `/large`). Not directly comparable to the `zodAdapter`/`yupAdapter` surfaces above, which measure their underlying schema libraries directly rather than the adapter wrapper.
 
 #### Nested DTOs
 
