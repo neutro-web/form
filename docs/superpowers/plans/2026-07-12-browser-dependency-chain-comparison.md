@@ -62,13 +62,17 @@ Every wiring snippet below already reflects this correction — no further chang
 
 - [ ] **Step 1: Verify TanStack Form's validator callback signature against the installed package**
 
+`@tanstack/form-core` is not hoisted to `bench/apps/react/node_modules/` under pnpm — it only resolves via the pnpm virtual store. Locate it first, then inspect:
 ```bash
 cd /Users/kofi/_/agw-form
-cat bench/apps/react/node_modules/@tanstack/form-core/package.json | grep '"version"'
-grep -n "validateField" bench/apps/react/node_modules/@tanstack/form-core/dist/*.d.ts
-grep -n "onChange" bench/apps/react/node_modules/@tanstack/form-core/dist/*.d.ts | head -20
+FORM_CORE_DIR=$(find bench/node_modules/.pnpm -maxdepth 1 -name "@tanstack+form-core@*" | head -1)
+cat "$FORM_CORE_DIR/node_modules/@tanstack/form-core/package.json" | grep '"version"'
+grep -n "validateField" "$FORM_CORE_DIR/node_modules/@tanstack/form-core/dist/"*.d.ts
+grep -n "onChange" "$FORM_CORE_DIR/node_modules/@tanstack/form-core/dist/"*.d.ts | head -20
 ```
-Confirm: (a) `FormApi` (or equivalent) exposes a `validateField(field: string, cause: 'change' | 'blur' | 'submit' | 'mount')` method callable imperatively from outside a field's own validator; (b) a field-level `validators: { onChange: (ctx) => ... }` callback receives an object containing at minimum `value` and a way to reach the owning form instance (commonly `fieldApi.form` on the callback's second argument, or `fieldApi` itself if the callback signature is `(value, fieldApi) => ...` rather than a single destructured object — check the real `.d.ts`, do not assume); (c) **`FieldApi` also exposes a separate `listeners?: { onChange?: (ctx) => void, ... }` option, distinct from `validators`**, meant for side effects rather than validation results — confirm its callback shape too (also expected to receive `fieldApi` with a `.form.validateField(...)` reachable from it). Write down the exact shapes found for both (b) and (c); Task 2 and Task 4's code below deliberately splits pure validation (`validators.onChange`, no side effects) from the forward-push cascade trigger (`listeners.onChange`, calls `fieldApi.form.validateField(...)`) — calling `validateField` from inside `validators.onChange` itself would re-enter synchronously up to 199 levels deep in one keystroke's call stack, which `listeners` avoids. **If the installed version's real shape differs from either assumption, adjust Task 2/4's `DependencyChainTanStack.tsx`/`.svelte` accordingly during those tasks**, using whatever the real, verified signatures are instead of guessing.
+(If this doesn't resolve — pnpm's virtual-store directory naming can vary by version — fall back to `find bench -path "*/@tanstack/form-core/dist/*.d.ts" -not -path "*/node_modules/.bin/*"` from the repo root.)
+
+Confirm: (a) `FormApi` (or equivalent) exposes a `validateField(field: string, cause: 'change' | 'blur' | 'submit' | 'mount')` method callable imperatively from outside a field's own validator, and specifically **whether calling it on field `j` re-invokes field `j`'s own `validators.onChange` only, or also fires field `j`'s `listeners.onChange`** — Task 2/4's code below (per round-2 plan review) puts the cascade trigger inside `validators.onChange` itself precisely because `validateField` was confirmed to only re-invoke the target's validator, not its listeners; if the installed version's real behavior differs, this may no longer be necessary, but do not restructure away from the current approach without re-confirming the chain still reaches `f199` end-to-end (per Task 2 Step 5 / Task 4 Step 4's manual check); (b) a field-level `validators: { onChange: (ctx) => ... }` callback receives an object containing at minimum `value` and a way to reach the owning form instance (commonly `fieldApi.form` on the callback's second argument, or `fieldApi` itself if the callback signature is `(value, fieldApi) => ...` rather than a single destructured object — check the real `.d.ts`, do not assume). Write down the exact shape found; Task 2 and Task 4's code below assumes `({ value, fieldApi }) => ...` with `fieldApi.form.validateField(...)` and `fieldApi.form.getFieldValue(...)` — **if the installed version's real shape differs, adjust Task 2/4's `DependencyChainTanStack.tsx`/`.svelte` accordingly during those tasks**, using whatever the real, verified signature is instead of guessing.
 
 - [ ] **Step 2: Flag the pre-existing `bench/fixtures/dependency-chain.ts` direction bug (do not fix — out of this plan's scope)**
 
@@ -253,27 +257,31 @@ export function DependencyChainTanStackPage() {
             key={i}
             name={name as any}
             validators={{
-              // Pure -- returns only the differs-check result, no side effects.
+              // Found in round-2 plan review: an earlier draft split the cascade
+              // trigger into a separate `listeners.onChange` to avoid synchronous
+              // re-entrancy -- but that's actually WRONG: `fieldApi.form.validateField()`
+              // only re-invokes the target field's OWN `validators.onChange` (this
+              // function), it does NOT re-fire that field's `listeners.onChange` --
+              // so a listeners-only trigger dies after exactly one hop (f0 -> f1),
+              // and f199 never increments. The cascade call must live HERE, inside
+              // validators.onChange, since this is the one callback validateField()
+              // actually re-invokes on the target field, which is what makes each
+              // hop's own validate() call the next hop's validate() in turn.
+              //
+              // To avoid the ORIGINAL synchronous-re-entrancy concern (calling
+              // validateField from inside this same callback would otherwise nest
+              // up to 199 stack frames deep in one keystroke's event handler),
+              // defer the cascade call to a microtask -- each hop then runs in its
+              // own turn of the microtask queue rather than nested inside the
+              // previous hop's still-executing call frame.
               onChange: ({ value, fieldApi }: any) => {
                 tanstackChainValidations[name] = (tanstackChainValidations[name] ?? 0) + 1
+                if (i < FIELD_COUNT - 1) {
+                  queueMicrotask(() => fieldApi.form.validateField(`f${i + 1}`, 'change'))
+                }
                 if (i === 0) return undefined
                 const prevValue = fieldApi.form.getFieldValue(`f${i - 1}`)
                 return value !== prevValue ? undefined : 'must differ from previous field'
-              },
-            }}
-            listeners={{
-              // Found in plan review: firing the forward-push trigger from inside
-              // validators.onChange would call validateField() synchronously and
-              // re-entrantly, up to 199 levels deep, inside one keystroke's call
-              // stack. TanStack Form's own `listeners` option exists specifically
-              // for side effects like this, decoupled from the validation pipeline
-              // -- confirmed against the installed @tanstack/form-core's FieldApi
-              // type (Task 1's Step 1 should double check this against whatever
-              // version is actually installed).
-              onChange: ({ fieldApi }: any) => {
-                if (i < FIELD_COUNT - 1) {
-                  fieldApi.form.validateField(`f${i + 1}`, 'change')
-                }
               },
             }}
           >
@@ -629,21 +637,20 @@ Same forward-push mechanism as Task 2 Step 3 (React TanStack), adapted to `@tans
     <form.Field
       {name}
       validators={{
+        // Same fix as the React DependencyChainTanStack.tsx above (round-2 plan
+        // review): the cascade trigger must live HERE, not in a separate
+        // `listeners.onChange` -- validateField() only re-invokes the target
+        // field's own validators.onChange, not its listeners, so a listeners-only
+        // trigger dies after one hop. Deferred via queueMicrotask to avoid nesting
+        // 199 stack frames synchronously inside one keystroke's event handler.
         onChange: ({ value, fieldApi }) => {
           tanstackChainValidations[name] = (tanstackChainValidations[name] ?? 0) + 1
+          if (i < FIELD_COUNT - 1) {
+            queueMicrotask(() => fieldApi.form.validateField(`f${i + 1}`, 'change'))
+          }
           if (i === 0) return undefined
           const prevValue = fieldApi.form.getFieldValue(`f${i - 1}`)
           return value !== prevValue ? undefined : 'must differ from previous field'
-        },
-      }}
-      listeners={{
-        // Same re-entrancy fix as the React DependencyChainTanStack.tsx above --
-        // the forward-push trigger lives in listeners, not validators, so it
-        // never nests inside another field's own synchronous validate call.
-        onChange: ({ fieldApi }) => {
-          if (i < FIELD_COUNT - 1) {
-            fieldApi.form.validateField(`f${i + 1}`, 'change')
-          }
         },
       }}
     >
