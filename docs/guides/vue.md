@@ -127,7 +127,7 @@ const city = useVueFormPath(props.form, cityPath)
   <input
     :value="city.value"
     @input="
-      props.form.set(cityPath, ($event.target as HTMLInputElement).value, {
+      props.form.set(cityPath.value, ($event.target as HTMLInputElement).value, {
         touch: true,
         validate: true,
       })
