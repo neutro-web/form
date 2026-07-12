@@ -8,6 +8,9 @@ import { useForm as useTsForm } from '@tanstack/react-form'
 import { SchemaValidateNeutroPage } from './SchemaValidateNeutro.js'
 import { SchemaValidateRhfPage } from './SchemaValidateRhf.js'
 import { SchemaValidateTanStackPage } from './SchemaValidateTanStack.js'
+import { DependencyChainNeutroPage } from './DependencyChainNeutro.js'
+import { DependencyChainRhfPage } from './DependencyChainRhf.js'
+import { DependencyChainTanStackPage } from './DependencyChainTanStack.js'
 
 // --- Module-level render counters (survive re-renders; exposed on window) ---
 const neutroRenders: Record<string, number> = {}
@@ -594,6 +597,15 @@ export default function App() {
       neutro: () => <SchemaValidateNeutroPage />,
       rhf: () => <SchemaValidateRhfPage />,
       tanstack: () => <SchemaValidateTanStackPage />,
+    }
+    return pages[lib]?.() ?? <div data-testid="not-found">Unknown: {lib}</div>
+  }
+  if (path.startsWith('/dependency-chain/')) {
+    const lib = path.slice('/dependency-chain/'.length)
+    const pages: Record<string, () => React.ReactElement> = {
+      neutro: () => <DependencyChainNeutroPage />,
+      rhf: () => <DependencyChainRhfPage />,
+      tanstack: () => <DependencyChainTanStackPage />,
     }
     return pages[lib]?.() ?? <div data-testid="not-found">Unknown: {lib}</div>
   }
