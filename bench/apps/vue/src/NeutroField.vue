@@ -21,7 +21,7 @@ onBeforeUpdate(() => {
 <template>
   <input
     :data-testid="`neutro-${name}`"
-    :value="value as string"
+    :value="(value as unknown) as string"
     @input="form.set(name as any, ($event.target as HTMLInputElement).value)"
   />
 </template>

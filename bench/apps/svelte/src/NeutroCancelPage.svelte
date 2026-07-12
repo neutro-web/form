@@ -10,7 +10,7 @@
   const cancelForm = createForm({
     initialValues: { email: '' },
     asyncDebounceMs: 0,
-    validator: async (values: any, _scope: any, signal: any) => {
+    validator: async (values: any, _scope: any, signal: any): Promise<Record<string, string>> => {
       await new Promise((r) => setTimeout(r, cancellationDelay(values.email)))
       if (signal?.aborted) return {}
       if (!String(values.email).includes('@')) return { email: 'Invalid email' }

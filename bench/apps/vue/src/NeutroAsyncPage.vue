@@ -8,7 +8,7 @@ const debounce = computed(() => new URLSearchParams(window.location.search).get(
 const asyncForm = createForm({
   initialValues: { email: '' },
   asyncDebounceMs: debounce.value ? 0 : 300,
-  validator: async (values, _scope, signal) => {
+  validator: async (values, _scope, signal): Promise<Record<string, string>> => {
     ;(window as any).__asyncValidationStart = performance.now()
     await new Promise(r => setTimeout(r, 200))
     if (signal?.aborted) return {}
@@ -34,7 +34,7 @@ onUnmounted(unsubscribe)
   <div>
     <input
       data-testid="async-email"
-      :value="emailValue as string"
+      :value="(emailValue as unknown) as string"
       @input="(e) => asyncForm.set('email', (e.target as HTMLInputElement).value, { validate: true })"
     />
     <span v-if="error" data-testid="async-error">{{ error }}</span>

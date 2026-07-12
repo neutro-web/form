@@ -13,7 +13,7 @@ const dependencies = Object.fromEntries(
   Array.from({ length: FIELD_COUNT - 1 }, (_, i) => [`f${i}`, [`f${i + 1}`]]),
 )
 
-function chainValidator(values: Record<string, string>, scope: string[]) {
+function chainValidator(values: Record<string, string>, scope: string[] = []) {
   const errors: Record<string, string> = {}
   for (const path of scope) {
     neutroChainValidations[path] = (neutroChainValidations[path] ?? 0) + 1

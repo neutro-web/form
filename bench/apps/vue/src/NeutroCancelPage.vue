@@ -10,7 +10,7 @@ function cancellationDelay(value: string): number {
 const cancelForm = createForm({
   initialValues: { email: '' },
   asyncDebounceMs: 0,
-  validator: async (values, _scope, signal) => {
+  validator: async (values, _scope, signal): Promise<Record<string, string>> => {
     await new Promise(r => setTimeout(r, cancellationDelay(values.email)))
     if (signal?.aborted) return {}
     if (!String(values.email).includes('@')) return { email: 'Invalid email' }
@@ -31,7 +31,7 @@ onUnmounted(unsubscribe)
   <div>
     <input
       data-testid="async-email"
-      :value="emailValue as string"
+      :value="(emailValue as unknown) as string"
       @input="(e) => cancelForm.set('email', (e.target as HTMLInputElement).value, { validate: true })"
     />
     <span v-if="error" data-testid="async-error">{{ error }}</span>

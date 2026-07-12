@@ -8,7 +8,7 @@
   const asyncForm = createForm({
     initialValues: { email: '' },
     asyncDebounceMs: debounce ? 0 : 300,
-    validator: async (values: any, _scope: any, signal: any) => {
+    validator: async (values: any, _scope: any, signal: any): Promise<Record<string, string>> => {
       ;(window as any).__asyncValidationStart = performance.now()
       await new Promise((r) => setTimeout(r, 200))
       if (signal?.aborted) return {}

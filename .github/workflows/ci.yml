@@ -43,3 +43,34 @@ jobs:
 
       - name: Build
         run: pnpm --filter "@neutro/*" run build
+
+  bench-apps-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install and type check react app
+        run: |
+          pnpm --dir bench/apps/react install --frozen-lockfile --ignore-workspace
+          pnpm --dir bench/apps/react run typecheck
+
+      - name: Install and type check vue app
+        run: |
+          pnpm --dir bench/apps/vue install --frozen-lockfile --ignore-workspace
+          pnpm --dir bench/apps/vue run typecheck
+
+      - name: Install and type check svelte app
+        run: |
+          pnpm --dir bench/apps/svelte install --frozen-lockfile --ignore-workspace
+          pnpm --dir bench/apps/svelte run typecheck

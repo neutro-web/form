@@ -18,10 +18,10 @@ onBeforeUpdate(() => {
 
 <template>
   <section data-testid="neutro-array">
-    <span v-for="(_, i) in (items as any[])" :key="i">
+    <span v-for="(_, i) in ((items as unknown) as any[])" :key="i">
       <input
         :data-testid="`neutro-array-item-${i}`"
-        :value="(items as any[])[i].v"
+        :value="((items as unknown) as any[])[i].v"
         @input="(e) => arrayForm.set(`items.${i}.v` as any, (e.target as HTMLInputElement).value)"
       />
       <button :data-testid="`neutro-array-remove-${i}`" @click="arrayForm.arrayRemove('items' as any, i)">remove</button>

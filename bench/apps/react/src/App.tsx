@@ -344,7 +344,7 @@ function makeNeutroAsyncForm(debounceMs: number) {
   return createForm({
     initialValues: { email: '' },
     asyncDebounceMs: debounceMs,
-    validator: async (values, _scope, signal) => {
+    validator: async (values, _scope, signal): Promise<Record<string, string>> => {
       window.__asyncValidationStart = performance.now()
       await new Promise(r => setTimeout(r, 200))
       if (signal?.aborted) return {}
@@ -389,7 +389,7 @@ function RhfAsyncPage() {
   return (
     <div>
       <input data-testid="async-email" {...emailProps} />
-      {errors.email && <span data-testid="async-error">{errors.email.message}</span>}
+      {errors.email && <span data-testid="async-error">{String(errors.email.message)}</span>}
     </div>
   )
 }
@@ -399,6 +399,7 @@ function FormikAsyncPage() {
     <Formik
       initialValues={{ email: '' }}
       validateOnChange
+      onSubmit={() => {}}
       validate={async (values) => {
         window.__asyncValidationStart = performance.now()
         await new Promise(r => setTimeout(r, 200))
@@ -470,7 +471,7 @@ function cancellationDelay(value: string): number {
 const neutroCancelForm = createForm({
   initialValues: { email: '' },
   asyncDebounceMs: 0,
-  validator: async (values, _scope, signal) => {
+  validator: async (values, _scope, signal): Promise<Record<string, string>> => {
     await new Promise(r => setTimeout(r, cancellationDelay(values.email)))
     if (signal?.aborted) return {}
     if (!String(values.email).includes('@')) return { email: 'Invalid email' }
@@ -507,7 +508,7 @@ function RhfCancelPage() {
   return (
     <div>
       <input data-testid="async-email" {...emailProps} />
-      {errors.email && <span data-testid="async-error">{errors.email.message}</span>}
+      {errors.email && <span data-testid="async-error">{String(errors.email.message)}</span>}
     </div>
   )
 }
@@ -517,6 +518,7 @@ function FormikCancelPage() {
     <Formik
       initialValues={{ email: '' }}
       validateOnChange
+      onSubmit={() => {}}
       validate={async (values) => {
         await new Promise(r => setTimeout(r, cancellationDelay(values.email)))
         if (!String(values.email).includes('@')) return { email: 'Invalid email' }

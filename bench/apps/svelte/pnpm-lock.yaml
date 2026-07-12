@@ -17,6 +17,9 @@ importers:
       '@neutro/form-svelte':
         specifier: link:../../../packages/adapters/svelte
         version: link:../../../packages/adapters/svelte
+      '@tanstack/form-core':
+        specifier: ^1.33.0
+        version: 1.33.0
       '@tanstack/svelte-form':
         specifier: ^1.0.0
         version: 1.33.0(svelte@5.56.4)

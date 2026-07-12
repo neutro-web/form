@@ -17,7 +17,7 @@ const dependencies = Object.fromEntries(
 // "must differ from previous field" for every field except f0. The `dependencies`
 // config above is what turns ONE form.set('f0', v, { validate: true }) call into a
 // scope containing all 200 fields -- this validator just executes each member.
-function chainValidator(values: Record<string, string>, scope: string[]) {
+function chainValidator(values: Record<string, string>, scope: string[] = []) {
   const errors: Record<string, string> = {}
   for (const path of scope) {
     neutroChainValidations[path] = (neutroChainValidations[path] ?? 0) + 1
