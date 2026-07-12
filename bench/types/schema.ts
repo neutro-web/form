@@ -41,6 +41,7 @@ export interface BrowserResult {
   mountMs?: number                      // mount-cost surface: time from navigation start to form interactive
   heapDeltaBytes?: number               // memory-churn surface: JS heap growth across mount/unmount churn, post-GC
   submitLatencyMs?: number              // schema-validate-submit surface: ms from submit click to error-visible
+  settleLatencyMs?: number              // dependency-chain-settle surface: ms from f0 change to f199's validator re-running
   error?: string
 }
 

@@ -99,4 +99,26 @@ export const ANNOTATIONS: Record<string, Record<string, Annotation>> = {
       detail: 'Formik has no first-party Zod integration (only an unofficial zod-formik-adapter package) — excluded from this Zod-specific comparison. Formik participates fully in every other browser surface.',
     },
   },
+  'dependency-chain-settle': {
+    formik: {
+      brief: 'no per-field watch/subscribe primitive',
+      detail: 'Formik has no live field-to-field subscription API to drive a manual validation cascade of this shape — excluded from this comparison. Formik participates fully in every other browser surface.',
+    },
+    felte: {
+      brief: 'no per-field watch/subscribe primitive',
+      detail: 'Felte has no field-level watch API to drive a manual validation cascade of this shape — excluded from this comparison. Felte participates fully in every other browser surface.',
+    },
+    'neutro/form (React)': {
+      brief: 'measurement floor, not an exact figure',
+      detail: 'This surface’s settle-latency measurement is bounded below by Playwright’s waitForFunction polling granularity, not by real cascade cost — for very fast libraries the reported number reflects polling overhead more than actual work. Treat the gap between neutro and the manual-wiring competitors as a floor on the true gap, not an exact figure.',
+    },
+    'neutro/form (Vue)': {
+      brief: 'measurement floor, not an exact figure',
+      detail: 'This surface’s settle-latency measurement is bounded below by Playwright’s waitForFunction polling granularity, not by real cascade cost — for very fast libraries the reported number reflects polling overhead more than actual work. Treat the gap between neutro and the manual-wiring competitors as a floor on the true gap, not an exact figure.',
+    },
+    'neutro/form (Svelte)': {
+      brief: 'measurement floor, not an exact figure',
+      detail: 'This surface’s settle-latency measurement is bounded below by Playwright’s waitForFunction polling granularity, not by real cascade cost — for very fast libraries the reported number reflects polling overhead more than actual work. Treat the gap between neutro and the manual-wiring competitors as a floor on the true gap, not an exact figure.',
+    },
+  },
 }

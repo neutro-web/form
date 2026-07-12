@@ -22,6 +22,7 @@ const SURFACE_TITLES: Record<string, string> = {
   'memory-churn': 'Memory Churn (heap delta across mount/unmount cycles, post-GC)',
   'schema-validate-rerenders': 'Schema Validation — Re-renders per 20-keystroke sequence (Zod, 10-field form)',
   'schema-validate-submit': 'Schema Validation — Submit Latency (Zod, click-to-error-visible)',
+  'dependency-chain-settle': 'Dependency Chain — Settle Latency (200-field validation cascade)',
 }
 
 const BADGE_LABEL: Record<Verdict, string> = {
@@ -73,6 +74,7 @@ function browserTable(surface: string, results: BrowserResult[]): string {
   const hasMount = results.some(r => r.mountMs != null)
   const hasHeap = results.some(r => r.heapDeltaBytes != null)
   const hasSubmitLatency = results.some(r => r.submitLatencyMs != null)
+  const hasSettleLatency = results.some(r => r.settleLatencyMs != null)
 
   const headers: string[] = ['Library']
   if (hasRender) headers.push('Renders')
@@ -82,6 +84,7 @@ function browserTable(surface: string, results: BrowserResult[]): string {
   if (hasMount) headers.push('Time to interactive')
   if (hasHeap) headers.push('Heap delta (post-GC)')
   if (hasSubmitLatency) headers.push('Submit latency')
+  if (hasSettleLatency) headers.push('Settle latency')
 
   const rows = results.map(r => {
     if (r.status === 'na') {
@@ -101,6 +104,7 @@ function browserTable(surface: string, results: BrowserResult[]): string {
     if (hasMount) cells.push(r.mountMs != null ? `${r.mountMs.toFixed(1)}ms` : '—')
     if (hasHeap) cells.push(r.heapDeltaBytes != null ? `${(r.heapDeltaBytes / 1024).toFixed(1)} KB` : '—')
     if (hasSubmitLatency) cells.push(r.submitLatencyMs != null ? `${r.submitLatencyMs.toFixed(1)}ms${reasonMarker(surface, r.library)}` : '—')
+    if (hasSettleLatency) cells.push(r.settleLatencyMs != null ? `${r.settleLatencyMs.toFixed(1)}ms${reasonMarker(surface, r.library)}` : '—')
     return `| ${cells.join(' | ')} |`
   }).join('\n')
 
