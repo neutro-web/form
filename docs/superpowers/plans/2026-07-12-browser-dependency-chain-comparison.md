@@ -205,6 +205,15 @@ function ChainField({ i, form }: { i: number; form: UseFormReturn<Record<string,
         validate: (value: string) => {
           rhfChainValidations[name] = (rhfChainValidations[name] ?? 0) + 1
           if (i < FIELD_COUNT - 1) {
+            // Synchronous-recursion tradeoff considered (round-3 plan review, same
+            // class of risk flagged for TanStack's cascade): this call re-enters
+            // the next field's own validate() synchronously, up to ~199 native
+            // stack frames deep for one keystroke. That's safely within V8's stack
+            // limit (thousands of frames), so this is accepted as-is rather than
+            // deferred -- unlike TanStack's cascade, which needed queueMicrotask
+            // for a different reason (validateField only re-invokes the target's
+            // own validator, so deferring there didn't add stack depth risk, it
+            // was required for the chain to propagate at all).
             void trigger(`f${i + 1}` as any)
           }
           if (i === 0) return true
@@ -435,6 +444,11 @@ const props = defineProps<{
   chainTriggers: Array<(() => void) | undefined>
 }>()
 
+// Synchronous-recursion tradeoff considered (round-3 plan review, same class of
+// risk flagged for RHF's trigger() and originally for TanStack's cascade): calling
+// chainTriggers[i+1]?.() re-enters the next field's own validate() synchronously,
+// up to ~199 native stack frames deep for one keystroke. Safely within engine
+// stack limits, so accepted as-is rather than deferred.
 const rule = props.i === 0 ? undefined : (value: string) => {
   const counters = (window as any).__veeChainValidations
   counters[props.name] = (counters[props.name] ?? 0) + 1
