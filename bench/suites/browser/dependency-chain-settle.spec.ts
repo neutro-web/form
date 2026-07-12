@@ -3,17 +3,25 @@ import { test, expect, type Page, type TestInfo } from '@playwright/test'
 import type { BrowserResult } from '../../types/schema.js'
 
 async function measureSettleLatency(page: Page, prefix: string, chainKey: string): Promise<number> {
+  // Capture f199's pre-keystroke count and poll for an INCREMENT from it, not just
+  // a non-zero value -- found in final whole-branch review: no library validates on
+  // mount today, so ">0" and "incremented" happen to coincide, but ">0" alone would
+  // silently report a bogus ~0ms if that ever changed (e.g. a validateOnMount config).
+  const before = await page.evaluate(
+    ([key]) => ((window as any)[key]?.f199 ?? 0),
+    [chainKey],
+  )
   await page.evaluate(() => performance.mark('chain-start'))
   await page.getByTestId(`${prefix}-field-f0`).fill('changed')
   await page.waitForFunction(
-    ([key]) => {
+    ([key, before]) => {
       const counters = (window as any)[key]
-      if (!counters || !((counters.f199 ?? 0) > 0)) return false
+      if (!counters || !((counters.f199 ?? 0) > before)) return false
       performance.mark('chain-end')
       performance.measure('chain-settle', 'chain-start', 'chain-end')
       return true
     },
-    [chainKey],
+    [chainKey, before],
     { timeout: 25000 },
   )
   return page.evaluate(() => {
