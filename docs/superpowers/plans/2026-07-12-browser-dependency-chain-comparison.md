@@ -18,10 +18,12 @@ neutro's own side of the comparison is unaffected — `compileDependencyScopes` 
 
 Every wiring snippet below already reflects this correction — no further changes needed at implementation time, just be aware this deviates from the spec document's literal wording (the spec itself is not being edited; this plan is the record of the correction, and Task 7 flags it back to the user as a disclosed deviation, same as the pre-existing core-fixture bug).
 
+**Orchestrator hand-off note (found in plan review):** Task 1's Step 1 confirms the real installed TanStack Form API shape used by Task 2 Step 3 and Task 4 Step 2. Since each task is executed by a fresh implementer subagent with zero shared context, whoever is running this plan (subagent-driven-development's controller) **must paste Task 1's Step 1 findings verbatim into Task 2's and Task 4's task briefs** before dispatching those implementers — do not assume this hands off automatically.
+
 ## Global Constraints
 
 - **Chain length**: 200 fields, `f0..f199`, matching `bench/fixtures/dependency-chain.ts`'s existing core fixture size.
-- **Chain semantics**: validation-only cascade. No field's *value* changes as a result of the cascade — only `f0`'s value ever changes (typed by the test). Every field `i > 0` has a "must differ from field `i-1`'s current value" validator; `f0` has no validator of its own.
+- **Chain semantics**: validation-only cascade. No field's *value* changes as a result of the cascade — only `f0`'s value ever changes (typed by the test). Every field `i > 0` has a "must differ from field `i-1`'s current value" validator; `f0` has no validator of its own. **"No validator" means no differs-check assertion** — every implementation (neutro/RHF/vee-validate/TanStack) still needs some hook point on `f0` to count its own validation-run and kick off the forward cascade; that hook always short-circuits before the differs-check itself (`if (i === 0) return ...`/`continue` in every wiring below), consistent across all four. This is not a bug to remove.
 - **Initial values**: `f{i} = String(i)` for all `i` — guarantees no two adjacent fields start equal (so no spurious initial validation errors), all distinct strings.
 - **Direction**: `f0 → f1 → f2 → ... → f199` (forward). neutro's `dependencies` config: `{ f0: ['f1'], f1: ['f2'], ..., f198: ['f199'] }` — key is the *trigger* field, array is what also gets validated. Do **not** copy `bench/fixtures/dependency-chain.ts`'s `{ f{i+1}: [f{i}] }` shape — that fixture is backward relative to its own `set('f0', ...)` call (a real, pre-existing bug — see Task 1, flag only, do not fix).
 - **Neutro's validate-trigger mechanism**: `form.set('f0', value, { validate: true })` on `f0`'s `onChange` — not `validationMode`, which only gates `form.connect()`-wired fields and is irrelevant to the plain `onChange={e => form.set(...)}` pattern used here.
@@ -66,7 +68,7 @@ cat bench/apps/react/node_modules/@tanstack/form-core/package.json | grep '"vers
 grep -n "validateField" bench/apps/react/node_modules/@tanstack/form-core/dist/*.d.ts
 grep -n "onChange" bench/apps/react/node_modules/@tanstack/form-core/dist/*.d.ts | head -20
 ```
-Confirm: (a) `FormApi` (or equivalent) exposes a `validateField(field: string, cause: 'change' | 'blur' | 'submit' | 'mount')` method callable imperatively from outside a field's own validator; (b) a field-level `validators: { onChange: (ctx) => ... }` callback receives an object containing at minimum `value` and a way to reach the owning form instance (commonly `fieldApi.form` on the callback's second argument, or `fieldApi` itself if the callback signature is `(value, fieldApi) => ...` rather than a single destructured object — check the real `.d.ts`, do not assume). Write down the exact shape found; Task 2 and Task 4's code below assumes `({ value, fieldApi }) => ...` with `fieldApi.form.validateField(...)` and `fieldApi.form.getFieldValue(...)` — **if the installed version's real shape differs, adjust Task 2/4's `DependencyChainTanStack.tsx`/`.svelte` accordingly during those tasks**, using whatever the real, verified signature is instead of guessing.
+Confirm: (a) `FormApi` (or equivalent) exposes a `validateField(field: string, cause: 'change' | 'blur' | 'submit' | 'mount')` method callable imperatively from outside a field's own validator; (b) a field-level `validators: { onChange: (ctx) => ... }` callback receives an object containing at minimum `value` and a way to reach the owning form instance (commonly `fieldApi.form` on the callback's second argument, or `fieldApi` itself if the callback signature is `(value, fieldApi) => ...` rather than a single destructured object — check the real `.d.ts`, do not assume); (c) **`FieldApi` also exposes a separate `listeners?: { onChange?: (ctx) => void, ... }` option, distinct from `validators`**, meant for side effects rather than validation results — confirm its callback shape too (also expected to receive `fieldApi` with a `.form.validateField(...)` reachable from it). Write down the exact shapes found for both (b) and (c); Task 2 and Task 4's code below deliberately splits pure validation (`validators.onChange`, no side effects) from the forward-push cascade trigger (`listeners.onChange`, calls `fieldApi.form.validateField(...)`) — calling `validateField` from inside `validators.onChange` itself would re-enter synchronously up to 199 levels deep in one keystroke's call stack, which `listeners` avoids. **If the installed version's real shape differs from either assumption, adjust Task 2/4's `DependencyChainTanStack.tsx`/`.svelte` accordingly during those tasks**, using whatever the real, verified signatures are instead of guessing.
 
 - [ ] **Step 2: Flag the pre-existing `bench/fixtures/dependency-chain.ts` direction bug (do not fix — out of this plan's scope)**
 
@@ -102,8 +104,8 @@ Write a short report (no file, just the task's return value/summary) covering: t
 
 ```tsx
 // bench/apps/react/src/DependencyChainNeutro.tsx
-import { useSyncExternalStore } from 'react'
 import { createForm } from '@neutro/form-core'
+import { useFormPath } from '@neutro/form-react'
 
 const FIELD_COUNT = 200
 const FIELDS = Array.from({ length: FIELD_COUNT }, (_, i) => `f${i}`)
@@ -140,10 +142,9 @@ const form = createForm({
 })
 
 function ChainField({ name }: { name: string }) {
-  const value = useSyncExternalStore(
-    (cb) => form.subscribeToPath(name as any, cb),
-    () => form.get(name as any),
-  )
+  // Reuses the same @neutro/form-react hook the rest of this app's NeutroField
+  // already uses (see App.tsx) -- no need to hand-roll useSyncExternalStore here.
+  const value = useFormPath(form, name as any)
   return (
     <input
       data-testid={`neutro-field-${name}`}
@@ -252,14 +253,27 @@ export function DependencyChainTanStackPage() {
             key={i}
             name={name as any}
             validators={{
+              // Pure -- returns only the differs-check result, no side effects.
               onChange: ({ value, fieldApi }: any) => {
                 tanstackChainValidations[name] = (tanstackChainValidations[name] ?? 0) + 1
-                if (i < FIELD_COUNT - 1) {
-                  fieldApi.form.validateField(`f${i + 1}`, 'change')
-                }
                 if (i === 0) return undefined
                 const prevValue = fieldApi.form.getFieldValue(`f${i - 1}`)
                 return value !== prevValue ? undefined : 'must differ from previous field'
+              },
+            }}
+            listeners={{
+              // Found in plan review: firing the forward-push trigger from inside
+              // validators.onChange would call validateField() synchronously and
+              // re-entrantly, up to 199 levels deep, inside one keystroke's call
+              // stack. TanStack Form's own `listeners` option exists specifically
+              // for side effects like this, decoupled from the validation pipeline
+              // -- confirmed against the installed @tanstack/form-core's FieldApi
+              // type (Task 1's Step 1 should double check this against whatever
+              // version is actually installed).
+              onChange: ({ fieldApi }: any) => {
+                if (i < FIELD_COUNT - 1) {
+                  fieldApi.form.validateField(`f${i + 1}`, 'change')
+                }
               },
             }}
           >
@@ -427,21 +441,27 @@ const { value, validate } = useField<string>(props.name, rule, { validateOnValue
 
 onMounted(() => {
   props.chainTriggers[props.i] = () => { void validate() }
-  // Expose this field's live value on a shared window map so downstream fields'
-  // rule closures (which run later, in response to a trigger call, not a value
-  // watch) can read "the previous field's current value" without vee-validate
-  // requiring a second useField registration for the same field name.
   const values = ((window as any).__veeChainValues ??= {})
   values[props.name] = value.value
 })
+
+// Deliberately NOT using v-model here (found in plan review): v-model attaches its
+// own internal input-event listener via the vModelText directive, separate from a
+// template @input handler on the same element -- whether the directive's listener
+// (which updates `value`) or an explicit @input handler runs first on a given
+// keystroke is unspecified ordering, not a documented Vue guarantee. Driving both
+// `value` and the window map from ONE explicit handler removes that race entirely.
+function onInput(e: Event) {
+  const v = (e.target as HTMLInputElement).value
+  value.value = v
+  const values = ((window as any).__veeChainValues ??= {})
+  values[props.name] = v
+  if (props.i === 0) props.chainTriggers[1]?.()
+}
 </script>
 
 <template>
-  <input
-    :data-testid="`vee-field-${name}`"
-    v-model="value"
-    @input="() => { const v = ((window as any).__veeChainValues ??= {}); v[name] = value }"
-  />
+  <input :data-testid="`vee-field-${name}`" :value="value" @input="onInput" />
 </template>
 ```
 
@@ -480,20 +500,7 @@ const chainTriggers: Array<(() => void) | undefined> = []
   </section>
 </template>
 ```
-`f0`'s own `ChainFieldVee` instance (`i === 0`) has no `rule` (per the Global Constraints, `f0` has no validator) — its input is a plain `v-model`-bound field. Typing into it fires the template's `@input` handler, which writes the new value into `window.__veeChainValues.f0`, but does **not** itself call `chainTriggers[1]`. Add one more explicit kickoff: change `f0`'s template `@input` in `ChainFieldVee.vue` to also trigger field 1 when `props.i === 0`:
-```vue
-<!-- ChainFieldVee.vue's template, revised to handle the i===0 kickoff -->
-<template>
-  <input
-    :data-testid="`vee-field-${name}`"
-    v-model="value"
-    @input="() => {
-      const v = ((window as any).__veeChainValues ??= {}); v[name] = value
-      if (i === 0) chainTriggers[1]?.()
-    }"
-  />
-</template>
-```
+`f0`'s own `ChainFieldVee` instance (`i === 0`) has no `rule` (per the Global Constraints, `f0` has no validator) — its input is driven by the `onInput` handler defined in Step 2 above, which already checks `if (props.i === 0) props.chainTriggers[1]?.()` to kick off the cascade. No further template changes needed here.
 
 - [ ] **Step 4: Wire the routing switch in `App.vue`**
 
@@ -624,12 +631,19 @@ Same forward-push mechanism as Task 2 Step 3 (React TanStack), adapted to `@tans
       validators={{
         onChange: ({ value, fieldApi }) => {
           tanstackChainValidations[name] = (tanstackChainValidations[name] ?? 0) + 1
-          if (i < FIELD_COUNT - 1) {
-            fieldApi.form.validateField(`f${i + 1}`, 'change')
-          }
           if (i === 0) return undefined
           const prevValue = fieldApi.form.getFieldValue(`f${i - 1}`)
           return value !== prevValue ? undefined : 'must differ from previous field'
+        },
+      }}
+      listeners={{
+        // Same re-entrancy fix as the React DependencyChainTanStack.tsx above --
+        // the forward-push trigger lives in listeners, not validators, so it
+        // never nests inside another field's own synchronous validate call.
+        onChange: ({ fieldApi }) => {
+          if (i < FIELD_COUNT - 1) {
+            fieldApi.form.validateField(`f${i + 1}`, 'change')
+          }
         },
       }}
     >
@@ -687,9 +701,8 @@ git commit -m "bench(dependency-chain): add Svelte routes for neutro/tanstack"
 
 - [ ] **Step 1: Widen `BrowserResult`**
 
-In `bench/types/schema.ts`, add one field after `submitLatencyMs`:
+In `bench/types/schema.ts`'s `BrowserResult` interface, `submitLatencyMs?: number` already exists (added by the prior schema-validate-comparison plan) — **do not re-add it**. Add exactly one new line directly after it:
 ```ts
-submitLatencyMs?: number              // schema-validate-submit surface: ms from submit click to error-visible
 settleLatencyMs?: number              // dependency-chain-settle surface: ms from f0 change to f199's validator re-running
 ```
 
@@ -741,13 +754,15 @@ In `bench/annotations.ts`'s `ANNOTATIONS` object, add:
 ```
 Check `reasonMarker`'s/`ANNOTATIONS`' actual TypeScript shape in `bench/annotations.ts` before pasting this — the existing entries use a `brief`/`detail` pair keyed by library name; the three `neutro/form (...)` entries above are annotating an `status: 'ok'` row (not an N/A row), so confirm `reasonMarker(surface, library)` actually renders a footnote marker for `ok`-status rows too (check its call sites in `browserTable()` — the `settleLatencyMs` cell push above already calls `reasonMarker` unconditionally, so this should Just Work, but verify by reading `reasonMarker`'s implementation, not assuming).
 
-- [ ] **Step 5: Type-check**
+- [ ] **Step 5: Type-check `bench/`'s own scripts/suites (does NOT cover the new app components — see note)**
 
 ```bash
 cd /Users/kofi/_/agw-form/bench
 pnpm exec tsc --noEmit
 ```
 Expected: clean, matching the pre-existing noise pattern already documented in the item-3 plan's Task 5 (missing `@types/node` errors in unrelated files) — confirm via `git stash` + re-run that no *new* errors appear, same technique used previously.
+
+**Disclosed gap (found in plan review): this command provides zero type-checking for Tasks 2-4's new files.** `bench/tsconfig.json`'s `exclude` list includes `"apps"`, so this `tsc --noEmit` run never includes anything under `bench/apps/*/src/`. None of the three bench apps wire a type-check script either (`vue-tsc`/`svelte-check` are installed as devDependencies in the Vue/Svelte apps but never invoked by any package.json script; the React app has no type-check tooling at all). This is a known, pre-existing gap in this repo's bench tooling, not something this plan is responsible for fixing — the only real safety net for Tasks 2-4's code is `vite build` succeeding (which only proves esbuild could strip the types, not that they're correct) plus each task's manual browser-console verification step actually exercising the cascade. Do not read a green `tsc --noEmit` here as having validated the new `.tsx`/`.vue`/`.svelte` files' types — it hasn't. Flag this to the user in Task 7's final summary as a known gap, same as the other disclosed deviations in this plan.
 
 - [ ] **Step 6: Commit**
 
@@ -886,4 +901,4 @@ Expected: all green (this work is bench-only, so the core monorepo pipeline shou
 
 - [ ] **Step 5: Update release-gate memory, including both disclosed deviations**
 
-Update the project memory `project_v050_release_gate`, marking item 4 (browser dependency-chain comparison) as RESOLVED, following the same format used for items 1, 2, 3, and 7: summary of what was added, the settle-latency metric and its measurement-bias caveat, Formik/Felte's N/A treatment, any real findings about neutro's relative performance, **the forward-push-trigger-chain correction discovered while writing this plan** (documented at the top of this plan file — why "watch the previous field's value" couldn't work under this spec's validation-only semantics, and what was used instead), **the pre-existing `bench/fixtures/dependency-chain.ts` direction bug flagged in Task 1** (a real, unfixed bug in a sibling core benchmark, out of this plan's scope — worth a follow-up), and confirmation of local-main-unpushed status unless the user has since said otherwise.
+Update the project memory `project_v050_release_gate`, marking item 4 (browser dependency-chain comparison) as RESOLVED, following the same format used for items 1, 2, 3, and 7: summary of what was added, the settle-latency metric and its measurement-bias caveat, Formik/Felte's N/A treatment, any real findings about neutro's relative performance, **the forward-push-trigger-chain correction discovered while writing this plan** (documented at the top of this plan file — why "watch the previous field's value" couldn't work under this spec's validation-only semantics, and what was used instead), **the pre-existing `bench/fixtures/dependency-chain.ts` direction bug flagged in Task 1** (a real, unfixed bug in a sibling core benchmark, out of this plan's scope — worth a follow-up), **the disclosed `tsc --noEmit` coverage gap from Task 5** (bench's tsconfig excludes `apps/`, so the new route components have no compile-time type-checking safety net, only `vite build` + manual verification), and confirmation of local-main-unpushed status unless the user has since said otherwise.
