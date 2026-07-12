@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-12
 **Status:** Draft — pending user review
-**Scope:** `bench/fixtures/`, `bench/suites/core/`, `bench/tsconfig.json`, `bench/package.json`, `docs/api/validation.md`. No docs/benchmarks page changes, no browser surface, no changes to `classValidatorAdapter` itself.
+**Scope:** `bench/fixtures/`, `bench/suites/core/`, `bench/package.json`, `docs/api/validation.md`. No docs/benchmarks page changes, no browser surface, no changes to `classValidatorAdapter` itself, no `bench/tsconfig.json` change (see "Round-1-review correction" in Design §3 below — the originally-proposed decorator-metadata tsconfig flags turned out to be unnecessary).
 
 This is v0.5.0 release-gate item 5 (see the `project_v050_release_gate` memory). Items 1-4 and 7 are resolved; item 6 (nested arrays at scale) remains after this.
 
@@ -18,10 +18,9 @@ Separately: none of the three adapters' docs mention that benchmark coverage exi
 
 ### 1. New fixture: `bench/fixtures/schema-class-validator.ts`
 
-class-validator is decorator-based, so the 100-field "large" DTO can't be hand-written per field the way `z.object({...})`/`yup.object({...})` are. Decorators are applied programmatically in a loop instead — the same shape of solution the zod/yup fixtures already use (`Object.fromEntries(Array.from({length}, ...))`), just applied to `Reflect`-style decorator calls instead of a schema-builder object:
+class-validator is decorator-based, so the 100-field "large" DTO can't be hand-written per field the way `z.object({...})`/`yup.object({...})` are. Decorators are applied programmatically in a loop instead — the same shape of solution the zod/yup fixtures already use (`Object.fromEntries(Array.from({length}, ...))`), just applied to decorator-factory calls instead of a schema-builder object. `IsString()`/`MinLength(1)` are ordinary property-decorator factories (`(target, propertyKey) => void`); TypeScript's `@Foo` syntax is sugar for calling that function directly, so `IsString()(Dto.prototype, key)` is functionally identical to `@IsString() field: string` for class-validator's purposes — no special compiler flag is required to apply a decorator this way, it's plain JS:
 
 ```ts
-import 'reflect-metadata'
 import { IsString, MinLength, validate } from 'class-validator'
 import { classValidatorAdapter } from '@neutro/form-core'
 import type { FormFixture } from '../adapters/interface.js'
@@ -50,7 +49,9 @@ export const schemaClassValidatorLargeFixture: FormFixture = {
 }
 ```
 
-Validation rule (`IsString` + `MinLength(1)`, i.e. "non-empty string") matches Zod's `z.string().min(1)` and Yup's `.required()` on the existing fixtures, so the three schema libraries' relative overhead stays comparable — same field counts (10/100), same rule strictness, same `initialValues` shape (`'x'` per field, already valid — matches the existing fixtures' convention of measuring the passing-validation path).
+Validation rule (`IsString` + `MinLength(1)`, i.e. "non-empty string") matches Zod's `z.string().min(1)` and Yup's `.required()` on the existing fixtures — same field counts (10/100), same rule strictness, same `initialValues` shape (`'x'` per field, already valid — matches the existing fixtures' convention of measuring the passing-validation path).
+
+**Round-1-review correction — measurement boundary is NOT apples-to-apples with zod/yup, and that's deliberate:** `bench/fixtures/schema-zod.ts` and `bench/fixtures/schema-yup.ts` do not call `zodAdapter`/`yupAdapter` at all — both hand-roll their own `toErrors()` conversion directly from `schema.safeParse()`/`schema.validate()`, bypassing neutro's real adapter functions entirely. This fixture does the opposite on purpose: it wraps the real `classValidatorAdapter`, so this surface measures `classValidatorAdapter`'s own `Object.assign(new cls(), values)` + `flattenClassValidationErrors` cost *in addition to* `validate()`, not just the raw class-validator call. That's an intentional divergence from the zod/yup fixtures' pattern, not an oversight — the Problem section's entire premise is that `classValidatorAdapter` itself (unlike `zodAdapter`/`yupAdapter`, which the existing benches never actually exercise) has never been measured, so this is the one case where exercising the real adapter is the point. Concretely: **do not treat `schema-validate/class-validator/*` as numerically comparable to `schema-validate/zod/*`/`schema-validate/yup/*`** — a slower class-validator number could come from `classValidatorAdapter`'s wrapper cost, class-validator's own reflection cost, or both, and the zod/yup numbers have no equivalent wrapper cost baked in to compare against. Report the three surfaces' numbers side by side for reference, but do not draw a "class-validator is N% slower than zod/yup" conclusion from them without first isolating which layer (adapter wrapper vs. underlying library) the delta comes from.
 
 `classValidatorAdapter` itself is unmodified — this spec is benchmark-only, not an API change.
 
@@ -80,8 +81,8 @@ Same `set()` + `await validate()` loop as the existing zod/yup blocks — no new
 
 ### 3. Tooling changes (isolated to `bench/`)
 
-- `bench/tsconfig.json`: add `"experimentalDecorators": true` and `"emitDecoratorMetadata": true` to `compilerOptions`. Scoped to `bench/`'s own tsconfig only — no change to the root `tsconfig.json` or any `packages/*` tsconfig, since `classValidatorAdapter` itself takes a pre-validated `ValidationErrorLike[]` and has no decorator dependency of its own.
-- `bench/package.json`: add `class-validator` and `reflect-metadata` to `devDependencies`, matching how `zod`/`yup` are already bench devDependencies (not workspace-shared — bench has its own lockfile per `CLAUDE.md`'s Benchmark Suite section).
+- `bench/package.json`: add `"class-validator": "^0.15.1"` to `devDependencies`, version-pinned to match the file's existing convention (every current entry — `"zod": "^3.24.0"`, `"yup": "^1.4.0"`, `"@playwright/test": "^1.45.0"`, etc. — is pinned). Not workspace-shared — bench has its own lockfile per `CLAUDE.md`'s Benchmark Suite section.
+- **No `bench/tsconfig.json` change, and no `reflect-metadata` dependency.** The original draft of this spec proposed adding `experimentalDecorators`/`emitDecoratorMetadata` to `bench/tsconfig.json` plus a `reflect-metadata` devDependency and side-effect import, reasoning that class-validator's decorators would need them. Round-1 adversarial review found this unnecessary and internally inconsistent with the fixture code in §1: that code never uses TypeScript's `@Foo` decorator *syntax* anywhere (it calls decorator factories as plain functions, `IsString()(Dto.prototype, key)`), so there is no decorator syntax for `experimentalDecorators` to transform in the first place. Separately, `emitDecoratorMetadata`'s `design:type` reflection requires a statically-declared, compiler-visible property to attach metadata to — `class Dto {}` has no such declarations, so the metadata could never be emitted for `field0..fieldN` even if decorator syntax were used. And confirmed via `npm view class-validator@0.15.1 dependencies`: the currently-published class-validator release has no dependency on `reflect-metadata` at all, and `IsString`/`MinLength` store their metadata via class-validator's own internal `MetadataStorage` (keyed by `target`/`propertyName`), not via `design:type` reflection — so `reflect-metadata` was never actually required by this fixture's technique. Both were dropped.
 
 ### 4. Retroactive docs note in `docs/api/validation.md`
 
@@ -99,14 +100,14 @@ Add one sentence under each of the three existing adapter sections (`zodAdapter`
 
 ## Expected outcome / hypothesis
 
-Per the 2026-07-02 spec's framing (still the operative hypothesis here): this class of benchmark has the highest chance in this release cycle of surfacing a real, fixable inefficiency in neutro's own adapter code, because `classValidatorAdapter`'s `Object.assign(new cls(), values)` + `await validate(instance)` pattern has never been measured against real class-validator machinery before. If `schema-validate/class-validator/*` comes back surprising relative to `schema-validate/zod/*`/`schema-validate/yup/*` (accounting for class-validator's own known reflection overhead, which is real and expected to show up as *some* delta), that is a "stop and profile before concluding it's architectural" trigger — same discipline as the 2026-07-02 spec and the v0.5.0 array-ops/bundle-size investigations — not just a number to record and move on from.
+Per the 2026-07-02 spec's framing (still the operative hypothesis here): this class of benchmark has the highest chance in this release cycle of surfacing a real, fixable inefficiency in neutro's own adapter code, because `classValidatorAdapter`'s `Object.assign(new cls(), values)` + `await validate(instance)` pattern has never been measured against real class-validator machinery before — unlike `zodAdapter`/`yupAdapter`, whose real code the existing zod/yup benches don't actually exercise (see the Design §1 "measurement boundary" note above). If `schema-validate/class-validator/*` comes back surprising in absolute terms (not "relative to zod/yup" — those numbers aren't measuring the same layer, per §1), that is a "stop and profile before concluding it's architectural" trigger — same discipline as the 2026-07-02 spec and the v0.5.0 array-ops/bundle-size investigations. Profiling here specifically means isolating `classValidatorAdapter`'s own wrapper cost (`Object.assign` + `flattenClassValidationErrors`) from the underlying `validate()` call's cost, e.g. by timing a bare `validate(instance)` call against the full `classValidatorAdapter(...)`-wrapped call — not just eyeballing the class-validator number against zod/yup's.
 
 ## Verification
 
 - `pnpm --dir bench run bench:core` (or `bench:core:sample` for a quick local check) — confirm `schema-validate/class-validator/small` and `/large` report sane, non-error numbers alongside the existing zod/yup blocks.
 - `pnpm docs:build` — confirm the three one-line additions to `docs/api/validation.md` render cleanly (no broken Markdown, no VitePress build warnings introduced).
 - Full pipeline: `pnpm lint && pnpm exec tsc --noEmit && pnpm build && pnpm test` (per `CLAUDE.md`'s pre-push checklist).
-- If the class-validator number is surprising relative to zod/yup (see "Expected outcome" above): profile before writing any conclusion into a commit message or this spec's own record.
+- If the class-validator number is surprising in absolute terms (see "Expected outcome" above — not a direct comparison against zod/yup, which measure a different layer): profile before writing any conclusion into a commit message or this spec's own record.
 
 ## Out of Scope
 
