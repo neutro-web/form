@@ -28,6 +28,7 @@
     "@neutro/form-core": "link:../packages/core",
     "@playwright/test": "^1.45.0",
     "@tanstack/react-form": "^1.33.0",
+    "class-validator": "^0.15.1",
     "cross-env": "^7.0.3",
     "esbuild": "^0.24.0",
     "felte": "^1.3.0",
