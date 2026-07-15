@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Scope is limited to `packages/core/test/`, `bench/fixtures/`, `bench/suites/core/`. A fix to `packages/core/src/features/array-ops.ts` and/or `packages/core/src/engine.ts` is in scope **only if** Phase 1 finds a real bug — do not touch these files otherwise.
+- Repo-code scope is limited to `packages/core/test/`, `bench/fixtures/`, `bench/suites/core/`. A fix to `packages/core/src/features/array-ops.ts` and/or `packages/core/src/engine.ts` is in scope **only if** Phase 1 finds a real bug — do not touch these files otherwise. Separately, Task 4 Step 4 updates the out-of-tree v0.5.0 release-gate memory file (`/Users/kofi/.claude/projects/-Users-kofi---agw-form/memory/project_v050_release_gate.md`) to close out this item — this is a deliberate tracking update, not repo code, and does not count against the repo-code scope above.
 - No changes to `bench/suites/correctness/` (the cross-library Scorecard suite) — this item is neutro-only engine correctness, not a competitor comparison.
 - No browser-level benchmarking.
 - No `docs/benchmarks/index.md` changes, unless Phase 2's numbers are genuinely surprising relative to the existing flat-array `array-ops-scale` baseline — if so, stop and flag it to the user before deciding whether it's worth a docs mention (same "stop and investigate" discipline used for v0.5.0 items 5 and 7). Do not add a docs mention unilaterally.
@@ -60,6 +60,8 @@ form.setErrors({ 'cube.0.0.3': 'bad' } as Partial<Record<Path<CubeShape>, string
 ```
 
 `groups` needs no casts anywhere — every level there is object-wrapped and types cleanly.
+
+**Round-1-review note:** the pipeline's `pnpm exec tsc --noEmit` does not type-check `nested-array-ops.test.ts` — the root `tsconfig.json` excludes `**/*.test.ts`, and `packages/core/tsconfig.json` (cited above for the cast verification) only `include`s `src/**/*`. `vitest run` transpiles via esbuild and does not type-check either. The cast verification above was done by compiling a throwaway file directly against `packages/core/tsconfig.json`; the plan's tasks don't re-verify this. If a task's implementer changes any of the cast expressions, re-verify by writing a throwaway `.ts` file under `packages/core/src/` (not `test/`) with the modified snippet and running `pnpm exec tsc --noEmit -p packages/core/tsconfig.json` against it, then delete the throwaway file — the same method used to derive this plan's casts.
 
 ---
 
@@ -386,7 +388,7 @@ Expected: 3 passed. Same escalation rule as Step 2 on failure.
 - [ ] **Step 8: Run the whole cube describe block, verify all 12 cases pass**
 
 Run: `pnpm exec vitest run packages/core/test/nested-array-ops.test.ts -t "nested-array-ops: cube"`
-Expected: 12 passed, pristine output (no warnings). Same escalation rule as Step 2 on failure — if fixing a real bug, re-run this same command after the fix to confirm, then also run `pnpm exec vitest run packages/core/test/` (the full package suite) to confirm no regression in the existing single-level array tests before continuing.
+Expected: 12 passed, pristine output apart from the pre-existing, always-present `.npmrc`/`${NPM_TOKEN}` env warning (unrelated to this work — do not treat it as a finding). Same escalation rule as Step 2 on failure — if fixing a real bug, re-run this same command after the fix to confirm, then also run `pnpm exec vitest run packages/core/test/` (the full package suite) to confirm no regression in the existing single-level array tests before continuing.
 
 - [ ] **Step 9: Commit**
 
@@ -718,7 +720,7 @@ Expected: 3 passed. Same escalation rule as Task 1 Step 2 on failure.
 - [ ] **Step 8: Run the whole groups describe block, verify all 12 cases pass**
 
 Run: `pnpm exec vitest run packages/core/test/nested-array-ops.test.ts -t "nested-array-ops: groups"`
-Expected: 12 passed, pristine output. Same escalation rule as Step 2 on failure.
+Expected: 12 passed, pristine output apart from the pre-existing `.npmrc`/`${NPM_TOKEN}` env warning. Same escalation rule as Step 2 on failure.
 
 - [ ] **Step 9: Run the full new file (24 cases) and the full core package suite**
 
@@ -843,7 +845,8 @@ Expected: all 4 `array-ops-nested/*` blocks report real timings with no errors.
 - [ ] **Step 4: Compare against the existing flat-array numbers**
 
 Run: `pnpm --dir bench exec vitest bench suites/core/array-ops-scale.bench.ts`
-Compare the `remove-start`/`move` timings there against this task's `remove-outer`/`move-outer` timings (comparable worst-case shift sizes at matched ~500-leaf-path scale). If the nested numbers are within the same order of magnitude, no further action is needed — this is the expected outcome and matches the "no docs/benchmarks page changes" default from the Global Constraints. If the nested numbers are surprising (e.g. more than roughly an order of magnitude worse, suggesting non-linear cost from the extra nesting level), STOP and report the specific numbers to the user before deciding whether a `docs/benchmarks/index.md` mention is warranted — do not add one unilaterally.
+
+**Round-1-review correction:** `array-ops-scale.bench.ts` only benchmarks `arrayRemove` at scale (`remove-start`/`remove-end`/`remove-start-with-unrelated-fields`) — there is no scale-matched `arrayMove` baseline anywhere in the codebase (`array-ops.bench.ts`'s `array-ops/move` block moves a 20-item array, not ~500-scale). Compare only `remove-outer` against `remove-start` (matching worst-case shift sizes at matched ~500-leaf-path scale) — this comparison is meaningful. `move-outer`/`move-inner` have no prior baseline to compare against; treat their numbers as new baselines, not a before/after comparison. If you want a rough sanity check on the move numbers, `array-ops/move` in `array-ops.bench.ts` gives an order-of-magnitude reference at a much smaller (20-item, single-level) scale — note explicitly in your report that it is not scale-matched, don't present it as equivalent. If the `remove-outer` vs `remove-start` numbers are within the same order of magnitude, no further action is needed — this is the expected outcome and matches the "no docs/benchmarks page changes" default from the Global Constraints. If any of the four numbers are surprising (e.g. more than roughly an order of magnitude worse than what a linear-in-shifted-leaf-count model would predict), STOP and report the specific numbers to the user before deciding whether a `docs/benchmarks/index.md` mention is warranted — do not add one unilaterally.
 
 - [ ] **Step 5: Commit**
 
