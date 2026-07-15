@@ -276,3 +276,274 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
     });
   });
 });
+
+type GroupsShape = {
+  groups: { items: { notes: string[] }[] }[];
+};
+
+function makeGroups(): GroupsShape['groups'] {
+  return Array.from({ length: 3 }, (_, g) => ({
+    items: Array.from({ length: 3 }, (_, i) => ({
+      notes: Array.from({ length: 4 }, (_, n) => `g${g}-i${i}-n${n}`),
+    })),
+  }));
+}
+
+function createGroupsForm() {
+  return createForm<GroupsShape>({ initialValues: { groups: makeGroups() } });
+}
+
+describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
+  describe('arrayRemove', () => {
+    it('outer level: relocates state from groups.1.items.0.notes.0 to groups.0.items.0.notes.0', () => {
+      const form = createGroupsForm();
+      form.set('groups.1.items.0.notes.0', 'X', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'bad' });
+
+      form.arrayRemove('groups', 0);
+
+      const state = form.getState();
+      expect(state.errors['groups.0.items.0.notes.0']).toBe('bad');
+      expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
+      expect(state.dirty['groups.0.items.0.notes.0']).toBe(true);
+      expect(state.errors['groups.1.items.0.notes.0']).toBeUndefined();
+    });
+
+    it('middle level: relocates state from groups.0.items.2.notes.0 to groups.0.items.1.notes.0, leaves sibling group groups.1 undisturbed', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.2.notes.0', 'X', { touch: true });
+      form.setErrors({ 'groups.0.items.2.notes.0': 'bad' });
+      form.set('groups.1.items.0.notes.0', 'Y', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'sibling' });
+
+      form.arrayRemove('groups.0.items', 1);
+
+      const state = form.getState();
+      expect(state.errors['groups.0.items.1.notes.0']).toBe('bad');
+      expect(state.errors['groups.0.items.2.notes.0']).toBeUndefined();
+      expect(state.errors['groups.1.items.0.notes.0']).toBe('sibling');
+    });
+
+    it('innermost level: relocates state from groups.0.items.1.notes.3 to groups.0.items.1.notes.2, leaves sibling item and sibling group undisturbed', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.1.notes.3', 'X', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.3': 'bad' });
+      form.set('groups.0.items.0.notes.0', 'Y', { touch: true });
+      form.setErrors({ 'groups.0.items.0.notes.0': 'sibling-item' });
+      form.set('groups.1.items.0.notes.0', 'Z', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'sibling-group' });
+
+      form.arrayRemove('groups.0.items.1.notes', 2);
+
+      const state = form.getState();
+      expect(state.errors['groups.0.items.1.notes.2']).toBe('bad');
+      expect(state.errors['groups.0.items.1.notes.3']).toBeUndefined();
+      expect(state.errors['groups.0.items.0.notes.0']).toBe('sibling-item');
+      expect(state.errors['groups.1.items.0.notes.0']).toBe('sibling-group');
+    });
+  });
+
+  describe('arrayMove', () => {
+    it('outer level: groups.0->2, groups.1->0, groups.2->1', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.0.notes.0', 'A', { touch: true });
+      form.setErrors({ 'groups.0.items.0.notes.0': 'errA' });
+      form.set('groups.1.items.0.notes.0', 'B', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'errB' });
+      form.set('groups.2.items.0.notes.0', 'C', { touch: true });
+      form.setErrors({ 'groups.2.items.0.notes.0': 'errC' });
+
+      form.arrayMove('groups', 0, 2);
+
+      const state = form.getState();
+      expect(state.errors['groups.2.items.0.notes.0']).toBe('errA');
+      expect(state.errors['groups.0.items.0.notes.0']).toBe('errB');
+      expect(state.errors['groups.1.items.0.notes.0']).toBe('errC');
+    });
+
+    it('middle level: groups.0.items.0->2, .1->0, .2->1, sibling group groups.1 undisturbed', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.0.notes.0', 'A', { touch: true });
+      form.setErrors({ 'groups.0.items.0.notes.0': 'errA' });
+      form.set('groups.0.items.1.notes.0', 'B', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.0': 'errB' });
+      form.set('groups.0.items.2.notes.0', 'C', { touch: true });
+      form.setErrors({ 'groups.0.items.2.notes.0': 'errC' });
+      form.set('groups.1.items.0.notes.0', 'D', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'errD' });
+
+      form.arrayMove('groups.0.items', 0, 2);
+
+      const state = form.getState();
+      expect(state.errors['groups.0.items.2.notes.0']).toBe('errA');
+      expect(state.errors['groups.0.items.0.notes.0']).toBe('errB');
+      expect(state.errors['groups.0.items.1.notes.0']).toBe('errC');
+      expect(state.errors['groups.1.items.0.notes.0']).toBe('errD');
+    });
+
+    it('innermost level: groups.0.items.1.notes.0->3, .1->0, .2->1, .3->2, sibling item and sibling group undisturbed', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.1.notes.0', 'A', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.0': 'errA' });
+      form.set('groups.0.items.1.notes.1', 'B', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.1': 'errB' });
+      form.set('groups.0.items.1.notes.2', 'C', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.2': 'errC' });
+      form.set('groups.0.items.1.notes.3', 'D', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.3': 'errD' });
+      form.set('groups.0.items.0.notes.0', 'E', { touch: true });
+      form.setErrors({ 'groups.0.items.0.notes.0': 'errE' });
+      form.set('groups.1.items.0.notes.0', 'F', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'errF' });
+
+      form.arrayMove('groups.0.items.1.notes', 0, 3);
+
+      const state = form.getState();
+      expect(state.errors['groups.0.items.1.notes.3']).toBe('errA');
+      expect(state.errors['groups.0.items.1.notes.0']).toBe('errB');
+      expect(state.errors['groups.0.items.1.notes.1']).toBe('errC');
+      expect(state.errors['groups.0.items.1.notes.2']).toBe('errD');
+      expect(state.errors['groups.0.items.0.notes.0']).toBe('errE');
+      expect(state.errors['groups.1.items.0.notes.0']).toBe('errF');
+    });
+  });
+
+  describe('arraySwap', () => {
+    it('outer level: swaps groups.0 and groups.1, leaves groups.2 untouched', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.0.notes.0', 'A', { touch: true });
+      form.setErrors({ 'groups.0.items.0.notes.0': 'errA' });
+      form.set('groups.1.items.0.notes.0', 'B', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'errB' });
+      form.set('groups.2.items.0.notes.0', 'C', { touch: true });
+      form.setErrors({ 'groups.2.items.0.notes.0': 'errC' });
+
+      form.arraySwap('groups', 0, 1);
+
+      const state = form.getState();
+      expect(state.errors['groups.0.items.0.notes.0']).toBe('errB');
+      expect(state.errors['groups.1.items.0.notes.0']).toBe('errA');
+      expect(state.errors['groups.2.items.0.notes.0']).toBe('errC');
+    });
+
+    it('middle level: swaps groups.0.items.0 and groups.0.items.2, leaves groups.0.items.1 and groups.1 untouched', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.0.notes.0', 'A', { touch: true });
+      form.setErrors({ 'groups.0.items.0.notes.0': 'errA' });
+      form.set('groups.0.items.2.notes.0', 'B', { touch: true });
+      form.setErrors({ 'groups.0.items.2.notes.0': 'errB' });
+      form.set('groups.0.items.1.notes.0', 'C', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.0': 'errC' });
+      form.set('groups.1.items.0.notes.0', 'D', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'errD' });
+
+      form.arraySwap('groups.0.items', 0, 2);
+
+      const state = form.getState();
+      expect(state.errors['groups.0.items.0.notes.0']).toBe('errB');
+      expect(state.errors['groups.0.items.2.notes.0']).toBe('errA');
+      expect(state.errors['groups.0.items.1.notes.0']).toBe('errC');
+      expect(state.errors['groups.1.items.0.notes.0']).toBe('errD');
+    });
+
+    it('innermost level: swaps groups.0.items.1.notes.0 and .3, leaves .1, sibling item, sibling group untouched', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.1.notes.0', 'A', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.0': 'errA' });
+      form.set('groups.0.items.1.notes.3', 'B', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.3': 'errB' });
+      form.set('groups.0.items.1.notes.1', 'C', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.1': 'errC' });
+      form.set('groups.0.items.0.notes.0', 'D', { touch: true });
+      form.setErrors({ 'groups.0.items.0.notes.0': 'errD' });
+      form.set('groups.1.items.0.notes.0', 'E', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'errE' });
+
+      form.arraySwap('groups.0.items.1.notes', 0, 3);
+
+      const state = form.getState();
+      expect(state.errors['groups.0.items.1.notes.0']).toBe('errB');
+      expect(state.errors['groups.0.items.1.notes.3']).toBe('errA');
+      expect(state.errors['groups.0.items.1.notes.1']).toBe('errC');
+      expect(state.errors['groups.0.items.0.notes.0']).toBe('errD');
+      expect(state.errors['groups.1.items.0.notes.0']).toBe('errE');
+    });
+  });
+
+  describe('arrayInsert', () => {
+    it('outer level: inserting at index 1 shifts groups.1->2, groups.2->3, leaves groups.0 untouched, new slot has no prior state', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.0.notes.0', 'A', { touch: true });
+      form.setErrors({ 'groups.0.items.0.notes.0': 'errA' });
+      form.set('groups.1.items.0.notes.0', 'B', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'errB' });
+      form.set('groups.2.items.0.notes.0', 'C', { touch: true });
+      form.setErrors({ 'groups.2.items.0.notes.0': 'errC' });
+      const newGroup: GroupsShape['groups'][number] = {
+        items: Array.from({ length: 3 }, () => ({ notes: ['n0', 'n1', 'n2', 'n3'] })),
+      };
+
+      form.arrayInsert('groups', 1, newGroup);
+
+      const state = form.getState();
+      expect(state.errors['groups.0.items.0.notes.0']).toBe('errA');
+      expect(state.errors['groups.2.items.0.notes.0']).toBe('errB');
+      expect(state.errors['groups.3.items.0.notes.0']).toBe('errC');
+      expect(state.errors['groups.1.items.0.notes.0']).toBeUndefined();
+      expect(state.values.groups[1].items[0].notes[0]).toBe('n0');
+    });
+
+    it('middle level: inserting at index 1 shifts groups.0.items.1->2, .2->3, leaves groups.0.items.0 and groups.1 untouched', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.0.notes.0', 'A', { touch: true });
+      form.setErrors({ 'groups.0.items.0.notes.0': 'errA' });
+      form.set('groups.0.items.1.notes.0', 'B', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.0': 'errB' });
+      form.set('groups.0.items.2.notes.0', 'C', { touch: true });
+      form.setErrors({ 'groups.0.items.2.notes.0': 'errC' });
+      form.set('groups.1.items.0.notes.0', 'D', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'errD' });
+      const newItem: GroupsShape['groups'][number]['items'][number] = {
+        notes: ['a', 'b', 'c', 'd'],
+      };
+
+      form.arrayInsert('groups.0.items', 1, newItem);
+
+      const state = form.getState();
+      expect(state.errors['groups.0.items.0.notes.0']).toBe('errA');
+      expect(state.errors['groups.0.items.2.notes.0']).toBe('errB');
+      expect(state.errors['groups.0.items.3.notes.0']).toBe('errC');
+      expect(state.errors['groups.1.items.0.notes.0']).toBe('errD');
+      expect(state.errors['groups.0.items.1.notes.0']).toBeUndefined();
+      expect(state.values.groups[0].items[1].notes[0]).toBe('a');
+    });
+
+    it('innermost level: inserting at index 1 shifts groups.0.items.1.notes.1->2, .2->3, .3->4, leaves .0, sibling item, sibling group untouched', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.1.notes.0', 'A', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.0': 'errA' });
+      form.set('groups.0.items.1.notes.1', 'B', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.1': 'errB' });
+      form.set('groups.0.items.1.notes.2', 'C', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.2': 'errC' });
+      form.set('groups.0.items.1.notes.3', 'D', { touch: true });
+      form.setErrors({ 'groups.0.items.1.notes.3': 'errD' });
+      form.set('groups.0.items.0.notes.0', 'E', { touch: true });
+      form.setErrors({ 'groups.0.items.0.notes.0': 'errE' });
+      form.set('groups.1.items.0.notes.0', 'F', { touch: true });
+      form.setErrors({ 'groups.1.items.0.notes.0': 'errF' });
+
+      form.arrayInsert('groups.0.items.1.notes', 1, 'NEW');
+
+      const state = form.getState();
+      expect(state.errors['groups.0.items.1.notes.0']).toBe('errA');
+      expect(state.errors['groups.0.items.1.notes.2']).toBe('errB');
+      expect(state.errors['groups.0.items.1.notes.3']).toBe('errC');
+      expect(state.errors['groups.0.items.1.notes.4']).toBe('errD');
+      expect(state.errors['groups.0.items.0.notes.0']).toBe('errE');
+      expect(state.errors['groups.1.items.0.notes.0']).toBe('errF');
+      expect(state.errors['groups.0.items.1.notes.1']).toBeUndefined();
+      expect(state.values.groups[0].items[1].notes[1]).toBe('NEW');
+    });
+  });
+});
