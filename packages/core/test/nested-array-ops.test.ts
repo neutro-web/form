@@ -50,6 +50,7 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
       expect(state.touched['cube.0.1.0']).toBe(true);
       expect(state.dirty['cube.0.1.0']).toBe(true);
       expect(state.errors['cube.0.2.0']).toBeUndefined();
+      expect(state.touched['cube.0.2.0']).toBeUndefined();
       expect(state.errors['cube.1.0.0']).toBe('sibling');
       expect(state.touched['cube.1.0.0']).toBe(true);
       expect(state.dirty['cube.1.0.0']).toBe(true);
@@ -73,6 +74,7 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
       expect(state.touched['cube.0.0.2']).toBe(true);
       expect(state.dirty['cube.0.0.2']).toBe(true);
       expect(state.errors['cube.0.0.3']).toBeUndefined();
+      expect(state.touched['cube.0.0.3']).toBeUndefined();
       expect(state.errors['cube.0.1.0']).toBe('sibling-middle');
       expect(state.touched['cube.0.1.0']).toBe(true);
       expect(state.errors['cube.1.0.0']).toBe('sibling-outer');
@@ -382,6 +384,7 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
       expect(state.touched['groups.0.items.1.notes.0']).toBe(true);
       expect(state.dirty['groups.0.items.1.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.2.notes.0']).toBeUndefined();
+      expect(state.touched['groups.0.items.2.notes.0']).toBeUndefined();
       expect(state.errors['groups.1.items.0.notes.0']).toBe('sibling');
       expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
       expect(state.dirty['groups.1.items.0.notes.0']).toBe(true);
@@ -403,6 +406,7 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
       expect(state.touched['groups.0.items.1.notes.2']).toBe(true);
       expect(state.dirty['groups.0.items.1.notes.2']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.3']).toBeUndefined();
+      expect(state.touched['groups.0.items.1.notes.3']).toBeUndefined();
       expect(state.errors['groups.0.items.0.notes.0']).toBe('sibling-item');
       expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBe('sibling-group');
