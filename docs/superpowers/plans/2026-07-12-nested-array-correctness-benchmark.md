@@ -911,7 +911,7 @@ Per this session's standing instruction, commit all work locally but do not run 
 
 ## Verification
 
-- Phase 1: `pnpm exec vitest run packages/core/test/nested-array-ops.test.ts` — 24 passed, pristine output. `pnpm exec vitest run packages/core/test/` — full suite green (no regression).
+- Phase 1: `pnpm exec vitest run packages/core/test/nested-array-ops.test.ts` — 24 passed, pristine output apart from the pre-existing `.npmrc`/`${NPM_TOKEN}` env warning. `pnpm exec vitest run packages/core/test/` — full suite green (no regression).
 - Phase 2: `pnpm --dir bench exec vitest bench suites/core/array-ops-nested-scale.bench.ts` — 4 blocks execute with real timings.
 - Full pipeline: `pnpm lint && pnpm exec tsc --noEmit && pnpm build && pnpm test` — all green.
 - `pnpm --dir bench exec tsc --noEmit` — no new errors attributable to this item's two new bench files.
