@@ -18,6 +18,11 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
   describe('arrayRemove', () => {
     it('outer level: relocates state from cube.1.0.0 to cube.0.0.0 and removes the stale entry', () => {
       const form = createCubeForm();
+      // Path<T> only type-checks raw (non-object-wrapped) array nesting one level deep --
+      // 'cube.0.1' compiles but 'cube.0.1.2' doesn't (see the spec's Round-1 correction in
+      // docs/superpowers/specs/2026-07-12-nested-array-correctness-benchmark-design.md).
+      // These casts bypass that gap for the runtime-correctness assertions below, which is
+      // the actual thing under test; the array-op calls themselves never need a cast.
       form.set('cube.1.0.0' as Path<CubeShape>, 999, { touch: true });
       form.setErrors({ 'cube.1.0.0': 'bad' } as Partial<Record<Path<CubeShape>, string>>);
 
@@ -43,9 +48,11 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
       const state = form.getState();
       expect(state.errors['cube.0.1.0']).toBe('bad');
       expect(state.touched['cube.0.1.0']).toBe(true);
+      expect(state.dirty['cube.0.1.0']).toBe(true);
       expect(state.errors['cube.0.2.0']).toBeUndefined();
       expect(state.errors['cube.1.0.0']).toBe('sibling');
       expect(state.touched['cube.1.0.0']).toBe(true);
+      expect(state.dirty['cube.1.0.0']).toBe(true);
     });
 
     it('innermost level: relocates state from cube.0.0.3 to cube.0.0.2 and leaves sibling middle/outer elements undisturbed', () => {
@@ -64,9 +71,12 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
       const state = form.getState();
       expect(state.errors['cube.0.0.2']).toBe('bad');
       expect(state.touched['cube.0.0.2']).toBe(true);
+      expect(state.dirty['cube.0.0.2']).toBe(true);
       expect(state.errors['cube.0.0.3']).toBeUndefined();
       expect(state.errors['cube.0.1.0']).toBe('sibling-middle');
+      expect(state.touched['cube.0.1.0']).toBe(true);
       expect(state.errors['cube.1.0.0']).toBe('sibling-outer');
+      expect(state.touched['cube.1.0.0']).toBe(true);
     });
   });
 
@@ -84,10 +94,16 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
 
       const state = form.getState();
       expect(state.errors['cube.2.0.0']).toBe('errA');
+      expect(state.touched['cube.2.0.0']).toBe(true);
+      expect(state.dirty['cube.2.0.0']).toBe(true);
       expect(state.values.cube[2][0][0]).toBe(9001);
       expect(state.errors['cube.0.0.0']).toBe('errB');
+      expect(state.touched['cube.0.0.0']).toBe(true);
+      expect(state.dirty['cube.0.0.0']).toBe(true);
       expect(state.values.cube[0][0][0]).toBe(9002);
       expect(state.errors['cube.1.0.0']).toBe('errC');
+      expect(state.touched['cube.1.0.0']).toBe(true);
+      expect(state.dirty['cube.1.0.0']).toBe(true);
       expect(state.values.cube[1][0][0]).toBe(9003);
     });
 
@@ -106,9 +122,14 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
 
       const state = form.getState();
       expect(state.errors['cube.0.2.0']).toBe('errA');
+      expect(state.touched['cube.0.2.0']).toBe(true);
+      expect(state.dirty['cube.0.2.0']).toBe(true);
       expect(state.errors['cube.0.0.0']).toBe('errB');
+      expect(state.touched['cube.0.0.0']).toBe(true);
       expect(state.errors['cube.0.1.0']).toBe('errC');
+      expect(state.touched['cube.0.1.0']).toBe(true);
       expect(state.errors['cube.1.0.0']).toBe('errD');
+      expect(state.touched['cube.1.0.0']).toBe(true);
     });
 
     it('innermost level: cube.0.0.0->3, .1->0, .2->1, .3->2, sibling middle/outer undisturbed', () => {
@@ -130,11 +151,18 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
 
       const state = form.getState();
       expect(state.errors['cube.0.0.3']).toBe('errA');
+      expect(state.touched['cube.0.0.3']).toBe(true);
+      expect(state.dirty['cube.0.0.3']).toBe(true);
       expect(state.errors['cube.0.0.0']).toBe('errB');
+      expect(state.touched['cube.0.0.0']).toBe(true);
       expect(state.errors['cube.0.0.1']).toBe('errC');
+      expect(state.touched['cube.0.0.1']).toBe(true);
       expect(state.errors['cube.0.0.2']).toBe('errD');
+      expect(state.touched['cube.0.0.2']).toBe(true);
       expect(state.errors['cube.0.1.0']).toBe('errE');
+      expect(state.touched['cube.0.1.0']).toBe(true);
       expect(state.errors['cube.1.0.0']).toBe('errF');
+      expect(state.touched['cube.1.0.0']).toBe(true);
     });
   });
 
@@ -152,8 +180,13 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
 
       const state = form.getState();
       expect(state.errors['cube.0.0.0']).toBe('errB');
+      expect(state.touched['cube.0.0.0']).toBe(true);
+      expect(state.dirty['cube.0.0.0']).toBe(true);
       expect(state.errors['cube.1.0.0']).toBe('errA');
+      expect(state.touched['cube.1.0.0']).toBe(true);
+      expect(state.dirty['cube.1.0.0']).toBe(true);
       expect(state.errors['cube.2.0.0']).toBe('errC');
+      expect(state.touched['cube.2.0.0']).toBe(true);
     });
 
     it('middle level: swaps cube.0.0 and cube.0.2, leaves cube.0.1 and cube.1 untouched', () => {
@@ -171,9 +204,13 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
 
       const state = form.getState();
       expect(state.errors['cube.0.0.0']).toBe('errB');
+      expect(state.touched['cube.0.0.0']).toBe(true);
       expect(state.errors['cube.0.2.0']).toBe('errA');
+      expect(state.touched['cube.0.2.0']).toBe(true);
       expect(state.errors['cube.0.1.0']).toBe('errC');
+      expect(state.touched['cube.0.1.0']).toBe(true);
       expect(state.errors['cube.1.0.0']).toBe('errD');
+      expect(state.touched['cube.1.0.0']).toBe(true);
     });
 
     it('innermost level: swaps cube.0.0.0 and cube.0.0.3, leaves cube.0.0.1, cube.0.1.0, cube.1.0.0 untouched', () => {
@@ -193,10 +230,15 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
 
       const state = form.getState();
       expect(state.errors['cube.0.0.0']).toBe('errB');
+      expect(state.touched['cube.0.0.0']).toBe(true);
       expect(state.errors['cube.0.0.3']).toBe('errA');
+      expect(state.touched['cube.0.0.3']).toBe(true);
       expect(state.errors['cube.0.0.1']).toBe('errC');
+      expect(state.touched['cube.0.0.1']).toBe(true);
       expect(state.errors['cube.0.1.0']).toBe('errD');
+      expect(state.touched['cube.0.1.0']).toBe(true);
       expect(state.errors['cube.1.0.0']).toBe('errE');
+      expect(state.touched['cube.1.0.0']).toBe(true);
     });
   });
 
@@ -217,10 +259,14 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
 
       const state = form.getState();
       expect(state.errors['cube.0.0.0']).toBe('errA');
+      expect(state.touched['cube.0.0.0']).toBe(true);
       expect(state.errors['cube.2.0.0']).toBe('errB');
+      expect(state.touched['cube.2.0.0']).toBe(true);
       expect(state.errors['cube.3.0.0']).toBe('errC');
+      expect(state.touched['cube.3.0.0']).toBe(true);
       expect(state.errors['cube.1.0.0']).toBeUndefined();
       expect(state.touched['cube.1.0.0']).toBeUndefined();
+      expect(state.dirty['cube.1.0.0']).toBeUndefined();
       expect(state.values.cube[1][0][0]).toBe(9000);
     });
 
@@ -240,10 +286,15 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
 
       const state = form.getState();
       expect(state.errors['cube.0.0.0']).toBe('errA');
+      expect(state.touched['cube.0.0.0']).toBe(true);
       expect(state.errors['cube.0.2.0']).toBe('errB');
+      expect(state.touched['cube.0.2.0']).toBe(true);
       expect(state.errors['cube.0.3.0']).toBe('errC');
+      expect(state.touched['cube.0.3.0']).toBe(true);
       expect(state.errors['cube.1.0.0']).toBe('errD');
+      expect(state.touched['cube.1.0.0']).toBe(true);
       expect(state.errors['cube.0.1.0']).toBeUndefined();
+      expect(state.touched['cube.0.1.0']).toBeUndefined();
       expect(state.values.cube[0][1][0]).toBe(9500);
     });
 
@@ -266,12 +317,19 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
 
       const state = form.getState();
       expect(state.errors['cube.0.0.0']).toBe('errA');
+      expect(state.touched['cube.0.0.0']).toBe(true);
       expect(state.errors['cube.0.0.2']).toBe('errB');
+      expect(state.touched['cube.0.0.2']).toBe(true);
       expect(state.errors['cube.0.0.3']).toBe('errC');
+      expect(state.touched['cube.0.0.3']).toBe(true);
       expect(state.errors['cube.0.0.4']).toBe('errD');
+      expect(state.touched['cube.0.0.4']).toBe(true);
       expect(state.errors['cube.0.1.0']).toBe('errE');
+      expect(state.touched['cube.0.1.0']).toBe(true);
       expect(state.errors['cube.1.0.0']).toBe('errF');
+      expect(state.touched['cube.1.0.0']).toBe(true);
       expect(state.errors['cube.0.0.1']).toBeUndefined();
+      expect(state.touched['cube.0.0.1']).toBeUndefined();
       expect(state.values.cube[0][0][1]).toBe(9999);
     });
   });
@@ -307,6 +365,7 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
       expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
       expect(state.dirty['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBeUndefined();
+      expect(state.touched['groups.1.items.0.notes.0']).toBeUndefined();
     });
 
     it('middle level: relocates state from groups.0.items.2.notes.0 to groups.0.items.1.notes.0, leaves sibling group groups.1 undisturbed', () => {
@@ -320,8 +379,12 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
 
       const state = form.getState();
       expect(state.errors['groups.0.items.1.notes.0']).toBe('bad');
+      expect(state.touched['groups.0.items.1.notes.0']).toBe(true);
+      expect(state.dirty['groups.0.items.1.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.2.notes.0']).toBeUndefined();
       expect(state.errors['groups.1.items.0.notes.0']).toBe('sibling');
+      expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
+      expect(state.dirty['groups.1.items.0.notes.0']).toBe(true);
     });
 
     it('innermost level: relocates state from groups.0.items.1.notes.3 to groups.0.items.1.notes.2, leaves sibling item and sibling group undisturbed', () => {
@@ -337,9 +400,13 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
 
       const state = form.getState();
       expect(state.errors['groups.0.items.1.notes.2']).toBe('bad');
+      expect(state.touched['groups.0.items.1.notes.2']).toBe(true);
+      expect(state.dirty['groups.0.items.1.notes.2']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.3']).toBeUndefined();
       expect(state.errors['groups.0.items.0.notes.0']).toBe('sibling-item');
+      expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBe('sibling-group');
+      expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
     });
   });
 
@@ -357,8 +424,12 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
 
       const state = form.getState();
       expect(state.errors['groups.2.items.0.notes.0']).toBe('errA');
+      expect(state.touched['groups.2.items.0.notes.0']).toBe(true);
+      expect(state.dirty['groups.2.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.0.notes.0']).toBe('errB');
+      expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBe('errC');
+      expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
     });
 
     it('middle level: groups.0.items.0->2, .1->0, .2->1, sibling group groups.1 undisturbed', () => {
@@ -376,9 +447,13 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
 
       const state = form.getState();
       expect(state.errors['groups.0.items.2.notes.0']).toBe('errA');
+      expect(state.touched['groups.0.items.2.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.0.notes.0']).toBe('errB');
+      expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.0']).toBe('errC');
+      expect(state.touched['groups.0.items.1.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBe('errD');
+      expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
     });
 
     it('innermost level: groups.0.items.1.notes.0->3, .1->0, .2->1, .3->2, sibling item and sibling group undisturbed', () => {
@@ -400,11 +475,17 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
 
       const state = form.getState();
       expect(state.errors['groups.0.items.1.notes.3']).toBe('errA');
+      expect(state.touched['groups.0.items.1.notes.3']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.0']).toBe('errB');
+      expect(state.touched['groups.0.items.1.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.1']).toBe('errC');
+      expect(state.touched['groups.0.items.1.notes.1']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.2']).toBe('errD');
+      expect(state.touched['groups.0.items.1.notes.2']).toBe(true);
       expect(state.errors['groups.0.items.0.notes.0']).toBe('errE');
+      expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBe('errF');
+      expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
     });
   });
 
@@ -422,8 +503,13 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
 
       const state = form.getState();
       expect(state.errors['groups.0.items.0.notes.0']).toBe('errB');
+      expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
+      expect(state.dirty['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBe('errA');
+      expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
+      expect(state.dirty['groups.1.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.2.items.0.notes.0']).toBe('errC');
+      expect(state.touched['groups.2.items.0.notes.0']).toBe(true);
     });
 
     it('middle level: swaps groups.0.items.0 and groups.0.items.2, leaves groups.0.items.1 and groups.1 untouched', () => {
@@ -441,9 +527,13 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
 
       const state = form.getState();
       expect(state.errors['groups.0.items.0.notes.0']).toBe('errB');
+      expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.2.notes.0']).toBe('errA');
+      expect(state.touched['groups.0.items.2.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.0']).toBe('errC');
+      expect(state.touched['groups.0.items.1.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBe('errD');
+      expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
     });
 
     it('innermost level: swaps groups.0.items.1.notes.0 and .3, leaves .1, sibling item, sibling group untouched', () => {
@@ -463,10 +553,15 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
 
       const state = form.getState();
       expect(state.errors['groups.0.items.1.notes.0']).toBe('errB');
+      expect(state.touched['groups.0.items.1.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.3']).toBe('errA');
+      expect(state.touched['groups.0.items.1.notes.3']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.1']).toBe('errC');
+      expect(state.touched['groups.0.items.1.notes.1']).toBe(true);
       expect(state.errors['groups.0.items.0.notes.0']).toBe('errD');
+      expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBe('errE');
+      expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
     });
   });
 
@@ -487,9 +582,13 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
 
       const state = form.getState();
       expect(state.errors['groups.0.items.0.notes.0']).toBe('errA');
+      expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.2.items.0.notes.0']).toBe('errB');
+      expect(state.touched['groups.2.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.3.items.0.notes.0']).toBe('errC');
+      expect(state.touched['groups.3.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBeUndefined();
+      expect(state.touched['groups.1.items.0.notes.0']).toBeUndefined();
       expect(state.values.groups[1].items[0].notes[0]).toBe('n0');
     });
 
@@ -511,10 +610,15 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
 
       const state = form.getState();
       expect(state.errors['groups.0.items.0.notes.0']).toBe('errA');
+      expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.2.notes.0']).toBe('errB');
+      expect(state.touched['groups.0.items.2.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.3.notes.0']).toBe('errC');
+      expect(state.touched['groups.0.items.3.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBe('errD');
+      expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.0']).toBeUndefined();
+      expect(state.touched['groups.0.items.1.notes.0']).toBeUndefined();
       expect(state.values.groups[0].items[1].notes[0]).toBe('a');
     });
 
@@ -537,12 +641,19 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
 
       const state = form.getState();
       expect(state.errors['groups.0.items.1.notes.0']).toBe('errA');
+      expect(state.touched['groups.0.items.1.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.2']).toBe('errB');
+      expect(state.touched['groups.0.items.1.notes.2']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.3']).toBe('errC');
+      expect(state.touched['groups.0.items.1.notes.3']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.4']).toBe('errD');
+      expect(state.touched['groups.0.items.1.notes.4']).toBe(true);
       expect(state.errors['groups.0.items.0.notes.0']).toBe('errE');
+      expect(state.touched['groups.0.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBe('errF');
+      expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.1']).toBeUndefined();
+      expect(state.touched['groups.0.items.1.notes.1']).toBeUndefined();
       expect(state.values.groups[0].items[1].notes[1]).toBe('NEW');
     });
   });
