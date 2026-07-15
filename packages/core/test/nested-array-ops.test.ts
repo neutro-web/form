@@ -242,6 +242,23 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
       expect(state.errors['cube.1.0.0']).toBe('errE');
       expect(state.touched['cube.1.0.0']).toBe(true);
     });
+
+    it('outer level, asymmetric: swapping a populated slot with an empty one clears the vacated key', () => {
+      const form = createCubeForm();
+      form.set('cube.0.0.0' as Path<CubeShape>, 9001, { touch: true });
+      form.setErrors({ 'cube.0.0.0': 'errA' } as Partial<Record<Path<CubeShape>, string>>);
+      // cube.1 is left with no tracked state at all before the swap.
+
+      form.arraySwap('cube', 0, 1);
+
+      const state = form.getState();
+      expect(state.errors['cube.1.0.0']).toBe('errA');
+      expect(state.touched['cube.1.0.0']).toBe(true);
+      expect(state.dirty['cube.1.0.0']).toBe(true);
+      expect(state.errors['cube.0.0.0']).toBeUndefined();
+      expect(state.touched['cube.0.0.0']).toBeUndefined();
+      expect(state.dirty['cube.0.0.0']).toBeUndefined();
+    });
   });
 
   describe('arrayInsert', () => {
@@ -297,6 +314,7 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
       expect(state.touched['cube.1.0.0']).toBe(true);
       expect(state.errors['cube.0.1.0']).toBeUndefined();
       expect(state.touched['cube.0.1.0']).toBeUndefined();
+      expect(state.dirty['cube.0.1.0']).toBeUndefined();
       expect(state.values.cube[0][1][0]).toBe(9500);
     });
 
@@ -332,6 +350,7 @@ describe('nested-array-ops: cube (number[][][], raw array-of-arrays)', () => {
       expect(state.touched['cube.1.0.0']).toBe(true);
       expect(state.errors['cube.0.0.1']).toBeUndefined();
       expect(state.touched['cube.0.0.1']).toBeUndefined();
+      expect(state.dirty['cube.0.0.1']).toBeUndefined();
       expect(state.values.cube[0][0][1]).toBe(9999);
     });
   });
@@ -567,6 +586,23 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
       expect(state.errors['groups.1.items.0.notes.0']).toBe('errE');
       expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
     });
+
+    it('outer level, asymmetric: swapping a populated slot with an empty one clears the vacated key', () => {
+      const form = createGroupsForm();
+      form.set('groups.0.items.0.notes.0', 'A', { touch: true });
+      form.setErrors({ 'groups.0.items.0.notes.0': 'errA' });
+      // groups.1 is left with no tracked state at all before the swap.
+
+      form.arraySwap('groups', 0, 1);
+
+      const state = form.getState();
+      expect(state.errors['groups.1.items.0.notes.0']).toBe('errA');
+      expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
+      expect(state.dirty['groups.1.items.0.notes.0']).toBe(true);
+      expect(state.errors['groups.0.items.0.notes.0']).toBeUndefined();
+      expect(state.touched['groups.0.items.0.notes.0']).toBeUndefined();
+      expect(state.dirty['groups.0.items.0.notes.0']).toBeUndefined();
+    });
   });
 
   describe('arrayInsert', () => {
@@ -593,6 +629,7 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
       expect(state.touched['groups.3.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.1.items.0.notes.0']).toBeUndefined();
       expect(state.touched['groups.1.items.0.notes.0']).toBeUndefined();
+      expect(state.dirty['groups.1.items.0.notes.0']).toBeUndefined();
       expect(state.values.groups[1].items[0].notes[0]).toBe('n0');
     });
 
@@ -623,6 +660,7 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
       expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.0']).toBeUndefined();
       expect(state.touched['groups.0.items.1.notes.0']).toBeUndefined();
+      expect(state.dirty['groups.0.items.1.notes.0']).toBeUndefined();
       expect(state.values.groups[0].items[1].notes[0]).toBe('a');
     });
 
@@ -658,6 +696,7 @@ describe('nested-array-ops: groups (object-wrapped array nesting)', () => {
       expect(state.touched['groups.1.items.0.notes.0']).toBe(true);
       expect(state.errors['groups.0.items.1.notes.1']).toBeUndefined();
       expect(state.touched['groups.0.items.1.notes.1']).toBeUndefined();
+      expect(state.dirty['groups.0.items.1.notes.1']).toBeUndefined();
       expect(state.values.groups[0].items[1].notes[1]).toBe('NEW');
     });
   });
