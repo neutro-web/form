@@ -16,7 +16,7 @@
 - `bench/apps/react/src/SchemaValidateNeutro.tsx` is in scope for exactly one change: switching `Field`'s hand-rolled `useSyncExternalStore` to the adapter's `useFormPath` hook. No other `bench/apps/*` file changes.
 - No changes to Solid or Angular adapters — no signal exists for either.
 - Before any Playwright re-run against the bench apps, kill any process bound to ports 4173-4175 from a prior local run (`bench/playwright.config.ts` sets `reuseExistingServer: !process.env.CI`, which silently serves a stale build otherwise).
-- Regenerate `docs/benchmarks/index.md` only for this item's actual scope: the `neutro/form (React)` number in the "Schema Validation — Re-renders per 20-keystroke sequence (Zod, 10-field form)" table, and the accuracy of any nearby explanatory text about *why* the numbers differ by adapter (the existing "reflecting each adapter's own subscription granularity" framing is now known to be inaccurate — see Technical Note — and must be corrected regardless of whether the fix moves the numbers all the way to parity).
+- Regenerate `docs/benchmarks/index.md` only for this item's actual scope: the `neutro/form (React)` number in the "Schema Validation — Re-renders per 20-keystroke sequence (Zod, 10-field form)" table. **Round-1-review correction:** the "reflecting each adapter's own subscription granularity" framing this constraint originally referenced as needing correction does not actually appear anywhere in the published `docs/benchmarks/index.md` (that table has no explanatory prose at all, only a Formik footnote) or in `bench/annotations.ts`/`bench/scripts/generate-page.ts` — it was a paraphrase in the `project_v050_release_gate` memory's summary of item 3, not repo-published text. Task 4 Step 1's search is still worth doing (in case a future regeneration adds such text, or it exists somewhere this correction missed), but do not treat finding nothing there as a failure — there is likely nothing to correct beyond the number itself.
 - Per `CLAUDE.md`'s pre-push checklist, the full local pipeline (`pnpm lint && pnpm exec tsc --noEmit && pnpm build && pnpm test`) must pass before this work is considered done.
 - Do not manually edit `CHANGELOG.md`.
 - Work in place on local `main` (no worktree), matching this session's established pattern. Do not push to origin.
@@ -62,10 +62,15 @@ Edit `packages/adapters/react/package.json`'s `devDependencies` block to:
   "devDependencies": {
     "tsup": "^8.0.0",
     "@types/react": "^18.0.0",
+    "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "@testing-library/react": "^16.0.0"
   },
 ```
+
+`react` itself is added explicitly here too (not just `react-dom`) for the same reason Task 2 pins `vue` explicitly rather than relying on implicit workspace hoisting — `react` is currently only a `peerDependency` of this package, resolved today via hoisting from elsewhere in the workspace, which is fragile to depend on for a package's own test suite.
+
+**Round-1-review note on version mismatch:** this pins React 19, while `bench/apps/react/package.json` (the actual demo this item investigates) uses React 18 (`^18.3.1`). The `useSyncExternalStore`-with-unstable-callback-identity mechanism this plan's Technical Note documents is identical across React 18 and 19 (confirmed empirically — the repro under React 19 reproduces the exact same 41/21 split the real React-18 browser demo shows as 40/~20), so this version difference does not affect the plan's conclusions. Using `^18.3.1` here instead (matching the demo exactly) would also work if the implementer prefers stricter version alignment — either is fine, this is not a hard requirement.
 
 - [ ] **Step 2: Install**
 
@@ -79,7 +84,7 @@ Expected: exits 0, `pnpm-lock.yaml` updates to include `react-dom` and `@testing
 import { describe, it, expect } from 'vitest';
 import * as React from 'react';
 import { render, act } from '@testing-library/react';
-import { createForm } from '../../core/src/index.js';
+import { createForm } from '@neutro/form-core';
 import { useFormPath } from '../src/index.js';
 
 const FIELDS = Array.from({ length: 10 }, (_, i) => `field${i}`);
@@ -225,8 +230,9 @@ Expected: exits 0, `pnpm-lock.yaml` updates to include `@vue/test-utils` (and `v
 - [ ] **Step 3: Create the baseline test file**
 
 ```ts
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { defineComponent, h, ref } from 'vue';
+import { defineComponent, h, nextTick, ref } from 'vue';
 import { mount } from '@vue/test-utils';
 import { createForm } from '@neutro/form-core';
 import { useVueFormPath } from '../src/index.js';
@@ -268,8 +274,14 @@ describe('Vue adapter re-render baseline: whole-form parent + useVueFormPath chi
 
     mount(Page);
 
+    // Vue's scheduler batches synchronous mutations into a single flush -- awaiting
+    // nextTick() after each set() is required to observe one render per value change,
+    // mirroring the 20 discrete keystrokes the real browser bench measures one at a
+    // time (a real DOM keystroke always has a render opportunity between events).
+    // Without this, Vue coalesces all 20 into a single post-loop render.
     for (let i = 0; i < 20; i++) {
       (form as any).set('field0', `x${i}`);
+      await nextTick();
     }
 
     expect(renders.field0).toBe(21); // 1 mount + 20, exactly 1 per set() call.
@@ -382,7 +394,7 @@ Expected: exits 0, `bench/apps/react/dist/` rebuilt.
 Run: `lsof -ti:4173,4174,4175 | xargs kill 2>/dev/null; true` (the trailing `; true` avoids a non-zero exit if nothing is listening — confirmed safe: BSD `xargs` on macOS is a no-op on empty input, but this makes the intent explicit regardless of platform).
 
 Run: `pnpm --dir bench exec playwright test suites/browser/schema-validate-rerenders.spec.ts`
-Expected: all listed combos pass their `limit` assertions (unchanged — the React row's `limit: 70` in `bench/suites/browser/schema-validate-rerenders.spec.ts` already accommodates both the old 40 and an improved lower number). Additionally, open the test's attached JSON result for `neutro/form (React)` (or add a temporary console read) and confirm the actual `renderCount` dropped from 40 toward 20 — record the exact new number for Task 4.
+Expected: all listed combos pass their `limit` assertions (unchanged — the React row's `limit: 70` in `bench/suites/browser/schema-validate-rerenders.spec.ts` already accommodates both the old 40 and an improved lower number). The reporter used by `bench:browser` writes deterministic per-surface results to `bench/results/browser.json` on every run — read the `neutro/form (React)` entry for the `schema-validate-rerenders` surface there for the exact `renderCount` (do not rely on Playwright's hashed test attachments, which are harder to locate deterministically). Confirm it dropped from 40 toward 20 and record the exact new number for Task 4.
 
 - [ ] **Step 5: Commit**
 
@@ -406,7 +418,9 @@ this is a demo-only fix."
 
 **Files:**
 - Modify: `docs/benchmarks/index.md` (regenerated, not hand-edited — see steps)
-- Possibly modify: `bench/annotations.ts` (if the "subscription granularity" explanation lives there — verify in Step 1)
+- Modify: `bench/results/baseline.json`, `bench/results/latest.json`, and other `bench/results/*.json` files the pipeline regenerates (regenerated, not hand-edited)
+- Possibly modify: `bench/annotations.ts` (see Round-1-review correction above — likely nothing to change here, but Step 1 still checks)
+- Modify (out-of-repo): `/Users/kofi/.claude/projects/-Users-kofi---agw-form/memory/project_v050_release_gate.md` (Step 6)
 
 **Interfaces:**
 - Consumes: the real browser number from Task 3 Step 4.
@@ -424,7 +438,7 @@ Expected: `docs/benchmarks/index.md`'s `neutro/form (React)` row in the "Schema 
 
 - [ ] **Step 3: Inspect the diff before staging**
 
-Run: `git diff docs/benchmarks/index.md | head -100` (and more if needed) — confirm only the expected row/text changed, not an unrelated regeneration side effect (per this project's established discipline of inspecting a regenerated docs page's diff stat before trusting it, documented in the `project_v050_release_gate` memory's account of item 4's caught merge bug).
+Run: `git diff docs/benchmarks/index.md | head -200` (and more if needed) — the diff will **not** be limited to the re-renders row alone: re-running `bench:browser` (or `bench:full`) re-measures every timing-sensitive browser surface (settle-latency, mount-cost, memory-churn, etc.), and those numbers naturally drift run-to-run even with no code change. Do not expect or require an otherwise-empty diff. What to actually verify: (a) the `neutro/form (React)` re-renders row specifically moved from 40 to the Task 3 Step 4 number, (b) every other row that changed is a plausible small drift in a timing-sensitive number, not a structural change (a section disappearing, a surface count dropping to zero, an unrelated row changing by an order of magnitude) — per this project's established discipline of inspecting a regenerated docs page's diff before trusting it, documented in the `project_v050_release_gate` memory's account of item 4's caught merge bug (which was a structural loss, not ordinary timing drift — that's the failure mode to watch for, not variance itself).
 
 - [ ] **Step 4: Run the full pipeline**
 
