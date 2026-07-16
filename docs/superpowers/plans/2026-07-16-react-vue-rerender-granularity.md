@@ -418,7 +418,7 @@ this is a demo-only fix."
 
 **Files:**
 - Modify: `docs/benchmarks/index.md` (regenerated, not hand-edited — see steps)
-- Modify: `bench/results/baseline.json`, `bench/results/latest.json`, and other `bench/results/*.json` files the pipeline regenerates (regenerated, not hand-edited)
+- Modify: `bench/results/baseline.json` (regenerated, not hand-edited — the only `bench/results/*.json` file that is actually git-tracked and committed; `latest.json`, `core.json`, `correctness.json`, and `browser.json` are all gitignored, regenerated on disk but never committed — do not `git add` them)
 - Possibly modify: `bench/annotations.ts` (see Round-1-review correction above — likely nothing to change here, but Step 1 still checks)
 - Modify (out-of-repo): `/Users/kofi/.claude/projects/-Users-kofi---agw-form/memory/project_v050_release_gate.md` (Step 6)
 
@@ -432,13 +432,13 @@ Search for the "reflecting each adapter's own subscription granularity" phrasing
 
 - [ ] **Step 2: Regenerate the bench pipeline and the docs page**
 
-Run the bench pipeline sub-steps (per the established local-run convention documented in `CLAUDE.md`'s Benchmark Suite section — copy `results/latest.json` → `results/baseline.json` before `bench:generate`): at minimum re-run `bench:browser` (or the full `bench:full` sequence if a from-scratch regeneration is simpler to reason about), then `bench:merge`, then copy `latest.json` → `baseline.json`, then `bench:generate`.
+Run the bench pipeline sub-steps (per the established local-run convention documented in `CLAUDE.md`'s Benchmark Suite section — copy `results/latest.json` → `results/baseline.json` before `bench:generate`): re-run `bench:browser` (only — `bench:apps:build` for Vue/Svelte is not needed, those apps are unchanged by this item and their `dist/` output is already current), then `bench:merge` (reads the existing `core.json`/`correctness.json`/`bundle-size.json` alongside the freshly re-measured `browser.json` — all already present in `bench/results/`, no other sub-step needs re-running), then copy `latest.json` → `baseline.json`, then `bench:generate`. Do **not** substitute `bench:full` for this sequence — `bench:full` runs its own internal `merge → generate` *before* any `latest.json`→`baseline.json` copy, so it would regenerate the page from a stale baseline (per `CLAUDE.md`'s documented `generate-page.ts` gotcha); running `bench:full` and then still doing this task's own `merge → copy → generate` afterward would work but wastes an unnecessary full run of every other bench surface.
 
 Expected: `docs/benchmarks/index.md`'s `neutro/form (React)` row in the "Schema Validation — Re-renders per 20-keystroke sequence (Zod, 10-field form)" table now shows the corrected number from Task 3 Step 4 (not 40).
 
 - [ ] **Step 3: Inspect the diff before staging**
 
-Run: `git diff docs/benchmarks/index.md | head -200` (and more if needed) — the diff will **not** be limited to the re-renders row alone: re-running `bench:browser` (or `bench:full`) re-measures every timing-sensitive browser surface (settle-latency, mount-cost, memory-churn, etc.), and those numbers naturally drift run-to-run even with no code change. Do not expect or require an otherwise-empty diff. What to actually verify: (a) the `neutro/form (React)` re-renders row specifically moved from 40 to the Task 3 Step 4 number, (b) every other row that changed is a plausible small drift in a timing-sensitive number, not a structural change (a section disappearing, a surface count dropping to zero, an unrelated row changing by an order of magnitude) — per this project's established discipline of inspecting a regenerated docs page's diff before trusting it, documented in the `project_v050_release_gate` memory's account of item 4's caught merge bug (which was a structural loss, not ordinary timing drift — that's the failure mode to watch for, not variance itself).
+Run: `git diff docs/benchmarks/index.md | head -200` (and more if needed) — the diff will **not** be limited to the re-renders row alone: re-running `bench:browser` re-measures every timing-sensitive browser surface (settle-latency, mount-cost, memory-churn, etc.), and those numbers naturally drift run-to-run even with no code change. Do not expect or require an otherwise-empty diff. What to actually verify: (a) the `neutro/form (React)` re-renders row specifically moved from 40 to the Task 3 Step 4 number, (b) every other row that changed is a plausible small drift in a timing-sensitive number, not a structural change (a section disappearing, a surface count dropping to zero, an unrelated row changing by an order of magnitude) — per this project's established discipline of inspecting a regenerated docs page's diff before trusting it, documented in the `project_v050_release_gate` memory's account of item 4's caught merge bug (which was a structural loss, not ordinary timing drift — that's the failure mode to watch for, not variance itself).
 
 - [ ] **Step 4: Run the full pipeline**
 
@@ -447,20 +447,25 @@ Expected: all four pass. If lint/biome modifies any file, `git add` it before co
 
 - [ ] **Step 5: Commit**
 
-Before writing the commit message, fill in the real number the Task 3 Step 4 Playwright run recorded for `neutro/form (React)` — do not commit the placeholder text below verbatim.
+Before writing the commit message, fill in the real number the Task 3 Step 4 Playwright run recorded for `neutro/form (React)` — do not commit the placeholder text below verbatim. Also: only include the second paragraph below (about correcting explanatory text) if Step 1 actually found and changed such text in `bench/annotations.ts` or elsewhere — per the Round-1-review correction on Global Constraints, that text most likely does not exist anywhere in the repo, so the expected case is a commit message with only the first paragraph.
 
 ```bash
-git add docs/benchmarks/index.md bench/results/baseline.json bench/annotations.ts
+git add docs/benchmarks/index.md bench/results/baseline.json
 git commit -m "docs(bench): regenerate schema-validate-rerenders with the corrected React number
 
 neutro/form (React) drops from 40 to <insert the real number Task 3
 Step 4 recorded here> after fixing the demo's useSyncExternalStore
-usage (see the preceding fix commit). Also corrects the explanatory
-text that previously attributed the gap to differing subscription
-granularity across adapters -- all three adapters already supported
-equally fine-grained per-field subscriptions; the gap was the demo's
-own hand-rolled pattern, not an
-adapter capability difference."
+usage (see the preceding fix commit)."
+```
+
+If Step 1 did find and change explanatory text, add `bench/annotations.ts` to the `git add` and append a second paragraph describing exactly what was corrected there (not the boilerplate below, which describes a change that most likely never happened):
+
+```
+Also corrects the explanatory text that previously attributed the gap
+to differing subscription granularity across adapters -- all three
+adapters already supported equally fine-grained per-field
+subscriptions; the gap was the demo's own hand-rolled pattern, not an
+adapter capability difference.
 ```
 
 (Adjust the file list in `git add` to whatever `bench:merge`/`bench:generate` actually touched — inspect `git status` first.)
