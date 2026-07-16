@@ -15,6 +15,9 @@ const form = createForm({
 
 function Field({ name }: { name: string }) {
   neutroSchemaRenders[name] = (neutroSchemaRenders[name] ?? 0) + 1
+  // Must use useFormPath, not a hand-rolled useSyncExternalStore(subscribeToPath, get) --
+  // inline callbacks get a fresh identity every render, which doubled this component's
+  // render count (see packages/adapters/react/test/rerender-repro.test.ts).
   const value = useFormPath(form, name as any)
   return (
     <input
