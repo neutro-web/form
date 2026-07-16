@@ -1,6 +1,6 @@
 # Benchmarks
 
-*Last updated 2026-07-12 — neutro/form v0.4.4*
+*Last updated 2026-07-16 — neutro/form v0.4.4*
 
 ## Environment
 
@@ -118,13 +118,13 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 
 | Library | Settle latency |
 |---|---|
-| neutro/form (React) | 58.7ms[^dependency-chain-settle-neutro-form-react] |
-| react-hook-form | 24.5ms |
-| tanstack-form (React) | 160.7ms |
-| neutro/form (Vue) | 24.0ms[^dependency-chain-settle-neutro-form-vue] |
-| vee-validate | 24.5ms |
-| neutro/form (Svelte) | 27.7ms[^dependency-chain-settle-neutro-form-svelte] |
-| tanstack-form (Svelte) | 167.6ms |
+| neutro/form (React) | 47.0ms[^dependency-chain-settle-neutro-form-react] |
+| react-hook-form | 24.4ms |
+| tanstack-form (React) | 155.9ms |
+| neutro/form (Vue) | 23.4ms[^dependency-chain-settle-neutro-form-vue] |
+| vee-validate | 23.5ms |
+| neutro/form (Svelte) | 24.9ms[^dependency-chain-settle-neutro-form-svelte] |
+| tanstack-form (Svelte) | 166.9ms |
 | formik | — N/A[^dependency-chain-settle-formik] |
 | felte | — N/A[^dependency-chain-settle-felte] |
 
@@ -156,8 +156,8 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 | Library | Heap delta (post-GC) |
 |---|---|
-| neutro/form (React) | 589.7 KB |
-| react-hook-form | 668.5 KB |
+| neutro/form (React) | 590.2 KB |
+| react-hook-form | 635.9 KB |
 
 ### Async Cancellation (stale-result race)
 
@@ -191,35 +191,35 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 | Library | Time to interactive |
 |---|---|
-| neutro/form (React) | 3.5ms |
-| react-hook-form | 3.7ms |
-| formik | 3.7ms |
-| tanstack-form (React) | 4.2ms |
-| neutro/form (Vue) | 3.1ms |
-| vee-validate | 3.7ms |
-| neutro/form (Svelte) | 3.9ms |
-| tanstack-form (Svelte) | 4.2ms |
-| felte | 3.8ms |
+| neutro/form (React) | 3.4ms |
+| react-hook-form | 3.8ms |
+| formik | 3.4ms |
+| tanstack-form (React) | 4.3ms |
+| neutro/form (Vue) | 3.6ms |
+| vee-validate | 3.9ms |
+| neutro/form (Svelte) | 3.5ms |
+| tanstack-form (Svelte) | 3.9ms |
+| felte | 3.9ms |
 
 ### Schema Validation — Submit Latency (Zod, click-to-error-visible)
 
 | Library | Submit latency |
 |---|---|
-| neutro/form (React) | 45.8ms |
-| react-hook-form | 44.4ms |
-| tanstack-form (React) | 81.5ms |
-| neutro/form (Vue) | 45.7ms |
-| vee-validate | 62.5ms |
-| neutro/form (Svelte) | 49.8ms |
-| tanstack-form (Svelte) | 44.8ms |
-| felte | 37.1ms |
+| neutro/form (React) | 47.8ms |
+| react-hook-form | 47.8ms |
+| tanstack-form (React) | 45.3ms |
+| neutro/form (Vue) | 41.7ms |
+| vee-validate | 61.0ms |
+| neutro/form (Svelte) | 39.3ms |
+| tanstack-form (Svelte) | 39.5ms |
+| felte | 38.4ms |
 | formik | — N/A[^schema-validate-submit-formik] |
 
 ### Schema Validation — Re-renders per 20-keystroke sequence (Zod, 10-field form)
 
 | Library | Renders |
 |---|---|
-| neutro/form (React) | 40 |
+| neutro/form (React) | 20 |
 | react-hook-form | 0 |
 | tanstack-form (React) | 200 |
 | neutro/form (Vue) | 20 |
@@ -247,22 +247,22 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 | Library | p50 | p99 |
 |---|---|---|
-| neutro/form (React) | 302ms[^async-latency-neutro-form-react] | 302ms |
+| neutro/form (React) | 302ms[^async-latency-neutro-form-react] | 303ms |
 | react-hook-form | 202ms | 203ms |
-| formik | 202ms | 202ms |
+| formik | 202ms | 203ms |
 | tanstack-form (React) | 201ms | 201ms |
 | neutro/form (Vue) | 302ms[^async-latency-neutro-form-vue] | 302ms |
-| vee-validate | 201ms | 202ms |
-| neutro/form (Svelte) | 302ms[^async-latency-neutro-form-svelte] | 302ms |
+| vee-validate | 202ms | 202ms |
+| neutro/form (Svelte) | 301ms[^async-latency-neutro-form-svelte] | 302ms |
 | tanstack-form (Svelte) | 201ms | 201ms |
-| felte | 201ms | 202ms |
+| felte | 202ms | 202ms |
 
 ### Async Validation Latency — Debounce Floor (neutro only)
 
 | Library | p50 | p99 |
 |---|---|---|
 | neutro/form (React) [debounce=0] | 202ms | 202ms |
-| neutro/form (Vue) [debounce=0] | 201ms | 202ms |
+| neutro/form (Vue) [debounce=0] | 202ms | 202ms |
 | neutro/form (Svelte) [debounce=0] | 202ms | 202ms |
 
 ## Bundle Size
