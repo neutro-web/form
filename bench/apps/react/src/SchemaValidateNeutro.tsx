@@ -1,5 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import { createForm, zodAdapter } from '@neutro/form-core'
+import { useFormPath } from '@neutro/form-react'
 import { zodSmallSchema, FIELDS, initialValues } from './schemaValidateSchema.js'
 
 const neutroSchemaRenders: Record<string, number> = {}
@@ -14,10 +15,7 @@ const form = createForm({
 
 function Field({ name }: { name: string }) {
   neutroSchemaRenders[name] = (neutroSchemaRenders[name] ?? 0) + 1
-  const value = useSyncExternalStore(
-    (cb) => form.subscribeToPath(name as any, cb),
-    () => form.get(name as any),
-  )
+  const value = useFormPath(form, name as any)
   return (
     <input
       data-testid={`neutro-${name}`}
