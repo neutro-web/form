@@ -1,6 +1,6 @@
 {
   "name": "@neutro/form",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "description": "High-performance, zero-dependency, framework-agnostic reactive form engine.",
   "keywords": [
     "form",
