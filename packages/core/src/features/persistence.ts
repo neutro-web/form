@@ -9,11 +9,10 @@
  * returns `hydrate`, which the caller assigns onto the form instance.
  */
 import type { FormEngineContext } from '../engine.js';
-import { deepClone, type FormConfig } from '../index.js';
+import { deepClone } from '../index.js';
 
 export function attachPersistence<T extends object>(
-  ctx: FormEngineContext<T>,
-  config: FormConfig<T>
+  ctx: FormEngineContext<T>
 ): { hydrate: () => Promise<void> } {
   ctx.onReset = (newValues?: T) => {
     const cfg = ctx.config.persistence;

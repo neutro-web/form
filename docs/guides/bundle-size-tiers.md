@@ -5,7 +5,7 @@
 | Entry point | Gzip size | Includes |
 |---|---|---|
 | `@neutro/form/core` | ~11.8 KB | Everything — full engine |
-| `@neutro/form/core/minimal` | ~7.9 KB | Core engine only |
+| `@neutro/form/core/minimal` | ~8.0 KB | Core engine only |
 
 (Measured by the benchmark suite's esbuild + gzip bundle-size check; see `bench/results/bundle-size.json`.)
 

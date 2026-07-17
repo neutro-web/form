@@ -173,4 +173,20 @@ form.set('pricing.typo', 0.2)  // ❌ TS error
 
 **Depth limit:** `Path<T>` generates paths up to 5 levels deep. For paths beyond 5 levels, use `setDynamic`/`getDynamic`.
 
+**Raw array-of-array nesting:** `Path<T>` does not type-check a *raw* array nested directly inside another array (no object wrapper in between) past one level. Given:
+
+```ts
+interface Grid {
+  cube: number[][][]
+}
+```
+
+`'cube.0.1'` type-checks, but `'cube.0.1.2'` does not, even though it is a valid runtime path. This is a limitation of the recursive path-generation type, not a runtime restriction — `form.get`/`form.set`/array operations all work correctly at any depth for raw nested arrays. Cast the literal with `as Path<T>` to work around it:
+
+```ts
+form.set('cube.0.1.2' as Path<Grid>, 42) // ✅ runtime-correct, cast needed to compile
+```
+
+This limitation does **not** apply to object-wrapped array nesting (e.g. `items.0.taxes.1.rate` where each array element is an object) — those paths type-check normally at any supported depth. See the FAQ in [Community & Support](/community#faq) for the object-wrapped case.
+
 **Runtime paths:** Use `setDynamic(path, value)` and `getDynamic(path)` when the path is constructed at runtime. For other methods, cast with `as Path<T>`.

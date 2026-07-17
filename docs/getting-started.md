@@ -13,6 +13,7 @@ One package. The exports map routes each adapter subpath:
 | Import path | What you get |
 |---|---|
 | `@neutro/form/core` | `createForm`, validation adapters, types |
+| `@neutro/form/core/minimal` | `createForm` without array ops, DOM bridge, persistence, or computed fields — see [Bundle Size Tiers](/guides/bundle-size-tiers) |
 | `@neutro/form/adapters/react` | `useForm`, `useFormPath`, `useFormConnect` |
 | `@neutro/form/adapters/svelte` | `useSvelteForm`, `useSvelteFormPath` |
 | `@neutro/form/adapters/vue` | `useVueForm`, `useVueFormPath` |

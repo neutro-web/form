@@ -60,6 +60,7 @@ function LoginForm() {
 - DOM bridge with `WeakRef`-based automatic field cleanup
 - Dynamic arrays with index-safe `move`, `swap`, `insert`, `remove`
 - Zod, Yup, and class-validator schema adapters built in
+- `@neutro/form/core/minimal` tier — smaller bundle by excluding array ops, DOM bridge, persistence, and computed fields when you don't need them ([details](https://neutro-web.github.io/form/guides/bundle-size-tiers))
 - Strongly typed field paths — `Path<T>`, `GetPathValue<T,P>`, and `ArrayItem<V>` give IDE autocomplete and value-type enforcement on every read and write
 - `resetField(path, options?)` — restore a single field to its initial value without touching other fields
 - `batch()` — defer all subscriber notifications until a set of mutations completes

@@ -253,6 +253,8 @@ type AllPaths = Path<SignupForm>;
 
 Used as the constraint for path arguments in `get()`, `set()`, `arrayAppend()`, and `arrayInsert()`.
 
+> **Raw array-of-array limitation:** `Path<T>` does not generate paths for a raw array nested directly inside another array (no object wrapper) past one level — e.g. for `cube: number[][][]`, `'cube.0.1'` type-checks but `'cube.0.1.2'` does not, even though it's valid at runtime. Cast with `as Path<T>` for these paths. Object-wrapped array nesting (`tags.0.label` above) is unaffected. See [TypeScript Guide → Strict path types](/guides/typescript#strict-path-types-v0-4) for details.
+
 ---
 
 ### `GetPathValue<T, P>`

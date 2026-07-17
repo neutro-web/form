@@ -77,7 +77,7 @@ The alias package is a zero-code shell: its `package.json` `exports` map re-rout
 
 **Async validation:** `runValidation` increments `asyncEpoch` on each call. Each scope gets its own `AbortController` stored in `activeAbortControllers`. When a path is re-validated, any prior controller for that path is aborted first. `asyncDebounceTimer` delays the actual `await` by `asyncDebounceMs` (default 300ms). Stale results are discarded when `activeEpoch !== asyncEpoch`.
 
-**Array operations:** `arrayRemove`, `arrayMove`, `arraySwap` must keep `errors`, `touched`, and `dirty` in sync with the array's new indices. `shiftStateIndices` handles remove/insert by renumbering keys. `rekeyArrayState` handles move by remapping the sliding window. These operate inside `batch()`.
+**Array operations:** `arrayRemove`, `arrayMove`, `arraySwap` must keep `errors`, `touched`, and `dirty` in sync with the array's new indices. `shiftStateIndices` handles remove/insert by renumbering keys, looking up affected keys via `ctx.pathIndex` (a refcounted shadow index maintained by `ctx.indexKey`/`ctx.unindexKey`) instead of scanning all tracked state — O(affected keys), not O(total form state). `rekeyArrayState` handles move by remapping the sliding window. These operate inside `batch()`.
 
 **DOM bridge (`connect`):** Registers a `WeakRef<HTMLElement>` in `connectionRegistry`. A lazy `MutationObserver` on `document.body` fires whenever nodes are removed; it prunes GC'd or removed elements from the registry and clears their state (unless the path is in `persistedPaths`). `getPayload()` returns only values for paths that are currently connected or persisted — not the full form values object.
 

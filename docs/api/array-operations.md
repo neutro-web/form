@@ -9,7 +9,7 @@ Crucially, every method keeps the `errors`, `touched`, and `dirty` maps in sync 
 ## `form.arrayAppend(path, item)`
 
 ```ts
-form.arrayAppend(path: string, item: unknown): void
+form.arrayAppend(path: Path<T>, item: unknown): void
 ```
 
 Appends a new item to the end of the array at `path`. No existing field state is remapped.
@@ -25,7 +25,7 @@ form.arrayAppend('destinations', { city: '', country: '' })
 ## `form.arrayInsert(path, index, item)`
 
 ```ts
-form.arrayInsert(path: string, index: number, item: unknown): void
+form.arrayInsert(path: Path<T>, index: number, item: unknown): void
 ```
 
 Inserts a new item at `index`. All items from `index` onward are shifted down by one position, and their field state keys (`errors`, `touched`, `dirty`) are renumbered accordingly.
@@ -43,7 +43,7 @@ form.arrayInsert('destinations', 1, { city: '', country: '' })
 ## `form.arrayRemove(path, index)`
 
 ```ts
-form.arrayRemove(path: string, index: number): void
+form.arrayRemove(path: Path<T>, index: number): void
 ```
 
 Removes the item at `index`. All items after `index` are shifted up by one position, and their field state keys are renumbered.
@@ -61,7 +61,7 @@ form.arrayRemove('destinations', 0)
 ## `form.arrayMove(path, from, to)`
 
 ```ts
-form.arrayMove(path: string, from: number, to: number): void
+form.arrayMove(path: Path<T>, from: number, to: number): void
 ```
 
 Moves the item at `from` to `to`. Items between the two positions slide to fill the gap. Field state follows the item — the moved item's errors, touched, and dirty keys are remapped to the destination index, and all intermediate items are renumbered.
@@ -81,7 +81,7 @@ form.arrayMove('destinations', 3, 0)
 ## `form.arraySwap(path, i, j)`
 
 ```ts
-form.arraySwap(path: string, i: number, j: number): void
+form.arraySwap(path: Path<T>, i: number, j: number): void
 ```
 
 Swaps the items at indices `i` and `j`. Their field state (errors, touched, dirty) is swapped as well. The items between `i` and `j` are not affected.

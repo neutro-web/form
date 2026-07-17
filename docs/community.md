@@ -66,7 +66,7 @@ Use this decision tree:
 - Does it call `connect()`, `focus()`, or `focusFirstError()` (vanilla-DOM binding)? → `@neutro/form/core`
 - Does it auto-save/restore via `persistence`/`hydrate()`? → `@neutro/form/core`
 - Does it derive a field's value from other fields via `computed`? → `@neutro/form/core`
-- None of the above? → `@neutro/form/core/minimal` (~7.9 KB gzip vs ~11.8 KB gzip for the full tier)
+- None of the above? → `@neutro/form/core/minimal` (~8.0 KB gzip vs ~11.8 KB gzip for the full tier)
 
 `minimal` is a strict subset — the `createForm` it exports covers `set`/`get`/`validate`/`subscribe`/`reset`/`submit`/`batch` and friends, but silently no-ops on `computed` and `persistence` config (exactly like passing them without the feature would). See the [Bundle Size Tiers guide](/guides/bundle-size-tiers) for the full breakdown and the one-line upgrade path.
 
@@ -452,6 +452,8 @@ arrayRemove(form, 'items.0.taxes', 1)
 ```
 
 Validation paths follow the same notation: `'items.0.taxes.1.rate'`.
+
+**Raw arrays nested inside arrays** (no object wrapper, e.g. `cube: number[][][]`) work identically at runtime, but `Path<T>` only type-checks one level of raw nesting — `'cube.0.1'` compiles, `'cube.0.1.2'` needs a cast (`as Path<T>`). See [TypeScript Guide → Strict path types](/guides/typescript#strict-path-types-v0-4) for the full explanation.
 
 #### How do I handle conditional fields that appear and disappear?
 

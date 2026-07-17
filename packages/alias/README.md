@@ -80,6 +80,7 @@ import { useAngularForm } from '@neutro/form/adapters/angular'
 | Path | Exports |
 |---|---|
 | `@neutro/form/core` | `createForm`, validation adapters, types |
+| `@neutro/form/core/minimal` | `createForm` without array ops, DOM bridge, persistence, or computed fields — smaller bundle, see [Bundle Size Tiers](https://neutro-web.github.io/form/guides/bundle-size-tiers) |
 | `@neutro/form/adapters/react` | `useForm`, `useFormPath`, `useFormConnect` |
 | `@neutro/form/adapters/vue` | `useVueForm`, `useVueFormPath` |
 | `@neutro/form/adapters/svelte` | `useSvelteForm`, `useSvelteFormPath` |

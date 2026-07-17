@@ -1013,7 +1013,7 @@ export function createForm<T extends object>(config: FormConfig<T>): FormInstanc
   // runs), so this is the only place computed fields get seeded at init.
   ctx.runComputedPass();
 
-  const { hydrate } = attachPersistence(ctx, config);
+  const { hydrate } = attachPersistence(ctx);
   const { connect, focus, focusFirstError, getAriaProps, getConnectedCount } = attachDomBridge(
     ctx,
     config
