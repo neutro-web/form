@@ -6,7 +6,7 @@ Neutro is a collection of focused, zero-dependency primitives for the web. Each 
 
 | Package | Description | Status |
 |---|---|---|
-| [`@neutro/form`](https://github.com/neutro-web/form) | Reactive form engine for every framework | `v0.4.2` — stable |
+| [`@neutro/form`](https://github.com/neutro-web/form) | Reactive form engine for every framework | `v0.4.4` — stable |
 | `@neutro/fluid` | Physics-grounded glass material system for the web | In development |
 
 ---
@@ -612,30 +612,28 @@ The returned `FormInstance<T>` carries all type information throughout its lifet
 
 #### Does TypeScript catch typos in field paths?
 
-Partially — path typos themselves are not caught, but value-type mismatches on known paths are.
+Yes, as of v0.4+. All path-accepting methods (`set`, `get`, `arrayAppend`, etc.) require `Path<T>` — a compile-time-checked union of every valid dot-notation path for your form's value type.
 
 **What works:**
 - `form.get('email')` returns `string` — the returned value is fully typed.
 - `form.set('email', 42)` is a TypeScript error — `number` is not assignable to `string`.
+- `form.set('emal', value)` is a TypeScript error — `'emal'` is not a valid path.
 - `form.arrayAppend('items', 'wrong')` is a TypeScript error — `string` is not assignable to the element type.
 - IDE autocomplete surfaces available paths and expected value types.
 
 **What doesn't work:**
-- Path typos: `form.set('emal', value)` compiles without error — if the path isn't in `Path<T>`, it falls to the loose fallback with `val: unknown`.
-- Dynamic paths: `const p: string = ...; form.set(p, 42)` compiles — TypeScript can't know the type when the path is computed at runtime.
+- Raw array-of-array nesting past one level: for `cube: number[][][]`, `'cube.0.1.2'` needs an `as Path<T>` cast even though it's runtime-correct — see [TypeScript Guide → Strict path types](/guides/typescript#strict-path-types-v0-4).
+- Dynamic paths: a path built at runtime (`const p: string = ...`) has no compile-time-known value, so it can't be checked against `Path<T>`.
 
-#### Why doesn't `form.set('emal', value)` produce a TypeScript error?
+#### How do I use a runtime-constructed path if `Path<T>` requires a compile-time-known string?
 
-By design — to preserve dynamic path support.
-
-The typed overload uses `Path<T> | (string & {})` as its path constraint. The `(string & {})` part is an intentional escape hatch that lets dynamic computed paths compile:
+Use `setDynamic(path, value)` / `getDynamic(path)` — these accept a plain `string` and intentionally bypass `Path<T>` checking, for paths that genuinely aren't known until runtime (e.g. `items.${index}.name`). For other methods, cast with `as Path<T>` when you're confident the path is valid:
 
 ```ts
 const field = condition ? 'email' : 'username' // type: string
-form.set(field, value) // ✅ still works
+form.setDynamic(field, value)                   // ✅ bypasses Path<T> by design
+form.isFieldDirty(field as Path<typeof form>)   // ✅ cast for methods without a Dynamic variant
 ```
-
-Without that escape hatch, any path stored in a `string` variable would require an explicit cast (`form.set(field as Path<typeof form>, value)`). Removing it would catch typos but break a common usage pattern. Fully strict path checking — catching typos without losing dynamic paths — is a harder TypeScript problem and is on the roadmap.
 
 ---
 
@@ -687,7 +685,7 @@ The DOM bridge (`connect()`) requires an `HTMLElement` and does not apply in Rea
 
 These are things `@neutro/form` does not do cleanly yet. They are not workarounds — if your project needs them, know this going in.
 
-**Strongly typed field paths — path typos not caught (intentional)** — `form.set('emal', value)` compiles without error. Catching path typos would require removing the dynamic-path escape hatch, which would break `const p: string = ...; form.set(p, value)`. The current design preserves dynamic paths at the cost of not catching typos. Compile-time type inference and dev-mode runtime path warnings are both available in v0.4.2 — unknown paths emit a console warning in development.
+**Strongly typed field paths — raw array-of-array nesting only partially caught** — as of v0.4+, `Path<T>` catches ordinary path typos at compile time (`form.set('emal', value)` is now a TS error, not a silent pass). The remaining gap is narrower: a *raw* array nested directly inside another array (no object wrapper), e.g. `cube: number[][][]`, only type-checks one level deep — `'cube.0.1'` compiles, `'cube.0.1.2'` needs an `as Path<T>` cast even though it's runtime-correct. Object-wrapped array nesting (`items.0.taxes.1.rate`) is unaffected. See [TypeScript Guide → Strict path types](/guides/typescript#strict-path-types-v0-4). Deliberately-dynamic paths (`setDynamic`/`getDynamic`) still bypass compile-time checking by design — that's the documented escape hatch for runtime-constructed paths, not a gap.
 
 **React Native adapter** — the core works but there is no official adapter with RN-idiomatic patterns.
 

@@ -97,7 +97,7 @@ Releases are gated on a `release` branch — pushing to `main` never triggers a 
 
 **Version sync:** `release-please-config.json` lists all 9 `package.json` files under `extra-files`. Every release PR bumps all of them in lockstep — no manual version edits needed.
 
-**`release-as` field:** `release-please-config.json` currently has `"release-as": "0.4.0"` to force the first release to that version (all commits since `0.3.0` were `fix:/docs:`, which would otherwise produce `0.3.1`). **Remove `release-as` from the config after `0.4.0` ships** so that subsequent releases follow normal semver bump rules from conventional commits.
+**`release-as` field:** `release-please-config.json` briefly had `"release-as": "0.4.0"` to force the first release to that version (all commits since `0.3.0` were `fix:/docs:`, which would otherwise produce `0.3.1`). It was removed once `0.4.0` shipped, so releases since then (including any future one) follow normal semver bump rules from conventional commits — no override is currently present.
 
 Only `@neutro/form` (the alias package) is published — all other packages are `"private": true` and are bundled into the alias.
 
