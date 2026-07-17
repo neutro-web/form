@@ -87,13 +87,15 @@ The alias package is a zero-code shell: its `package.json` `exports` map re-rout
 
 ### Release Flow
 
-Releases are gated on a `release` branch — pushing to `main` never triggers a release PR.
+Releases are gated on `main` directly. A `release` branch exists but is **not wired to anything** — `.github/workflows/release-please.yml` has no `target-branch` override, so any push it sees (including one to `release`) always evaluates against and opens its PR against `main` regardless. `release` sat 43+ commits behind `main` for most of the 0.5.0 cycle with no functional effect. If a real staged gate is ever wanted, `target-branch: release` would need to be added explicitly and verified — until then, treat `release` as vestigial and don't rely on pushing to it for anything.
 
 **To cut a release:**
-1. `git push origin main:release` — pushes current main to the release branch
-2. release-please detects the push and opens a "chore: release vX.Y.Z" PR against `release`
+1. `git push origin main` — pushing to `main` is what actually triggers release-please (confirmed via GitHub Actions run history: pushes to `main` trigger it; `release` is not a real gate, see above)
+2. release-please detects the push and opens/updates a "chore(main): release vX.Y.Z" PR against `main`, computing the version bump from conventional commits since the last tag
 3. Merge the PR — release-please creates the `vX.Y.Z` tag and bumps all `package.json` files via `extra-files`
-4. The tag push triggers `publish.yml`, which runs tests, builds, and publishes `@neutro/form` to npm
+4. The tag push triggers `publish.yml`, which runs tests, builds, and publishes `@neutro/form` to npm — and also triggers `bench-full.yml`, which re-runs the full benchmark suite and auto-commits an updated `docs/benchmarks/index.md` back to `main`
+
+**Note:** release-please only resyncs its open PR's branch when a new commit lands with a changelog-tracked type (`feat`/`fix`/`perf`/`docs`, per `changelog-sections` below) — a `ci:`, `test:`, `chore:`, etc. commit on `main` won't refresh the PR's branch or its CI checks, even though the PR's actual merge target (`main`) has moved. Don't be surprised if the PR shows stale (possibly red) checks after an unrelated fix lands on `main`; merging is still safe since it's a real merge against current `main`, not a snapshot overwrite.
 
 **Version sync:** `release-please-config.json` lists all 9 `package.json` files under `extra-files`. Every release PR bumps all of them in lockstep — no manual version edits needed.
 
