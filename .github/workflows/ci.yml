@@ -60,6 +60,16 @@ jobs:
         with:
           version: 10
 
+      - name: Install root workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      # bench/apps/* link to these via link:../../../packages/* which resolves
+      # through each package's dist/ output (main/types fields) — a fresh
+      # checkout has no dist/ until something builds it, and this job's own
+      # --ignore-workspace app installs never trigger that build themselves.
+      - name: Build core + adapters consumed by bench apps
+        run: pnpm --filter @neutro/form-core --filter @neutro/form-react --filter @neutro/form-vue --filter @neutro/form-svelte run build
+
       - name: Install and type check react app
         run: |
           pnpm --dir bench/apps/react install --frozen-lockfile --ignore-workspace
