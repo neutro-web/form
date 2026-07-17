@@ -67,10 +67,10 @@ Before implementation, this design went through a two-pass adversarial review: t
 4. Merging that PR creates the version-bump + CHANGELOG commit(s) on `release`, tags `vX.Y.Z` — triggers `publish.yml` (npm publish) and `bench-full.yml` (benchmark regen, now committing its results to `release`).
 5. **Required sync step — merge-back PR**, done once `bench-full.yml`'s commit (if any) has landed on `release`:
    ```
-   git checkout main
-   git pull origin main
-   git merge --ff-only release
-   git push origin merge-release-<version>:refs/heads/merge-release-<version>
+   git fetch origin main release
+   git checkout -b merge-release-<version> origin/main
+   git merge --ff-only origin/release
+   git push origin merge-release-<version>
    gh pr create --base main --head merge-release-<version> --title "chore: sync release vX.Y.Z back to main"
    ```
    Merge that PR through the normal `main` PR flow (full CI applies, per Design section 1's widened trigger scope). This keeps `main`'s "PR-only" invariant intact — no bypass exception needed for this step — and ensures `release`'s tip is an ancestor of `main`'s tip again, which is what makes the *next* cycle's `git merge --ff-only main` in step 2 valid.
