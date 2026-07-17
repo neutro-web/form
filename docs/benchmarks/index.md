@@ -1,13 +1,13 @@
 # Benchmarks
 
-*Last updated 2026-07-16 — neutro/form v0.4.4*
+*Last updated 2026-07-17 — neutro/form v0.5.0*
 
 ## Environment
 
 | | |
 |---|---|
-| Runner | local (darwin) |
-| Node | v20.19.0 |
+| Runner | GitHub Actions ubuntu-latest |
+| Node | v22.23.1 |
 | Browser | Chromium (Playwright) |
 
 ## Competitor Versions
@@ -65,14 +65,14 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 
 | Library | bundle-size |
 |---|---|
-| felte | ✅ Win <abbr title="94% faster" style="cursor: help;">ⓘ</abbr>[^bundle-size-felte] |
-| formik | ✅ Win <abbr title="11% faster" style="cursor: help;">ⓘ</abbr>[^bundle-size-formik] |
-| neutro/form (minimal) | ❌ Behind <abbr title="33% behind, no documented reason" style="cursor: help;">ⓘ</abbr>[^bundle-size-neutro-form-minimal] |
-| react-hook-form | ❌ Behind <abbr title="18% behind, no documented reason" style="cursor: help;">ⓘ</abbr>[^bundle-size-react-hook-form] |
-| tanstack-form | ✅ Win <abbr title="47% faster" style="cursor: help;">ⓘ</abbr>[^bundle-size-tanstack-form] |
+| felte | — N/A <abbr title="surface doesn't apply to this library" style="cursor: help;">ⓘ</abbr> |
+| formik | — N/A <abbr title="surface doesn't apply to this library" style="cursor: help;">ⓘ</abbr> |
+| neutro/form (minimal) | 💥 Error <abbr title="this library passes, neutro does not" style="cursor: help;">ⓘ</abbr> |
+| react-hook-form | — N/A <abbr title="surface doesn't apply to this library" style="cursor: help;">ⓘ</abbr> |
+| tanstack-form | — N/A <abbr title="neutro's single-closure design isn't tree-shakeable" style="cursor: help;">ⓘ</abbr>[^bundle-size-tanstack-form] |
 | tanstack-form (React) | — N/A |
 | tanstack-form (Svelte) | — N/A |
-| vee-validate | ❌ Behind <abbr title="12% behind, no documented reason" style="cursor: help;">ⓘ</abbr>[^bundle-size-vee-validate] |
+| vee-validate | — N/A <abbr title="surface doesn't apply to this library" style="cursor: help;">ⓘ</abbr> |
 
 ## Correctness
 
@@ -114,20 +114,6 @@ Three dimensions: **correctness** (PASS/FAIL), **browser performance** (Playwrig
 
 ## Browser (Chromium / Playwright, production build, no StrictMode)
 
-### Dependency Chain — Settle Latency (200-field validation cascade)
-
-| Library | Settle latency |
-|---|---|
-| neutro/form (React) | 47.0ms[^dependency-chain-settle-neutro-form-react] |
-| react-hook-form | 24.4ms |
-| tanstack-form (React) | 155.9ms |
-| neutro/form (Vue) | 23.4ms[^dependency-chain-settle-neutro-form-vue] |
-| vee-validate | 23.5ms |
-| neutro/form (Svelte) | 24.9ms[^dependency-chain-settle-neutro-form-svelte] |
-| tanstack-form (Svelte) | 166.9ms |
-| formik | — N/A[^dependency-chain-settle-formik] |
-| felte | — N/A[^dependency-chain-settle-felte] |
-
 ### Array Operations (remove + move, render count)
 
 _Note: render counts are not directly comparable across all libraries on this surface — some libraries (e.g. TanStack Form) isolate counters per array index, while others (e.g. neutro/form, Felte) increment counters for every item in the array on any mutation. A low count does not necessarily indicate less DOM work._
@@ -144,21 +130,6 @@ _Note: render counts are not directly comparable across all libraries on this su
 | tanstack-form (Svelte) | 0[^array-ops-tanstack-form-svelte] |
 | felte | 47 |
 
-### DOM Cleanup (connect/disconnect, neutro only)
-
-| Library | Connected after cleanup |
-|---|---|
-| neutro/form (React) | 0 |
-| neutro/form (Vue) | 0 |
-| neutro/form (Svelte) | 0 |
-
-### Memory Churn (heap delta across mount/unmount cycles, post-GC)
-
-| Library | Heap delta (post-GC) |
-|---|---|
-| neutro/form (React) | 590.2 KB |
-| react-hook-form | 635.9 KB |
-
 ### Async Cancellation (stale-result race)
 
 | Library | Cancellation |
@@ -173,6 +144,49 @@ _Note: render counts are not directly comparable across all libraries on this su
 | tanstack-form (Svelte) | ✅ |
 | felte | ✅ |
 
+### Dependency Chain — Settle Latency (200-field validation cascade)
+
+| Library | Settle latency |
+|---|---|
+| neutro/form (React) | 40.9ms[^dependency-chain-settle-neutro-form-react] |
+| react-hook-form | 39.1ms |
+| tanstack-form (React) | 217.2ms |
+| neutro/form (Vue) | 40.0ms[^dependency-chain-settle-neutro-form-vue] |
+| vee-validate | 38.0ms |
+| neutro/form (Svelte) | 38.6ms[^dependency-chain-settle-neutro-form-svelte] |
+| tanstack-form (Svelte) | 211.7ms |
+| formik | — N/A[^dependency-chain-settle-formik] |
+| felte | — N/A[^dependency-chain-settle-felte] |
+
+### DOM Cleanup (connect/disconnect, neutro only)
+
+| Library | Connected after cleanup |
+|---|---|
+| neutro/form (React) | 0 |
+| neutro/form (Vue) | 0 |
+| neutro/form (Svelte) | 0 |
+
+### Memory Churn (heap delta across mount/unmount cycles, post-GC)
+
+| Library | Heap delta (post-GC) |
+|---|---|
+| neutro/form (React) | 670.9 KB |
+| react-hook-form | 631.2 KB |
+
+### Mount Cost (time to interactive, Navigation Timing API)
+
+| Library | Time to interactive |
+|---|---|
+| neutro/form (React) | 9.5ms |
+| react-hook-form | 7.7ms |
+| formik | 6.4ms |
+| tanstack-form (React) | 7.2ms |
+| neutro/form (Vue) | 7.4ms |
+| vee-validate | 7.3ms |
+| neutro/form (Svelte) | 7.2ms |
+| tanstack-form (Svelte) | 7.7ms |
+| felte | 9.5ms |
+
 ### Re-renders per 20-keystroke sequence (10-field form)
 
 | Library | Renders |
@@ -186,48 +200,6 @@ _Note: render counts are not directly comparable across all libraries on this su
 | neutro/form (Svelte) | 20 |
 | tanstack-form (Svelte) | 20 |
 | felte | 200 |
-
-### Mount Cost (time to interactive, Navigation Timing API)
-
-| Library | Time to interactive |
-|---|---|
-| neutro/form (React) | 3.4ms |
-| react-hook-form | 3.8ms |
-| formik | 3.4ms |
-| tanstack-form (React) | 4.3ms |
-| neutro/form (Vue) | 3.6ms |
-| vee-validate | 3.9ms |
-| neutro/form (Svelte) | 3.5ms |
-| tanstack-form (Svelte) | 3.9ms |
-| felte | 3.9ms |
-
-### Schema Validation — Submit Latency (Zod, click-to-error-visible)
-
-| Library | Submit latency |
-|---|---|
-| neutro/form (React) | 47.8ms |
-| react-hook-form | 47.8ms |
-| tanstack-form (React) | 45.3ms |
-| neutro/form (Vue) | 41.7ms |
-| vee-validate | 61.0ms |
-| neutro/form (Svelte) | 39.3ms |
-| tanstack-form (Svelte) | 39.5ms |
-| felte | 38.4ms |
-| formik | — N/A[^schema-validate-submit-formik] |
-
-### Schema Validation — Re-renders per 20-keystroke sequence (Zod, 10-field form)
-
-| Library | Renders |
-|---|---|
-| neutro/form (React) | 20 |
-| react-hook-form | 0 |
-| tanstack-form (React) | 200 |
-| neutro/form (Vue) | 20 |
-| vee-validate | 20 |
-| neutro/form (Svelte) | 20 |
-| tanstack-form (Svelte) | 200 |
-| felte | 200 |
-| formik | — N/A[^schema-validate-rerenders-formik] |
 
 ### Re-renders per 20-keystroke sequence (100-field form)
 
@@ -247,30 +219,58 @@ _Note: render counts are not directly comparable across all libraries on this su
 
 | Library | p50 | p99 |
 |---|---|---|
-| neutro/form (React) | 302ms[^async-latency-neutro-form-react] | 303ms |
-| react-hook-form | 202ms | 203ms |
-| formik | 202ms | 203ms |
-| tanstack-form (React) | 201ms | 201ms |
-| neutro/form (Vue) | 302ms[^async-latency-neutro-form-vue] | 302ms |
-| vee-validate | 202ms | 202ms |
-| neutro/form (Svelte) | 301ms[^async-latency-neutro-form-svelte] | 302ms |
-| tanstack-form (Svelte) | 201ms | 201ms |
-| felte | 202ms | 202ms |
+| neutro/form (React) | 300ms[^async-latency-neutro-form-react] | 302ms |
+| react-hook-form | 200ms | 201ms |
+| formik | 200ms | 201ms |
+| tanstack-form (React) | 200ms | 200ms |
+| neutro/form (Vue) | 300ms[^async-latency-neutro-form-vue] | 300ms |
+| vee-validate | 200ms | 200ms |
+| neutro/form (Svelte) | 300ms[^async-latency-neutro-form-svelte] | 300ms |
+| tanstack-form (Svelte) | 200ms | 200ms |
+| felte | 200ms | 200ms |
+
+### Schema Validation — Re-renders per 20-keystroke sequence (Zod, 10-field form)
+
+| Library | Renders |
+|---|---|
+| neutro/form (React) | 20 |
+| react-hook-form | 0 |
+| tanstack-form (React) | 200 |
+| neutro/form (Vue) | 20 |
+| vee-validate | 20 |
+| neutro/form (Svelte) | 20 |
+| tanstack-form (Svelte) | 200 |
+| felte | 200 |
+| formik | — N/A[^schema-validate-rerenders-formik] |
+
+### Schema Validation — Submit Latency (Zod, click-to-error-visible)
+
+| Library | Submit latency |
+|---|---|
+| neutro/form (React) | 58.2ms |
+| react-hook-form | 53.0ms |
+| tanstack-form (React) | 53.6ms |
+| neutro/form (Vue) | 55.7ms |
+| vee-validate | 63.6ms |
+| neutro/form (Svelte) | 48.8ms |
+| tanstack-form (Svelte) | 49.8ms |
+| felte | 43.3ms |
+| formik | — N/A[^schema-validate-submit-formik] |
 
 ### Async Validation Latency — Debounce Floor (neutro only)
 
 | Library | p50 | p99 |
 |---|---|---|
-| neutro/form (React) [debounce=0] | 202ms | 202ms |
-| neutro/form (Vue) [debounce=0] | 202ms | 202ms |
-| neutro/form (Svelte) [debounce=0] | 202ms | 202ms |
+| neutro/form (React) [debounce=0] | 200ms | 200ms |
+| neutro/form (Vue) [debounce=0] | 200ms | 200ms |
+| neutro/form (Svelte) [debounce=0] | 200ms | 200ms |
 
 ## Bundle Size
 
 | Library | Gzip size |
 |---|---|
-| neutro/form | 11.8 KB |
-| neutro/form (minimal) | 8.0 KB |
+| neutro/form | ERROR |
+| neutro/form (minimal) | ERROR |
 | react-hook-form | 9.7 KB |
 | formik | 13.2 KB |
 | tanstack-form | 17.4 KB |
@@ -320,19 +320,14 @@ _Note: render counts are not directly comparable across all libraries on this su
 [^re-renders-100-vee-validate]: vee-validate — neutro/form: 20 renders vs vee-validate: 20 renders
 [^async-latency-vee-validate]: vee-validate — same debounce policy as React — see debounce=0 column.
 [^array-ops-vee-validate]: vee-validate — neutro/form: 18 renders vs vee-validate: 18 renders
-[^bundle-size-felte]: felte — neutro/form: 11.8 KB vs felte: 22.9 KB (94% fewer/faster)
-[^bundle-size-formik]: formik — neutro/form: 11.8 KB vs formik: 13.2 KB (11% fewer/faster)
-[^bundle-size-neutro-form-minimal]: neutro/form (minimal) — neutro/form: 11.8 KB vs neutro/form (minimal): 8.0 KB
-[^bundle-size-react-hook-form]: react-hook-form — neutro/form: 11.8 KB vs react-hook-form: 9.7 KB
-[^bundle-size-tanstack-form]: tanstack-form — neutro/form: 11.8 KB vs tanstack-form: 17.4 KB (47% fewer/faster)
-[^bundle-size-vee-validate]: vee-validate — neutro/form: 11.8 KB vs vee-validate: 10.4 KB
+[^bundle-size-tanstack-form]: tanstack-form — neutro/form's createForm is a single closure factory (array ops, DOM bridge, persistence, computed fields, and devtools hooks all in one function body) so nothing is tree-shakeable; tanstack-form's modular file structure lets esbuild drop unused code paths despite a larger raw source size.
 [^dependency-chain-settle-neutro-form-react]: neutro/form (React) — This surface’s settle-latency measurement is bounded below by Playwright’s waitForFunction polling granularity, not by real cascade cost — for very fast libraries the reported number reflects polling overhead more than actual work. Treat the gap between neutro and the manual-wiring competitors as a floor on the true gap, not an exact figure.
 [^dependency-chain-settle-neutro-form-vue]: neutro/form (Vue) — This surface’s settle-latency measurement is bounded below by Playwright’s waitForFunction polling granularity, not by real cascade cost — for very fast libraries the reported number reflects polling overhead more than actual work. Treat the gap between neutro and the manual-wiring competitors as a floor on the true gap, not an exact figure.
 [^dependency-chain-settle-neutro-form-svelte]: neutro/form (Svelte) — This surface’s settle-latency measurement is bounded below by Playwright’s waitForFunction polling granularity, not by real cascade cost — for very fast libraries the reported number reflects polling overhead more than actual work. Treat the gap between neutro and the manual-wiring competitors as a floor on the true gap, not an exact figure.
 [^dependency-chain-settle-formik]: formik — Formik has no live field-to-field subscription API to drive a manual validation cascade of this shape — excluded from this comparison. Formik participates fully in every other browser surface.
 [^dependency-chain-settle-felte]: felte — Felte has no field-level watch API to drive a manual validation cascade of this shape — excluded from this comparison. Felte participates fully in every other browser surface.
-[^schema-validate-submit-formik]: formik — Formik has no first-party Zod integration (only an unofficial zod-formik-adapter package) — excluded from this Zod-specific comparison. Formik participates fully in every other browser surface.
-[^schema-validate-rerenders-formik]: formik — Formik has no first-party Zod integration (only an unofficial zod-formik-adapter package) — excluded from this Zod-specific comparison. Formik participates fully in every other browser surface.
 [^async-latency-neutro-form-react]: neutro/form (React) — neutro debounces async validation 300ms by default (asyncDebounceMs) to avoid firing on every keystroke. See the debounce=0 column for the floor cost.
 [^async-latency-neutro-form-vue]: neutro/form (Vue) — same debounce policy as React — see debounce=0 column.
 [^async-latency-neutro-form-svelte]: neutro/form (Svelte) — same debounce policy as React — see debounce=0 column.
+[^schema-validate-rerenders-formik]: formik — Formik has no first-party Zod integration (only an unofficial zod-formik-adapter package) — excluded from this Zod-specific comparison. Formik participates fully in every other browser surface.
+[^schema-validate-submit-formik]: formik — Formik has no first-party Zod integration (only an unofficial zod-formik-adapter package) — excluded from this Zod-specific comparison. Formik participates fully in every other browser surface.
