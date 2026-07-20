@@ -1,0 +1,27 @@
+name: Release Branch Drift Check
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify release is an ancestor of main
+        run: |
+          git fetch origin main release
+          if git merge-base --is-ancestor origin/release origin/main; then
+            echo "OK: release is an ancestor of main — no drift."
+          else
+            echo "::error::release has diverged from main — a post-release merge-back (see CLAUDE.md Release Flow) was likely skipped. Open a merge-back PR from release into main."
+            exit 1
+          fi

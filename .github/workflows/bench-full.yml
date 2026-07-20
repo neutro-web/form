@@ -11,19 +11,13 @@ concurrency:
 permissions:
   contents: write
 
-# NOTE FOR MAINTAINERS: The "Commit results to main" step requires
-# github-actions[bot] to bypass branch protection on main.
-# Go to: GitHub Settings → Branches → main protection rule
-# → "Allow specified actors to bypass required pull requests"
-# → add "github-actions[bot]"
-
 jobs:
   bench-full:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: release
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: pnpm/action-setup@v3
@@ -59,12 +53,12 @@ jobs:
 
       - run: pnpm --dir bench run bench:generate
 
-      - name: Commit results to main
+      - name: Commit results to release
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add bench/results/baseline.json docs/benchmarks/index.md
           if ! git diff --cached --quiet; then
             git commit -m "chore: update benchmarks [skip ci]"
-            git push origin main
+            git push origin release
           fi
