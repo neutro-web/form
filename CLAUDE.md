@@ -87,19 +87,18 @@ The alias package is a zero-code shell: its `package.json` `exports` map re-rout
 
 ### Release Flow
 
-Releases are gated on `main` directly. A `release` branch exists but is **not wired to anything** — `.github/workflows/release-please.yml` has no `target-branch` override, so any push it sees (including one to `release`) always evaluates against and opens its PR against `main` regardless. `release` sat 43+ commits behind `main` for most of the 0.5.0 cycle with no functional effect. If a real staged gate is ever wanted, `target-branch: release` would need to be added explicitly and verified — until then, treat `release` as vestigial and don't rely on pushing to it for anything.
+`main` is trunk: every merge lands via PR (no direct pushes) and is fully CI-gated by `ci.yml` and `bench-regression.yml`. `release` is a deliberate "ready to ship" checkpoint: it only ever fast-forwards to a commit already on `main`, and after each release cycle it's merged back into `main` so it never carries a commit `main` doesn't have. `.github/workflows/release-please.yml` triggers only on pushes to `release` and passes `target-branch: release` to `googleapis/release-please-action@v4`, so its PR always targets `release`, not `main`.
 
 **To cut a release:**
-1. `git push origin main` — pushing to `main` is what actually triggers release-please (confirmed via GitHub Actions run history: pushes to `main` trigger it; `release` is not a real gate, see above)
-2. release-please detects the push and opens/updates a "chore(main): release vX.Y.Z" PR against `main`, computing the version bump from conventional commits since the last tag
-3. Merge the PR — release-please creates the `vX.Y.Z` tag and bumps all `package.json` files via `extra-files`
-4. The tag push triggers `publish.yml`, which runs tests, builds, and publishes `@neutro/form` to npm — and also triggers `bench-full.yml`, which re-runs the full benchmark suite and auto-commits an updated `docs/benchmarks/index.md` back to `main`
+1. Fast-forward `release` to the commit on `main` you want to ship: `git checkout release && git merge --ff-only main && git push origin release`.
+2. That push triggers `release-please.yml`, which opens/updates a "chore(release): release vX.Y.Z" PR against `release`, computing the version bump from conventional commits since the last tag.
+3. Merge the PR — release-please creates the `vX.Y.Z` tag on `release` and bumps all `package.json` files via `extra-files`.
+4. The tag push triggers `publish.yml` (tests, builds, and publishes `@neutro/form` to npm) and `bench-full.yml` (re-runs the full benchmark suite). `bench-full.yml` now checks out and commits its results to `release` (not `main`) — see below for why.
+5. **Required:** once `bench-full.yml`'s commit (if any) has landed on `release`, open a PR merging `release` back into `main` (`git checkout main && git pull && git merge --ff-only release`, push to a feature branch, `gh pr create --base main`) and merge it through the normal `main` PR flow. **Merge this PR via a real merge commit ("Create a merge commit"), never squash or rebase** — the weekly `release-branch-drift.yml` check verifies `release`'s tip is a literal git ancestor of `main`'s tip via `git merge-base --is-ancestor`, and a squash/rebase merge synthesizes a new SHA that breaks this permanently, turning the check into a false positive on an otherwise healthy repo. This keeps `release`'s tip an ancestor of `main`'s tip, which is what makes the *next* cycle's fast-forward in step 1 valid.
 
-**Note:** release-please only resyncs its open PR's branch when a new commit lands with a changelog-tracked type (`feat`/`fix`/`perf`/`docs`, per `changelog-sections` below) — a `ci:`, `test:`, `chore:`, etc. commit on `main` won't refresh the PR's branch or its CI checks, even though the PR's actual merge target (`main`) has moved. Don't be surprised if the PR shows stale (possibly red) checks after an unrelated fix lands on `main`; merging is still safe since it's a real merge against current `main`, not a snapshot overwrite.
+**Why `bench-full.yml` targets `release`, not `main`:** the version-bump/CHANGELOG commit from step 3 lands on `release`. If `bench-full.yml` (tag-triggered, so it can fire within seconds of step 3) still checked out and pushed to `main`, its auto-commit could land on `main` *before* the step 5 merge-back happens, corrupting the fast-forward relationship. Targeting `release` means both commits travel through the same merge-back PR together.
 
 **Version sync:** `release-please-config.json` lists all 9 `package.json` files under `extra-files`. Every release PR bumps all of them in lockstep — no manual version edits needed.
-
-**`release-as` field:** `release-please-config.json` briefly had `"release-as": "0.4.0"` to force the first release to that version (all commits since `0.3.0` were `fix:/docs:`, which would otherwise produce `0.3.1`). It was removed once `0.4.0` shipped, so releases since then (including any future one) follow normal semver bump rules from conventional commits — no override is currently present.
 
 Only `@neutro/form` (the alias package) is published — all other packages are `"private": true` and are bundled into the alias.
 
