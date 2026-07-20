@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.1](https://github.com/neutro-web/form/compare/v0.5.0...v0.5.1) (2026-07-20)
+
+
+### Documentation
+
+* add staged release gate design spec ([67b2c7d](https://github.com/neutro-web/form/commit/67b2c7df222c7517cfbc27976109a890e595b2ee))
+* fold adversarial review fixes into release gate design ([0db3461](https://github.com/neutro-web/form/commit/0db3461f5d5025683cec8b2e1da504029420fc5b))
+* write staged release gate plan, fold in 2-pass adversarial review fixes ([1eb0ef4](https://github.com/neutro-web/form/commit/1eb0ef4a2e0a77d7122c551d9b256bdc3a593539))
+
 ## [0.5.0](https://github.com/neutro-web/form/compare/v0.4.4...v0.5.0) (2026-07-17)
 
 
