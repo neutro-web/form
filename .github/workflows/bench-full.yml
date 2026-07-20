@@ -53,6 +53,13 @@ jobs:
 
       - run: pnpm --dir bench run bench:generate
 
+      # This job checks out the mutable `release` branch (not an immutable
+      # tagged SHA) because it needs to push results back to it afterward.
+      # If `release` moves during this multi-minute run (e.g. the next
+      # cycle's fast-forward lands concurrently), the push below is a plain
+      # `git push` with no --force, so a non-fast-forward is rejected rather
+      # than silently overwritten — this fails loudly and needs a manual
+      # re-run, but it never corrupts `release` or commits stale results.
       - name: Commit results to release
         run: |
           git config user.name "github-actions[bot]"

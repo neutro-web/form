@@ -273,7 +273,7 @@ Run: `git add .github/workflows/bench-full.yml`
 - [ ] **Step 1: Write the workflow file**
 
 ```yaml
-name: Release Branch Drift Check
+name: Release Branch Ancestry Check
 
 on:
   schedule:
@@ -461,7 +461,7 @@ Replace the entire `### Release Flow` section (from its heading through the line
 2. That push triggers `release-please.yml`, which opens/updates a "chore(release): release vX.Y.Z" PR against `release`, computing the version bump from conventional commits since the last tag.
 3. Merge the PR — release-please creates the `vX.Y.Z` tag on `release` and bumps all `package.json` files via `extra-files`.
 4. The tag push triggers `publish.yml` (tests, builds, and publishes `@neutro/form` to npm) and `bench-full.yml` (re-runs the full benchmark suite). `bench-full.yml` now checks out and commits its results to `release` (not `main`) — see below for why.
-5. **Required:** once `bench-full.yml`'s commit (if any) has landed on `release`, open a PR merging `release` back into `main` (`git checkout main && git pull && git merge --ff-only release`, push to a feature branch, `gh pr create --base main`) and merge it through the normal `main` PR flow. This keeps `release`'s tip an ancestor of `main`'s tip, which is what makes the *next* cycle's fast-forward in step 1 valid. A weekly `release-branch-drift.yml` check fails loudly if this step is ever skipped.
+5. **Required:** once `bench-full.yml`'s commit (if any) has landed on `release`, open a PR merging `release` back into `main` (`git checkout main && git pull && git merge --ff-only release`, push to a feature branch, `gh pr create --base main`) and merge it through the normal `main` PR flow. **Merge this PR via a real merge commit ("Create a merge commit"), never squash or rebase** — the weekly `release-branch-drift.yml` check verifies `release`'s tip is a literal git ancestor of `main`'s tip via `git merge-base --is-ancestor`, and a squash/rebase merge synthesizes a new SHA that breaks this permanently, turning the check into a false positive on an otherwise healthy repo. This keeps `release`'s tip an ancestor of `main`'s tip, which is what makes the *next* cycle's fast-forward in step 1 valid.
 
 **Why `bench-full.yml` targets `release`, not `main`:** the version-bump/CHANGELOG commit from step 3 lands on `release`. If `bench-full.yml` (tag-triggered, so it can fire within seconds of step 3) still checked out and pushed to `main`, its auto-commit could land on `main` *before* the step 5 merge-back happens, corrupting the fast-forward relationship. Targeting `release` means both commits travel through the same merge-back PR together.
 

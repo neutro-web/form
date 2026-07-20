@@ -73,7 +73,7 @@ Before implementation, this design went through a two-pass adversarial review: t
    git push origin merge-release-<version>
    gh pr create --base main --head merge-release-<version> --title "chore: sync release vX.Y.Z back to main"
    ```
-   Merge that PR through the normal `main` PR flow (full CI applies, per Design section 1's widened trigger scope). This keeps `main`'s "PR-only" invariant intact — no bypass exception needed for this step — and ensures `release`'s tip is an ancestor of `main`'s tip again, which is what makes the *next* cycle's `git merge --ff-only main` in step 2 valid.
+   Merge that PR through the normal `main` PR flow (full CI applies, per Design section 1's widened trigger scope). This keeps `main`'s "PR-only" invariant intact — no bypass exception needed for this step — and ensures `release`'s tip is an ancestor of `main`'s tip again, which is what makes the *next* cycle's `git merge --ff-only main` in step 2 valid. **This PR must be merged via a real merge commit ("Create a merge commit"), never squash or rebase:** the drift check (Design section 4) verifies `git merge-base --is-ancestor origin/release origin/main`, which only holds if `release`'s commits become literal ancestors of `main` through a true merge; a squash or rebase merge synthesizes a new SHA on `main`, permanently breaking that ancestor relationship and causing the drift check to false-positive forever on an otherwise correctly-synced repo.
 
 ### 4. Verification plan
 

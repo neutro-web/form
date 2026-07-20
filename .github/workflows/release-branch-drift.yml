@@ -1,9 +1,16 @@
-name: Release Branch Drift Check
+name: Release Branch Ancestry Check
 
 on:
   schedule:
     - cron: '0 3 * * 0'
   workflow_dispatch:
+
+# This check assumes the release->main merge-back PR (see CLAUDE.md's Release
+# Flow, step 5) is always merged via a real merge commit — "Create a merge
+# commit", never squash or rebase. Squash/rebase synthesizes a new SHA on
+# main, so release's tip is no longer a literal ancestor of main even when
+# the sync is correct, and this check would then fail permanently (a false
+# positive) on an otherwise healthy repo.
 
 permissions:
   contents: read
