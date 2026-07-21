@@ -517,11 +517,11 @@ Run: `gh pr merge docs-release-flow-update --squash --delete-branch` (only after
       "contexts": ["CI / test", "CI / bench-apps-typecheck", "Bench Regression / bench-regression"]
     },
     "enforce_admins": false,
-    "required_pull_request_reviews": null,
+    "required_pull_request_reviews": { "required_approving_review_count": 0 },
     "restrictions": null
   }
   EOF
   gh api repos/neutro-web/form/branches/main/protection -X PUT --input /tmp/branch-protection.json
   ```
-  (Check-run contexts follow GitHub's `<workflow name> / <job id>` convention — confirmed against this repo's actual workflow/job names, not guessed.) Review and adjust these fields with the user before running — this plan does not execute it.
+  **Correction (caught before this was ever run):** the original draft of this command set `required_pull_request_reviews: null`. Per GitHub's branch-protection API, `null` here *disables the "require a pull request before merging" rule entirely* — the opposite of the goal — rather than configuring it with zero required approvals. The fix is `required_pull_request_reviews: { "required_approving_review_count": 0 }`, which does require a PR but with no mandatory approvals (GitHub accepts `0` in this field specifically to mean "PR required, no approvals needed"). (Check-run contexts follow GitHub's `<workflow name> / <job id>` convention — confirmed against this repo's actual workflow/job names, not guessed.) Review and adjust these fields with the user before running — this plan does not execute it.
 - **A real version-bump release cycle** (the spec's verification-plan item 7) can only happen the next time there's actually a release-worthy change on `main` — this plan's Task 7 dry run only exercises the no-new-commits path (or, if commits happen to be release-worthy at execution time, the full path opportunistically). Either way, treat the first *real* version-bump release under this flow with extra attention even after this plan completes.
