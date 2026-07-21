@@ -87,7 +87,7 @@ The alias package is a zero-code shell: its `package.json` `exports` map re-rout
 
 ### Release Flow
 
-`main` is trunk: changes land via PR and are fully CI-gated by `ci.yml` and `bench-regression.yml`. (Branch protection to technically block direct pushes to `main` is a planned follow-up, not yet applied — treat "PR-only" as current discipline, not yet a GitHub-enforced guarantee.) `release` is a deliberate "ready to ship" checkpoint: it only ever fast-forwards to a commit already on `main`, and after each release cycle it's merged back into `main` so it never carries a commit `main` doesn't have. `.github/workflows/release-please.yml` triggers only on pushes to `release` and passes `target-branch: release` to `googleapis/release-please-action@v4`, so its PR always targets `release`, not `main`.
+`main` is trunk: changes land via PR and are fully CI-gated by `ci.yml` and `bench-regression.yml`. Branch protection enforces this technically — direct pushes are rejected for everyone, including repo admins (`enforce_admins: true`), and the PR must pass `CI / test`, `CI / bench-apps-typecheck`, and `Bench Regression / bench-regression` before merging. `release` is a deliberate "ready to ship" checkpoint: it only ever fast-forwards to a commit already on `main`, and after each release cycle it's merged back into `main` so it never carries a commit `main` doesn't have. `.github/workflows/release-please.yml` triggers only on pushes to `release` and passes `target-branch: release` to `googleapis/release-please-action@v4`, so its PR always targets `release`, not `main`.
 
 **To cut a release:**
 1. Fast-forward `release` to the commit on `main` you want to ship: `git checkout release && git merge --ff-only main && git push origin release`.
