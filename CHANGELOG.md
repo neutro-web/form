@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.1](https://github.com/neutro-web/form/compare/v0.5.0...v0.5.1) (2026-07-24)
+
+
+### Documentation
+
+* add staged release gate design spec ([67b2c7d](https://github.com/neutro-web/form/commit/67b2c7df222c7517cfbc27976109a890e595b2ee))
+* clarify main branch protection isn't applied yet ([60e9488](https://github.com/neutro-web/form/commit/60e94884b1553f775b74473e3e3297c2e4221dcd))
+* describe the real two-branch release flow ([f613a92](https://github.com/neutro-web/form/commit/f613a9264c324d1926585ff1dd2c5c53ce55f6f2))
+* describe the real two-branch release flow ([8fb0ca6](https://github.com/neutro-web/form/commit/8fb0ca6b9091cb86402ccd2f2e4c6eba6f322e98))
+* fix branch-protection command — null disables PR requirement entirely ([212dc65](https://github.com/neutro-web/form/commit/212dc65365bc2d37d151e333236c72b1e5b8167f))
+* fold adversarial review fixes into release gate design ([0db3461](https://github.com/neutro-web/form/commit/0db3461f5d5025683cec8b2e1da504029420fc5b))
+* write staged release gate plan, fold in 2-pass adversarial review fixes ([1eb0ef4](https://github.com/neutro-web/form/commit/1eb0ef4a2e0a77d7122c551d9b256bdc3a593539))
+
 ## [0.5.0](https://github.com/neutro-web/form/compare/v0.4.4...v0.5.0) (2026-07-17)
 
 
