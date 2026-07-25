@@ -26,6 +26,7 @@ export default defineConfig({
       { text: 'API', link: '/api/' },
       { text: 'Guides', link: '/guides/react' },
       { text: 'Playground', link: '/playground.html', target: '_self' },
+      { text: 'Roadmap', link: '/roadmap' },
       { text: 'Community', link: '/community' },
       { text: 'Contributing', link: '/contributing' },
       { text: 'Benchmarks', link: '/benchmarks/' },
