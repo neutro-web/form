@@ -52,7 +52,7 @@ export function buildScorecard(baseline: BenchResults): ScorecardRow[] {
     for (const r of results) if (!r.library.startsWith('neutro/form')) libraries.add(r.library)
   }
   for (const results of Object.values(baseline.bundleSize ?? {})) {
-    for (const r of results) if (r.library !== 'neutro/form') libraries.add(r.library)
+    for (const r of results) if (!r.library.startsWith('neutro/form')) libraries.add(r.library)
   }
 
   const rows: ScorecardRow[] = []
