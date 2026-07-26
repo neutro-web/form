@@ -8,9 +8,10 @@ Verified before writing this design:
 - `bench-regression.yml` runs 3 samples of `bench:core:sample` (`vitest bench suites/core`) on GitHub's shared `ubuntu-latest` runner, then compares against `results/baseline.json` via `bench/scripts/compare-baseline.ts`.
 - `results/baseline.json` is captured via `bench:full` **on a local machine** (per CLAUDE.md's documented convention: "Local runs must copy `results/latest.json` over `results/baseline.json`") — a fundamentally different, typically faster and more consistent environment than a shared CI runner.
 - `BENCH_HARD_FAIL` repo variable is unset (`gh api .../actions/variables/BENCH_HARD_FAIL` → 404), so `compare-baseline.ts`'s `process.env.BENCH_HARD_FAIL === 'true'` is false and it always exits 0 — this check is currently non-blocking, just persistent noisy commentary on every PR.
-- `bench/suites/core` (what `bench:core:sample` runs) only imports `@neutro/form-core` — no other package needs building for this specific check to run correctly.
+- **Corrected during adversarial review — no build step exists or is needed anywhere in this path.** `bench/vitest.config.ts` aliases `@neutro/form-core` directly to `../packages/core/src/index.ts` (source, not `dist/`) — `vitest bench` transpiles it fresh on every invocation via Vite/esbuild. The *original* `bench-regression.yml` confirms this: it only runs `pnpm --dir bench install --frozen-lockfile --ignore-workspace`, never a core build, and the check works today. An earlier draft of this spec wrongly asserted "they already build packages/core before this point" — that claim was carried over incorrectly from an unrelated investigation (the bundle-size esbuild fixture, which *does* need `dist/` because it resolves through package `exports`, a completely different code path from vitest's direct source alias). No build step belongs anywhere in this design.
 - The whole `bench-regression.yml` job currently takes ~1m30s-1m40s (install + 3 samples + compare), confirmed from recent PR check timings.
-- `bench/scripts/compare-baseline.test.ts` already exists with unit coverage for `median`, `collectMedianOpsPerSec`, and `computeRegressions`.
+- `bench/scripts/compare-baseline.test.ts` already exists with unit coverage for `median`, `collectMedianOpsPerSec`, and `computeRegressions`; its existing `computeRegressions` tests all key entries to `library: 'neutro/form'` with no multi-library assertions, so collapsing the second argument to a flat `Record<string, number>` is a lossless, faithful translation — verified by reading the actual test bodies, not assumed.
+- `bench-regression.yml`'s trigger (`pull_request: branches: [main, release]`) means a PR could target either branch. `github.event.pull_request.base.sha` resolves generically from GitHub's PR metadata regardless of which branch that is — no release-specific wrinkle.
 
 ## Goals
 
@@ -23,37 +24,44 @@ Verified before writing this design:
 - No change to `bench:generate`, `docs/benchmarks/index.md`, or how the public-facing baseline numbers are captured/published.
 - No change to the regression threshold (25%) or the high-variance/min-sample constants — those are orthogonal to the environment-mismatch problem this design fixes.
 - No change to `BENCH_HARD_FAIL` being unset — whether to turn on hard-fail is a separate decision for later, after this fix has run cleanly on real PRs for a while.
+- No change to the PR-comment-per-push behavior — `main()`'s unconditional `POST` to the issues/comments API already posts a fresh comment on every `synchronize` push over a long-lived PR's life, pre-existing and untouched by this design. Worth a future cleanup (update-in-place instead of appending), but orthogonal to the false-positive problem this design fixes.
 
 ## Design
 
 ### 1. `bench-regression.yml` changes
 
-Current step sequence (unchanged, but sample output files renamed for clarity now that there are two sides):
+**Critical design point, found by adversarial review: the checkout must be scoped to `packages/core` only, never a full ref switch.** An earlier draft of this spec did `git checkout <base_sha>` (switching the *entire* working tree). That's self-defeating: it would also switch `bench/` itself — including `bench/scripts/compare-baseline.ts`, the very script this design rewrites — to base's *old* version. The compare step that runs afterward would then execute base's stale comparator (reading the now-removed `BENCH_INPUT_FILES`/`results/baseline.json`), which doesn't exist in the new workflow's env, causing `readJson` to fail and the job to hard-fail — on every PR, including the one that implements this very fix. The correct scope: only `packages/core` (the subject being measured) should ever change between the two measurement phases. `bench/`'s own harness, config, and comparator must stay fixed at HEAD throughout the whole job — bench is the *instrument*, not the *subject under test*, and the instrument must not change mid-measurement.
+
+**Second design point, also found by adversarial review: interleave the sampling order, don't block it head-then-base.** Running all 3 head samples first and all 3 base samples second means base's measurements always happen later in the job's lifetime, under whatever cumulative scheduler/thermal/noisy-neighbor state a shared `ubuntu-latest` runner has built up by then — a systematic, directional bias (not random noise the median-of-3 logic can filter), reintroducing a smaller version of the exact problem this design exists to fix. Alternating head/base per round cancels out any monotonic drift across the job's duration instead of concentrating it on one side.
+
+Step sequence, replacing the current 3 head-only sample steps:
 ```yaml
+- name: Fetch base ref
+  run: git fetch --depth 1 origin ${{ github.event.pull_request.base.sha }}
+
 - run: BENCH_OUTPUT_FILE=results/head-1.json pnpm --dir bench run bench:core:sample
-- run: BENCH_OUTPUT_FILE=results/head-2.json pnpm --dir bench run bench:core:sample
-- run: BENCH_OUTPUT_FILE=results/head-3.json pnpm --dir bench run bench:core:sample
-```
-(These run against whatever `actions/checkout@v4`'s default ref is for a `pull_request`-triggered job — the PR's merge ref. No change to the checkout/install/build steps that precede these — they already build `packages/core` before this point.)
-
-New steps appended after the head samples:
-```yaml
-- name: Checkout base ref
-  run: |
-    git fetch origin ${{ github.event.pull_request.base.sha }}
-    git checkout ${{ github.event.pull_request.base.sha }}
-
-- name: Install and build core at base ref
-  run: |
-    pnpm install --frozen-lockfile
-    pnpm --filter @neutro/form-core run build
-
+- run: git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
 - run: BENCH_OUTPUT_FILE=results/base-1.json pnpm --dir bench run bench:core:sample
+- run: git checkout HEAD -- packages/core
+
+- run: BENCH_OUTPUT_FILE=results/head-2.json pnpm --dir bench run bench:core:sample
+- run: git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
 - run: BENCH_OUTPUT_FILE=results/base-2.json pnpm --dir bench run bench:core:sample
+- run: git checkout HEAD -- packages/core
+
+- run: BENCH_OUTPUT_FILE=results/head-3.json pnpm --dir bench run bench:core:sample
+- run: git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
 - run: BENCH_OUTPUT_FILE=results/base-3.json pnpm --dir bench run bench:core:sample
+- run: git checkout HEAD -- packages/core
 ```
 
-Using `github.event.pull_request.base.sha` (the exact commit the PR is currently based on) rather than `github.base_ref` (the branch name) — this pins the comparison to a specific commit, immune to `main` advancing mid-run.
+No `pnpm install`, no build, anywhere in this sequence — per the corrected Context section, `vitest bench` transpiles `packages/core/src` directly on every invocation, so a scoped `git checkout <sha> -- packages/core` alone is sufficient to swap which version of the engine gets measured; `git checkout HEAD -- packages/core` restores head's version afterward (`HEAD` never moves — it stays pointed at the job's initial checkout, a `pull_request` event's merge-ref commit — only the working-tree contents of one directory move back and forth).
+
+`git fetch --depth 1 origin <sha>` (not a full/unbounded fetch) — this can fail loudly if the base branch was force-pushed and that exact commit was later pruned server-side (a rare edge case). That's an acceptable failure mode consistent with this project's existing "fail loudly rather than silently produce wrong data" philosophy (e.g. `release-branch-drift.yml`'s explicit `exit 1`) — not a scenario this design needs to work around.
+
+Using `github.event.pull_request.base.sha` (the exact commit the PR is currently based on) rather than `github.base_ref` (the branch name) — this pins the comparison to a specific commit, immune to `main`/`release` advancing mid-run.
+
+**Cost, honestly re-estimated:** the earlier draft's "~3 minutes" claim assumed an install+build cycle that turns out to be unnecessary — that cost doesn't exist. The real added cost is purely 3 more `vitest bench suites/core` invocations (doubling the sampling portion from 3 to 6) plus 6 near-instant scoped-path checkouts. Expect the job to land somewhere close to double the *sampling* time specifically, not a flat 2x of the whole original job — plausibly less than the original "~3 minutes" estimate, not more. Confirm the real number empirically once this runs in CI rather than trusting either estimate.
 
 The compare step's env changes from a single `BENCH_INPUT_FILES` to two explicit sets:
 ```yaml
@@ -78,15 +86,12 @@ The compare step's env changes from a single `BENCH_INPUT_FILES` to two explicit
 
 The `Regression` interface's `baselineHz` field is kept as-is (renaming it is pure churn with no behavior change — not worth the diff noise), but the comment table's column header text changes per above.
 
-### 3. Testing
-
-`compare-baseline.test.ts`'s existing `computeRegressions` tests currently pass a `Record<string, LibraryBenchResult[]>` as the second argument — these need updating to pass a plain `Record<string, number>` (the new signature), same assertions otherwise. No new test *behavior* is needed beyond that signature update, since the underlying median/skip logic (`collectMedianOpsPerSec`) is unchanged and already covered — it's just being called twice now instead of once.
-
-Empirical verification (can't be unit-tested, needs real CI):
-- Open a normal, no-op-ish PR (e.g. this very design's implementation PR) and confirm the "regression" comment does *not* appear — this is the actual bug fix, proven by its absence.
-- If practical, open a throwaway PR with a deliberate, real slowdown (e.g., an artificial `Atomics.wait`-style delay in a hot path) to confirm the check still fires correctly when there's a genuine regression — don't want to have fixed a false positive by breaking true-positive detection.
-
 ## Testing
 
-Unit: update `compare-baseline.test.ts`'s `computeRegressions` tests to the new two-median-map signature; run `pnpm --dir bench exec vitest run scripts/compare-baseline.test.ts`.
-Integration: this PR's own CI run of `bench-regression.yml` is the first real test — confirm no regression comment appears (or if one does, that it reflects an actual difference between head and base, not environment noise) and confirm the job duration lands around ~3 minutes as expected (2x compute + one checkout/install/build cycle).
+Unit: `compare-baseline.test.ts`'s existing `computeRegressions` tests currently pass a `Record<string, LibraryBenchResult[]>` as the second argument — update them to pass a plain `Record<string, number>` (the new signature), same assertions otherwise. No new test *behavior* is needed beyond that signature update, since the underlying median/skip logic (`collectMedianOpsPerSec`) is unchanged and already covered — it's just being called twice now instead of once. Run `pnpm --dir bench exec vitest run scripts/compare-baseline.test.ts`.
+
+Integration (can't be unit-tested, needs real CI):
+- This PR's own CI run of `bench-regression.yml` is the first real test — confirm no regression comment appears (or if one does, that it reflects an actual difference between head and base, not environment noise).
+- Confirm the scoped `packages/core` checkout/restore actually swaps and restores correctly (spot-check a file's content mid-job, or via the run log).
+- Record the real job duration rather than trusting either cost estimate above.
+- If practical, open a throwaway PR with a deliberate, real slowdown (e.g., an artificial delay in a hot path) to confirm the check still fires correctly when there's a genuine regression — don't want to have fixed a false positive by breaking true-positive detection.
