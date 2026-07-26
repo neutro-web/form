@@ -98,12 +98,12 @@ export function useSolidForm<T extends object>(
 // instance gets its own subscription — one per array item.
 export function useSolidFormPath<T extends object>(form: FormInstance<T>, path: string) {
   const [value, setValue] = createSignal<unknown>(form.get(path as any));
-  // The `null` initial value below is never actually observable: subscribeToPath
-  // fires its callback synchronously with the real field state before this
-  // function returns, so `fieldState()` always reads a real object by the time
-  // any caller (or Solid's own reactive graph) can see it. Kept as `| null` in
-  // the signature only because createSignal requires a starting value and this
-  // documents that the null branch exists for type-safety, not because it's
+  // `null` is just a placeholder to give createSignal a starting value -- it
+  // is never actually observable. subscribeToPath fires its callback
+  // synchronously with the real field state before this function returns, so
+  // `fieldState()` always reads a real object by the time any caller (or
+  // Solid's own reactive graph) can see it. The `| null` in the type below
+  // exists only to describe that placeholder, not because the null case is
   // reachable in practice.
   const [fieldState, setFieldState] = createSignal<{
     error?: string;
