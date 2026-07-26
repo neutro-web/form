@@ -62,6 +62,12 @@ export function useVueForm<T extends object>(form: FormInstance<T>): VueFormRetu
     // object every notification, so there's no need for Vue to deep-wrap the
     // ref's contents in a readonly Proxy on every .value read -- readonly()
     // did that regardless of the ref being shallow, which was pure overhead.
+    // Trade-off: readonly() also warned in dev if a consumer mutated a nested
+    // property directly (e.g. `state.value.values.email = 'x'`); shallowReadonly
+    // does not extend that warning below the top-level `.value` access. Such a
+    // mutation was always a no-op either way (a shallowRef never tracks nested
+    // mutations, and the next real update replaces the whole object anyway) --
+    // this only removes the dev-time nudge that the caller was doing it wrong.
     state: shallowReadonly(state),
     get: form.get,
     set: form.set,
