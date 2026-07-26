@@ -259,6 +259,26 @@ describe('Async validation', () => {
     expect(aborted[0]).toBe(true);
     vi.useRealTimers();
   });
+
+  it('AbortSignal fires when a superseding FULL (unscoped) validation starts — regression for the previously-unregistered full-run controller', async () => {
+    vi.useFakeTimers();
+    const aborted: boolean[] = [];
+    const form = createForm({
+      initialValues: { x: '' },
+      validator: async (_v: any, _scope: any, signal: any) => {
+        await new Promise((r) => setTimeout(r, 200));
+        aborted.push(signal.aborted);
+        return {};
+      },
+      asyncDebounceMs: 0,
+    });
+    const p1 = form.validate(); // unscoped, full-form run
+    const p2 = form.validate(); // unscoped again -- must abort p1's controller
+    await vi.runAllTimersAsync();
+    await Promise.all([p1, p2]);
+    expect(aborted[0]).toBe(true);
+    vi.useRealTimers();
+  });
 });
 
 // ---------------------------------------------------------------------------

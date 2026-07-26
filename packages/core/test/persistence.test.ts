@@ -207,4 +207,29 @@ describe('Persistence middleware', () => {
     await Promise.resolve();
     expect(adapter.write).not.toHaveBeenCalled();
   });
+
+  it('hydrate() clears wasSet and validatedPaths, matching reset()', async () => {
+    const adapter = makeMockAdapter({ email: 'stored@test.com' });
+    const form = createForm({
+      initialValues: { email: '' },
+      persistence: { adapter, debounceMs: 0 },
+    });
+
+    // Interact with the form BEFORE hydration -- wasSet/validatedPaths should
+    // not survive into the freshly-hydrated state.
+    form.set('email', 'typed-before-hydrate@test.com');
+    await form.validate();
+    expect(form.isDirty()).toBe(true);
+    expect(form.isFieldValid('email')).toBe(true);
+
+    await form.hydrate();
+
+    // Regression: previously hydrate() cleared errors/touched/dirty but left
+    // wasSet/validatedPaths untouched, so isDirty()/isFieldValid() reported
+    // stale state against the freshly-hydrated values.
+    expect(form.isDirty()).toBe(false);
+    expect(form.isFieldDirty('email')).toBe(false);
+    expect(form.isFieldValid('email')).toBe(null);
+    expect(form.get('email')).toBe('stored@test.com');
+  });
 });

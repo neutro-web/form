@@ -130,6 +130,12 @@ function resolveWildcardDependents(dependentPatterns: string[], indices: string[
   });
 }
 
+// Sentinel key for a full-form (unscoped) validation's AbortController in
+// ctx.activeAbortControllers, which is otherwise keyed by real field paths.
+// No real field path can equal '*' (it's not a valid dot-path segment), so
+// this can't collide with a scoped entry.
+const FULL_VALIDATION_KEY = '*';
+
 // ---------------------------------------------------------------------------
 // createCoreForm
 // ---------------------------------------------------------------------------
@@ -404,10 +410,21 @@ export function createCoreForm<T extends object>(
           ctx.activeAbortControllers.get(path)?.abort();
           ctx.activeAbortControllers.delete(path);
         }
+      } else {
+        // Full-form (unscoped) validation: abort any prior full-form run so its
+        // in-flight async work (e.g. a network call) is actually cancelled, not
+        // just superseded via the activeEpoch check below. Previously this
+        // sentinel was never populated, so a superseded full run's validator
+        // kept running to completion for nothing -- its result was correctly
+        // discarded by the epoch check, but the work itself was never aborted.
+        ctx.activeAbortControllers.get(FULL_VALIDATION_KEY)?.abort();
+        ctx.activeAbortControllers.delete(FULL_VALIDATION_KEY);
       }
       abortController = new AbortController();
       if (expandedScope) {
         for (const path of expandedScope) ctx.activeAbortControllers.set(path, abortController);
+      } else {
+        ctx.activeAbortControllers.set(FULL_VALIDATION_KEY, abortController);
       }
 
       // Built-in rules run synchronously first; custom validator ctx.errors override on conflict.
@@ -514,6 +531,8 @@ export function createCoreForm<T extends object>(
     } finally {
       if (expandedScope) {
         for (const path of expandedScope) ctx.activeAbortControllers.delete(path);
+      } else {
+        ctx.activeAbortControllers.delete(FULL_VALIDATION_KEY);
       }
       ctx.isValidating = false;
       if (!expandedScope && activeEpoch === ctx.asyncEpoch) ctx.hasValidated = true;
