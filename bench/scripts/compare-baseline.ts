@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import type { BenchResults, LibraryBenchResult } from '../types/schema.js'
+import type { LibraryBenchResult } from '../types/schema.js'
 
 export const REGRESSION_THRESHOLD = 0.25  // 25%
 export const HIGH_VARIANCE_RME    = 10    // skip entries with rme > 10%
@@ -53,19 +53,17 @@ export function collectMedianOpsPerSec(samples: Array<Record<string, LibraryBenc
 }
 
 export function computeRegressions(
-  currentMedians: Record<string, number>,
-  baselineCore: Record<string, LibraryBenchResult[]>,
+  headMedians: Record<string, number>,
+  baseMedians: Record<string, number>,
   threshold: number,
 ): Regression[] {
   const regressions: Regression[] = []
-  for (const [surface, currentHz] of Object.entries(currentMedians)) {
-    const baselineSurface = baselineCore[surface]
-    if (!baselineSurface) continue
-    const baseline = baselineSurface.find(r => r.library === 'neutro/form')
-    if (!baseline?.opsPerSec) continue
-    const pct = (baseline.opsPerSec - currentHz) / baseline.opsPerSec
+  for (const [surface, currentHz] of Object.entries(headMedians)) {
+    const baselineHz = baseMedians[surface]
+    if (baselineHz == null) continue
+    const pct = (baselineHz - currentHz) / baselineHz
     if (pct > threshold) {
-      regressions.push({ surface, baselineHz: baseline.opsPerSec, currentHz, pct })
+      regressions.push({ surface, baselineHz, currentHz, pct })
     }
   }
   return regressions
@@ -77,21 +75,24 @@ function readJson(path: string): unknown {
 }
 
 async function main() {
-  const inputFiles = (process.env.BENCH_INPUT_FILES ?? process.env.BENCH_INPUT_FILE ?? 'results/core.json')
-    .split(',').map(s => s.trim()).filter(Boolean)
-  const samples = inputFiles.map(f => readJson(f) as Record<string, LibraryBenchResult[]>)
-  const baselineRaw = readJson('results/baseline.json') as BenchResults
+  const headFiles = (process.env.BENCH_HEAD_FILES ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  const baseFiles = (process.env.BENCH_BASE_FILES ?? '').split(',').map(s => s.trim()).filter(Boolean)
 
-  const { medians, skipped } = collectMedianOpsPerSec(samples)
-  const regressions = computeRegressions(medians, baselineRaw.core ?? {}, REGRESSION_THRESHOLD)
+  const headSamples = headFiles.map(f => readJson(f) as Record<string, LibraryBenchResult[]>)
+  const baseSamples = baseFiles.map(f => readJson(f) as Record<string, LibraryBenchResult[]>)
 
-  if (skipped.length) console.log(`[compare] skipped (insufficient valid samples): ${skipped.join(', ')}`)
+  const { medians: headMedians, skipped: headSkipped } = collectMedianOpsPerSec(headSamples)
+  const { medians: baseMedians, skipped: baseSkipped } = collectMedianOpsPerSec(baseSamples)
+  const regressions = computeRegressions(headMedians, baseMedians, REGRESSION_THRESHOLD)
+
+  if (headSkipped.length) console.log(`[compare] skipped on head (insufficient valid samples): ${headSkipped.join(', ')}`)
+  if (baseSkipped.length) console.log(`[compare] skipped on base (insufficient valid samples): ${baseSkipped.join(', ')}`)
   if (!regressions.length) {
-    console.log(`[compare] no regressions found (median of ${inputFiles.length} sample(s))`)
+    console.log(`[compare] no regressions found (median of ${headFiles.length} head vs ${baseFiles.length} base sample(s))`)
     process.exit(0)
   }
 
-  console.log(`[compare] ${regressions.length} regression(s) found (median of ${inputFiles.length} sample(s)):`)
+  console.log(`[compare] ${regressions.length} regression(s) found (median of ${headFiles.length} head vs ${baseFiles.length} base sample(s)):`)
   for (const r of regressions) {
     console.log(`  ${r.surface}: ${r.baselineHz.toFixed(0)} → ${r.currentHz.toFixed(0)} ops/s (-${(r.pct * 100).toFixed(1)}%)`)
   }
@@ -105,16 +106,21 @@ async function main() {
       `| ${r.surface} | ${Math.round(r.baselineHz).toLocaleString()} | ${Math.round(r.currentHz).toLocaleString()} | **-${(r.pct * 100).toFixed(1)}%** |`
     ).join('\n')
 
+    const skippedNotes = [
+      headSkipped.length ? `**Skipped on head (insufficient valid samples):** ${headSkipped.join(', ')}` : '',
+      baseSkipped.length ? `**Skipped on base (insufficient valid samples):** ${baseSkipped.join(', ')}` : '',
+    ].filter(Boolean)
+
     const body = [
       '## Benchmark Regression Detected',
       '',
-      `> Threshold: ${(REGRESSION_THRESHOLD * 100).toFixed(0)}%. Median of ${inputFiles.length} samples per surface; entries with rme > 10% or fewer than ${MIN_VALID_SAMPLES} valid samples are skipped.`,
+      `> Threshold: ${(REGRESSION_THRESHOLD * 100).toFixed(0)}%. Median of ${headFiles.length} head samples vs ${baseFiles.length} base samples per surface, both measured on the same CI runner in this job; entries with rme > 10% or fewer than ${MIN_VALID_SAMPLES} valid samples are skipped.`,
       '',
-      '| Surface | Baseline (ops/s) | Current (ops/s, median) | Delta |',
+      '| Surface | Base branch (ops/s, median) | Current (ops/s, median) | Delta |',
       '|---|---|---|---|',
       rows,
       '',
-      skipped.length ? `**Skipped (insufficient valid samples):** ${skipped.join(', ')}` : '',
+      ...skippedNotes,
     ].filter(Boolean).join('\n')
 
     await fetch(`https://api.github.com/repos/${repo}/issues/${prNumber}/comments`, {

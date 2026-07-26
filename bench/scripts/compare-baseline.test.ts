@@ -59,10 +59,10 @@ describe('collectMedianOpsPerSec', () => {
 })
 
 describe('computeRegressions', () => {
-  test('flags a surface whose current median is more than the threshold below baseline', () => {
+  test('flags a surface whose head median is more than the threshold below base', () => {
     const regressions = computeRegressions(
       { 'set-get/small': 80 },
-      { 'set-get/small': [{ library: 'neutro/form', status: 'ok', opsPerSec: 100 }] },
+      { 'set-get/small': 100 },
       0.15,
     )
     expect(regressions).toHaveLength(1)
@@ -72,14 +72,19 @@ describe('computeRegressions', () => {
   test('does not flag a surface within the threshold', () => {
     const regressions = computeRegressions(
       { 'set-get/small': 92 },
-      { 'set-get/small': [{ library: 'neutro/form', status: 'ok', opsPerSec: 100 }] },
+      { 'set-get/small': 100 },
       0.15,
     )
     expect(regressions).toHaveLength(0)
   })
 
-  test('skips a surface with no baseline entry', () => {
+  test('skips a surface with no base entry', () => {
     const regressions = computeRegressions({ 'new-surface': 10 }, {}, 0.15)
+    expect(regressions).toHaveLength(0)
+  })
+
+  test('skips a surface with no head entry, even if base has it', () => {
+    const regressions = computeRegressions({}, { 'set-get/small': 100 }, 0.15)
     expect(regressions).toHaveLength(0)
   })
 })
