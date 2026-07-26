@@ -61,4 +61,35 @@ describe('useForm', () => {
     });
     expect(latest).toBe('updated');
   });
+
+  it('switches to the new form when the form prop changes, and ignores the old form afterward', () => {
+    const formA = createForm({ initialValues: { name: 'a' } });
+    const formB = createForm({ initialValues: { name: 'b' } });
+    let latest = '';
+
+    function Page({ form }: { form: typeof formA }) {
+      const { values } = useForm(form as any);
+      latest = values.name;
+      return null;
+    }
+
+    const { rerender } = render(React.createElement(Page, { form: formA }));
+    expect(latest).toBe('a');
+
+    rerender(React.createElement(Page, { form: formB }));
+    expect(latest).toBe('b');
+
+    // The old form's subscription should have no further effect on this
+    // component -- regression guard for a stale-subscription race where the
+    // old form's callback could otherwise clobber the new form's cached state.
+    act(() => {
+      formA.set('name', 'a-changed-after-swap');
+    });
+    expect(latest).toBe('b');
+
+    act(() => {
+      formB.set('name', 'b-changed');
+    });
+    expect(latest).toBe('b-changed');
+  });
 });

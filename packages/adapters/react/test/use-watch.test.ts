@@ -77,4 +77,32 @@ describe('useWatch', () => {
     });
     expect(latest.a).toBe('2');
   });
+
+  it('resubscribes when the path list changes shape even if a naive comma-join would collide', () => {
+    // ['a,b'] (one path containing a literal comma) and ['a', 'b'] (two paths)
+    // both join to the string "a,b" -- a naive join-based memo key would treat
+    // these as the same paths and fail to resubscribe.
+    const form = createForm({ initialValues: {} as Record<string, string> });
+    (form as any).set('a,b', 'combined');
+    (form as any).set('a', '1');
+    (form as any).set('b', '2');
+
+    let effectRuns = 0;
+    const originalWatch = (form as any).watch.bind(form);
+    (form as any).watch = (...args: any[]) => {
+      effectRuns++;
+      return originalWatch(...args);
+    };
+
+    function Child({ paths }: { paths: string[] }) {
+      useWatch(form as any, paths as any);
+      return null;
+    }
+
+    const { rerender } = render(React.createElement(Child, { paths: ['a,b'] }));
+    expect(effectRuns).toBe(1);
+
+    rerender(React.createElement(Child, { paths: ['a', 'b'] }));
+    expect(effectRuns).toBe(2);
+  });
 });

@@ -29,6 +29,13 @@ export function useForm<T extends object>(
           skipFirst = false;
           return;
         }
+        // Guard against a stale subscription: if `form` changed across renders,
+        // React tears down this subscription in a passive effect that can run
+        // slightly after the render-time cache reset above already switched
+        // cacheRef.current to the NEW form. Without this check, a notification
+        // from the OLD form arriving in that narrow window would clobber the
+        // new form's already-current cache entry with stale data.
+        if (cacheRef.current?.form !== form) return;
         cacheRef.current = { form, snapshot: form.getState() };
         onStoreChange();
       });
@@ -92,7 +99,11 @@ export function useWatch<T extends object>(
   paths: Path<T> | string | Array<Path<T> | string>
 ): Record<string, unknown> {
   const pathArray = Array.isArray(paths) ? paths : [paths];
-  const pathsKey = pathArray.join(',');
+  // JSON.stringify, not `.join(',')`: a plain comma join can't distinguish
+  // `['a,b']` (one path containing a literal comma) from `['a', 'b']` (two
+  // paths) -- an unlikely but real collision for a cache key derived from
+  // arbitrary user-supplied path strings.
+  const pathsKey = JSON.stringify(pathArray);
   // Stabilize the array reference by content, not identity -- callers commonly
   // pass an inline array literal (`useWatch(form, ['a','b'])`), which is a new
   // reference every render and would otherwise force the effect below to tear
@@ -129,6 +140,14 @@ export function useFormConnect<T extends object>(form: FormInstance<T>) {
   // guarantee this hook is meant to provide. The latest `options` for a path are
   // kept in a side map so a changed `options` value doesn't require a new
   // callback identity -- the next (re)connect just picks up the latest value.
+  // Note: while an element stays mounted, its already-established connection
+  // keeps using whatever `options` were in effect at connect time -- passing a
+  // new `options.format`/`validateOn`/`persist` on a later render has no live
+  // effect until the element actually disconnects and reconnects. `options`
+  // are meant to be static per field, matching this hook's "connect once"
+  // design; if a caller needs live-changing behavior, read fresh values from
+  // outside (e.g. a ref or module-level variable) inside the `format` closure
+  // itself rather than relying on `options` identity to propagate.
   const refCallbacks = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const latestOptions = useRef(new Map<string, ConnectOptions | undefined>());
   return useCallback(
