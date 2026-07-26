@@ -42,6 +42,7 @@ The CI pipeline runs these steps in order. Lefthook enforces the same sequence o
 |---|---|---|
 | Lint | `pnpm lint` (`biome check packages vitest.config.ts`) | Biome formatted a file but it was never staged — run `git add` after any biome write |
 | Type check | `pnpm exec tsc --noEmit` | Missing `.js` extensions on relative imports (NodeNext requirement), or implicit `any` |
+| Type check tests | `pnpm typecheck` (`vitest --typecheck run packages/core/test/types.test.ts`) | A `Path<T>`/`GetPathValue<T, P>` type-level assertion in `types.test.ts` no longer holds |
 | Build | `pnpm build` | Missing export, bad import path |
 | Test | `pnpm test` | Failing assertions |
 

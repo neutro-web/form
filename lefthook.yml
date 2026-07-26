@@ -11,6 +11,8 @@ pre-push:
       run: pnpm lint
     typecheck:
       run: pnpm exec tsc --noEmit
+    typecheck-tests:
+      run: pnpm typecheck
     build:
       run: pnpm build
     test:
