@@ -1,6 +1,12 @@
 // Svelte adapter — uses svelte/store primitives (readable) so this file
 // compiles with plain tsup without needing the Svelte preprocessor.
 // Consumers use the $ prefix in .svelte templates: $field.value, $field.fieldState
+//
+// Deliberately rune-free: nothing here uses $state/$effect/$derived. The
+// `svelte` peer range (^4.0.0 || ^5.0.0) is accurate — this is a
+// version-agnostic store-based adapter, not a Svelte-5-specific one. It
+// works unchanged on Svelte 4, and stores remain fully idiomatic and
+// auto-subscribable (`$field`) in Svelte 5 templates.
 
 import type { FormInstance, FormState, Path } from '@neutro/form-core';
 import { type Readable, readable } from 'svelte/store';

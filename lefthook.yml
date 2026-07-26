@@ -13,7 +13,7 @@ pre-push:
       run: pnpm exec tsc --noEmit
     typecheck-tests:
       run: pnpm typecheck
-    build:
-      run: pnpm build
     test:
       run: pnpm test
+    build:
+      run: pnpm build

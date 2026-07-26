@@ -40,6 +40,12 @@ export interface SolidFormActions<T extends object> {
 // Bug fix: use createStore + reconcile instead of createSignal so Solid's
 // fine-grained reactivity can track individual field changes rather than
 // replacing the entire state signal on every mutation.
+//
+// `form` is captured once at call time and is not itself reactive: if the
+// underlying FormInstance is swapped after this hook runs (e.g. a caller
+// conditionally recreates the form), this hook will not resubscribe to the
+// new instance. Call it once per stable FormInstance, same as the other two
+// hooks below.
 export function useSolidForm<T extends object>(
   form: FormInstance<T>
 ): [Store<FormState<T>>, SolidFormActions<T>] {
@@ -92,6 +98,13 @@ export function useSolidForm<T extends object>(
 // instance gets its own subscription — one per array item.
 export function useSolidFormPath<T extends object>(form: FormInstance<T>, path: string) {
   const [value, setValue] = createSignal<unknown>(form.get(path as any));
+  // The `null` initial value below is never actually observable: subscribeToPath
+  // fires its callback synchronously with the real field state before this
+  // function returns, so `fieldState()` always reads a real object by the time
+  // any caller (or Solid's own reactive graph) can see it. Kept as `| null` in
+  // the signature only because createSignal requires a starting value and this
+  // documents that the null branch exists for type-safety, not because it's
+  // reachable in practice.
   const [fieldState, setFieldState] = createSignal<{
     error?: string;
     touched?: boolean;
