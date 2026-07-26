@@ -45,12 +45,16 @@ describe('useSolidForm', () => {
     const [state] = result;
 
     dispose();
-    const beforeDispose = { ...state };
+    // A primitive snapshot, not `{ ...state }` -- reconcile() updates matching
+    // store slices in place, so a shallow object spread would alias the same
+    // nested `values` proxy and trivially "match" even if a leaked
+    // subscription mutated it after dispose, defeating the assertion below.
+    const beforeDispose = state.values.email;
     form.set('email', 'after-dispose@test.com');
 
     // If the subscriber were still attached, the store would have been
     // reconciled with a fresh snapshot reflecting the new value.
-    expect(state.values.email).toBe(beforeDispose.values.email);
+    expect(state.values.email).toBe(beforeDispose);
     expect(state.values.email).not.toBe('after-dispose@test.com');
   });
 

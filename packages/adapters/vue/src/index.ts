@@ -145,9 +145,9 @@ export function useVueWatch<T extends object>(
   // changes), so without this the returned ref would start out as `{}` even
   // though the paths already have real values. Every other adapter's watch
   // hook (React/Svelte/Solid) seeds its initial snapshot the same way.
-  const seedInitial = (paths: string[]): Record<string, unknown> => {
+  const seedInitial = (initialPaths: string[]): Record<string, unknown> => {
     const snap: Record<string, unknown> = {};
-    paths.forEach((p) => {
+    initialPaths.forEach((p) => {
       snap[p] = form.get(p as any);
     });
     return snap;
