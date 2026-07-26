@@ -36,10 +36,12 @@ Verified before writing this design:
 
 **Third design point, found by this spec's own adversarial re-review: `git checkout <sha> -- packages/core` alone is not a clean swap — it leaks files.** `git checkout <tree-ish> -- <pathspec>` only *overlays* blobs that exist in that tree at that path; it never removes a file that's present in the current working tree/index but absent from the target tree. Empirically reproduced during review: checking out a tree that lacks a file the current tree has leaves that file untouched, not deleted. Concretely, if the PR being measured adds, removes, or renames any file under `packages/core` (a real, not hypothetical, shape of change — this repo's own `features/*.ts` modular split is exactly this kind of change), the "base" round would run with a head-only file still physically present, and — worse — a file the PR *deleted* could persist through the restore step too, since restoring is the same one-directional operation in the other direction. The fix: remove the tracked path from the index and working tree first, then checkout — so the result always matches the target tree exactly, regardless of what was added or removed:
 ```bash
-git rm -rq --ignore-unmatch -- packages/core
+git rm -rqf --ignore-unmatch -- packages/core
 git checkout <sha> -- packages/core
 ```
 (`git rm -r` only affects tracked files, so gitignored build output like `packages/core/dist` — untracked, never built anyway per this design — is never touched by it.)
+
+**Fourth design point, found empirically by the implementation plan's own mandatory smoke test (see that plan's Task 2.5): plain `git rm -rq --ignore-unmatch` is not enough — it needs `-f`.** After `git checkout <sha> -- packages/core` stages content that differs from `HEAD`, a subsequent bare `git rm` on that same path refuses to run (`error: the following file has changes staged in the index`) — `--ignore-unmatch` only suppresses the "pathspec matched nothing" case, a different condition entirely; it does not override this refusal. Reproduced deterministically: the restore-to-`HEAD` step would fail with exit 1 on the very first round in real CI, right after `base-1.json` is produced, aborting the job before `head-2` ever runs. The fix is `git rm -rqf --ignore-unmatch -- packages/core` (all occurrences, both directions) — shown correctly throughout this spec's step sequence above.
 
 Step sequence, replacing the current 3 head-only sample steps:
 ```yaml
@@ -47,19 +49,19 @@ Step sequence, replacing the current 3 head-only sample steps:
   run: git fetch --depth 1 origin ${{ github.event.pull_request.base.sha }}
 
 - run: BENCH_OUTPUT_FILE=results/head-1.json pnpm --dir bench run bench:core:sample
-- run: git rm -rq --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+- run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
 - run: BENCH_OUTPUT_FILE=results/base-1.json pnpm --dir bench run bench:core:sample
-- run: git rm -rq --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+- run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
 
 - run: BENCH_OUTPUT_FILE=results/head-2.json pnpm --dir bench run bench:core:sample
-- run: git rm -rq --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+- run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
 - run: BENCH_OUTPUT_FILE=results/base-2.json pnpm --dir bench run bench:core:sample
-- run: git rm -rq --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+- run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
 
 - run: BENCH_OUTPUT_FILE=results/head-3.json pnpm --dir bench run bench:core:sample
-- run: git rm -rq --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+- run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
 - run: BENCH_OUTPUT_FILE=results/base-3.json pnpm --dir bench run bench:core:sample
-- run: git rm -rq --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+- run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
 ```
 
 No `pnpm install`, no build, anywhere in this sequence — per the corrected Context section, `vitest bench` transpiles `packages/core/src` directly on every invocation, so a scoped, leak-free checkout alone is sufficient to swap which version of the engine gets measured; the `HEAD`-targeted restore afterward is correct because `HEAD` never moves — it stays pointed at the job's initial checkout, a `pull_request` event's merge-ref commit — only the working-tree contents of one directory move back and forth.

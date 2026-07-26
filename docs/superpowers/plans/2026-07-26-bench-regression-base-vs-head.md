@@ -4,7 +4,7 @@
 
 **Goal:** Fix `bench-regression.yml`'s systematic false-positive (comparing CI-runner numbers against a local-machine-captured `results/baseline.json`) by measuring the PR's base ref in the same CI job, interleaved with the head measurements, and comparing the two live medians directly instead of against the static file.
 
-**Architecture:** `compare-baseline.ts` gains a second, symmetric median calculation (base) alongside the existing one (head), and `computeRegressions` compares the two medians directly instead of reading `results/baseline.json`. `bench-regression.yml` interleaves 3 rounds of head/base sampling, scoping the base measurement to `git rm -rq --ignore-unmatch -- packages/core && git checkout <base-sha> -- packages/core` (restored the same way, targeting `HEAD`, after each round) rather than a full ref switch — `bench/`'s own harness must never change mid-job, only the engine source being measured. The `git rm` before each checkout is required, not optional: a bare `git checkout <sha> -- packages/core` only overlays files present in that tree and never deletes files absent from it, which would leak added/removed files across rounds — confirmed by empirical reproduction during this plan's spec review.
+**Architecture:** `compare-baseline.ts` gains a second, symmetric median calculation (base) alongside the existing one (head), and `computeRegressions` compares the two medians directly instead of reading `results/baseline.json`. `bench-regression.yml` interleaves 3 rounds of head/base sampling, scoping the base measurement to `git rm -rqf --ignore-unmatch -- packages/core && git checkout <base-sha> -- packages/core` (restored the same way, targeting `HEAD`, after each round) rather than a full ref switch — `bench/`'s own harness must never change mid-job, only the engine source being measured. The `git rm` before each checkout is required, not optional: a bare `git checkout <sha> -- packages/core` only overlays files present in that tree and never deletes files absent from it, which would leak added/removed files across rounds — confirmed by empirical reproduction during this plan's spec review.
 
 **Tech Stack:** TypeScript (Vitest), GitHub Actions (YAML), git, `vitest bench`.
 
@@ -13,10 +13,10 @@
 - Never push to `origin`, merge a PR, or create a tag without the user's explicit go-ahead for that specific action — prior authorization does not carry forward.
 - `results/baseline.json` must not be touched, read, or referenced by `compare-baseline.ts` after this plan — it remains solely for `bench:generate`'s public benchmarks page, an entirely separate concern from this plan.
 - The `git checkout` used to materialize the base ref's `packages/core` must be scoped to that one path (`git checkout <sha> -- packages/core`), never a full-tree ref switch (`git checkout <sha>`) — a full switch would also replace `bench/scripts/compare-baseline.ts` itself with the base ref's old version, hard-failing the compare step. This was a confirmed, fatal bug found during this plan's spec review — do not reintroduce it.
-- Every scoped checkout (both directions) must be preceded by `git rm -rq --ignore-unmatch -- packages/core` — a bare `git checkout <tree-ish> -- packages/core` alone leaks files (see Architecture above). This was confirmed by empirical reproduction, not theory — do not simplify it away.
+- Every scoped checkout (both directions) must be preceded by `git rm -rqf --ignore-unmatch -- packages/core` — a bare `git checkout <tree-ish> -- packages/core` alone leaks files (see Architecture above). This was confirmed by empirical reproduction, not theory — do not simplify it away.
 - No `pnpm install` or build step belongs anywhere in the base-ref measurement path — `vitest bench` transpiles `packages/core/src` directly via `bench/vitest.config.ts`'s alias, confirmed by reading that file; a build step is unnecessary overhead, not a correctness requirement.
 - Sampling order must interleave head and base (head-1, base-1, head-2, base-2, head-3, base-3), never block them (all head then all base) — a block order introduces a systematic runner-drift bias between the two sides, which this plan exists to eliminate, not reintroduce in a different shape.
-- Whether `vitest bench` actually re-reads `packages/core/src` fresh on every invocation (vs. serving a stale Vite transform cache from a prior round in the same job) is an unproven assumption, not a verified fact — Task 2 includes a mandatory smoke test of this exact mechanism before the plan can be considered done. Do not skip it as "obviously fine."
+- Whether `vitest bench` actually re-reads `packages/core/src` fresh on every invocation (vs. serving a stale Vite transform cache from a prior round in the same job) was an unproven assumption before Task 2.5's smoke test — that part is now confirmed genuinely safe (no stale caching, in either direction). The smoke test also found a real, separate bug in the process: plain `git rm -rq --ignore-unmatch` fails (exit 1) when the index has staged content differing from `HEAD`, which is exactly the state after a base-sha checkout — every restore-to-`HEAD` step would abort the job. Fixed with `-f` (`git rm -rqf --ignore-unmatch`). Do not remove the `-f` or treat it as redundant.
 
 ---
 
@@ -333,19 +333,19 @@ Change to:
         run: git fetch --depth 1 origin ${{ github.event.pull_request.base.sha }}
 
       - run: BENCH_OUTPUT_FILE=results/head-1.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rq --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
       - run: BENCH_OUTPUT_FILE=results/base-1.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rq --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
 
       - run: BENCH_OUTPUT_FILE=results/head-2.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rq --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
       - run: BENCH_OUTPUT_FILE=results/base-2.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rq --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
 
       - run: BENCH_OUTPUT_FILE=results/head-3.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rq --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
       - run: BENCH_OUTPUT_FILE=results/base-3.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rq --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
 
       - run: pnpm --dir bench run bench:compare
         env:
@@ -356,7 +356,7 @@ Change to:
           PR_NUMBER: ${{ github.event.number }}
 ```
 
-No other lines in the file change (the `on:`, `permissions:`, `runs-on:`, and the `checkout`/`pnpm`/`setup-node` setup steps above this block are untouched). Note every checkout line combines `git rm -rq --ignore-unmatch -- packages/core` with the `git checkout` via `&&` — the `git rm` is not optional cleanup, it's what prevents files added/removed under `packages/core` between base and head from leaking across rounds (a confirmed bug in an earlier draft — see Global Constraints).
+No other lines in the file change (the `on:`, `permissions:`, `runs-on:`, and the `checkout`/`pnpm`/`setup-node` setup steps above this block are untouched). Note every checkout line combines `git rm -rqf --ignore-unmatch -- packages/core` with the `git checkout` via `&&` — the `git rm` is not optional cleanup, it's what prevents files added/removed under `packages/core` between base and head from leaking across rounds (a confirmed bug in an earlier draft — see Global Constraints).
 
 - [ ] **Step 2: Verify YAML is valid**
 
@@ -394,9 +394,9 @@ On a scratch branch (not this plan's feature branch — use a disposable local b
 From the actual feature branch (with Task 2's workflow changes already staged/committed), run the equivalent of one round's swap by hand:
 ```bash
 grep -n "your-marker-string" packages/core/src/index.ts || echo "marker absent at HEAD (expected if HEAD is the real code)"
-git rm -rq --ignore-unmatch -- packages/core && git checkout $MARKER_SHA -- packages/core
+git rm -rqf --ignore-unmatch -- packages/core && git checkout $MARKER_SHA -- packages/core
 grep -n "your-marker-string" packages/core/src/index.ts && echo "CONFIRMED: marker present after swap to $MARKER_SHA"
-git rm -rq --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
 grep -n "your-marker-string" packages/core/src/index.ts || echo "CONFIRMED: marker absent after restore to HEAD"
 ```
 Expected: both "CONFIRMED" lines print, proving the scoped checkout/restore cycle actually swaps file content correctly, and that the restore leaves no trace.
@@ -404,7 +404,7 @@ Expected: both "CONFIRMED" lines print, proving the scoped checkout/restore cycl
 - [ ] **Step 3: Confirm `vitest bench` itself reflects the swap, not just the filesystem**
 
 With `$MARKER_SHA`'s content checked out (mid-swap, as in Step 2), run `pnpm --dir bench run bench:core:sample` once with `BENCH_OUTPUT_FILE=results/marker-test.json` and inspect the actual benchmark output for any sign the marker-bearing source was what got transpiled and executed — e.g., temporarily make the marker change something that would cause a visible, harmless difference in a benchmark's console output (not just a silent comment), such as a one-time `console.error` guarded by an env var, or (simpler) confirm no stale-cache artifacts exist by checking `bench/node_modules/.vite` isn't serving a pre-optimized bundle for `@neutro/form-core` (it shouldn't be, since the alias points at source, but confirm by inspecting that directory's contents/timestamps before and after the swap).
-Expected: no evidence of stale caching; the sample genuinely reflects whichever version of `packages/core/src` was on disk at invocation time. Restore to HEAD afterward (`git rm -rq --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core`) and confirm `git status` shows no diff in `packages/core` before proceeding.
+Expected: no evidence of stale caching; the sample genuinely reflects whichever version of `packages/core/src` was on disk at invocation time. Restore to HEAD afterward (`git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core`) and confirm `git status` shows no diff in `packages/core` before proceeding.
 
 - [ ] **Step 4: Clean up**
 
