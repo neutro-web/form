@@ -25,13 +25,28 @@ jobs:
 
       - run: pnpm --dir bench install --frozen-lockfile --ignore-workspace
 
-      - run: BENCH_OUTPUT_FILE=results/core-1.json pnpm --dir bench run bench:core:sample
-      - run: BENCH_OUTPUT_FILE=results/core-2.json pnpm --dir bench run bench:core:sample
-      - run: BENCH_OUTPUT_FILE=results/core-3.json pnpm --dir bench run bench:core:sample
+      - name: Fetch base ref
+        run: git fetch --depth 1 origin ${{ github.event.pull_request.base.sha }}
+
+      - run: BENCH_OUTPUT_FILE=results/head-1.json pnpm --dir bench run bench:core:sample
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+      - run: BENCH_OUTPUT_FILE=results/base-1.json pnpm --dir bench run bench:core:sample
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+
+      - run: BENCH_OUTPUT_FILE=results/head-2.json pnpm --dir bench run bench:core:sample
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+      - run: BENCH_OUTPUT_FILE=results/base-2.json pnpm --dir bench run bench:core:sample
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+
+      - run: BENCH_OUTPUT_FILE=results/head-3.json pnpm --dir bench run bench:core:sample
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+      - run: BENCH_OUTPUT_FILE=results/base-3.json pnpm --dir bench run bench:core:sample
+      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
 
       - run: pnpm --dir bench run bench:compare
         env:
-          BENCH_INPUT_FILES: results/core-1.json,results/core-2.json,results/core-3.json
+          BENCH_HEAD_FILES: results/head-1.json,results/head-2.json,results/head-3.json
+          BENCH_BASE_FILES: results/base-1.json,results/base-2.json,results/base-3.json
           BENCH_HARD_FAIL: ${{ vars.BENCH_HARD_FAIL }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
