@@ -34,32 +34,41 @@ Verified before writing this design:
 
 **Second design point, also found by adversarial review: interleave the sampling order, don't block it head-then-base.** Running all 3 head samples first and all 3 base samples second means base's measurements always happen later in the job's lifetime, under whatever cumulative scheduler/thermal/noisy-neighbor state a shared `ubuntu-latest` runner has built up by then — a systematic, directional bias (not random noise the median-of-3 logic can filter), reintroducing a smaller version of the exact problem this design exists to fix. Alternating head/base per round cancels out any monotonic drift across the job's duration instead of concentrating it on one side.
 
+**Third design point, found by this spec's own adversarial re-review: `git checkout <sha> -- packages/core` alone is not a clean swap — it leaks files.** `git checkout <tree-ish> -- <pathspec>` only *overlays* blobs that exist in that tree at that path; it never removes a file that's present in the current working tree/index but absent from the target tree. Empirically reproduced during review: checking out a tree that lacks a file the current tree has leaves that file untouched, not deleted. Concretely, if the PR being measured adds, removes, or renames any file under `packages/core` (a real, not hypothetical, shape of change — this repo's own `features/*.ts` modular split is exactly this kind of change), the "base" round would run with a head-only file still physically present, and — worse — a file the PR *deleted* could persist through the restore step too, since restoring is the same one-directional operation in the other direction. The fix: remove the tracked path from the index and working tree first, then checkout — so the result always matches the target tree exactly, regardless of what was added or removed:
+```bash
+git rm -rq --ignore-unmatch -- packages/core
+git checkout <sha> -- packages/core
+```
+(`git rm -r` only affects tracked files, so gitignored build output like `packages/core/dist` — untracked, never built anyway per this design — is never touched by it.)
+
 Step sequence, replacing the current 3 head-only sample steps:
 ```yaml
 - name: Fetch base ref
   run: git fetch --depth 1 origin ${{ github.event.pull_request.base.sha }}
 
 - run: BENCH_OUTPUT_FILE=results/head-1.json pnpm --dir bench run bench:core:sample
-- run: git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+- run: git rm -rq --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
 - run: BENCH_OUTPUT_FILE=results/base-1.json pnpm --dir bench run bench:core:sample
-- run: git checkout HEAD -- packages/core
+- run: git rm -rq --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
 
 - run: BENCH_OUTPUT_FILE=results/head-2.json pnpm --dir bench run bench:core:sample
-- run: git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+- run: git rm -rq --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
 - run: BENCH_OUTPUT_FILE=results/base-2.json pnpm --dir bench run bench:core:sample
-- run: git checkout HEAD -- packages/core
+- run: git rm -rq --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
 
 - run: BENCH_OUTPUT_FILE=results/head-3.json pnpm --dir bench run bench:core:sample
-- run: git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+- run: git rm -rq --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
 - run: BENCH_OUTPUT_FILE=results/base-3.json pnpm --dir bench run bench:core:sample
-- run: git checkout HEAD -- packages/core
+- run: git rm -rq --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
 ```
 
-No `pnpm install`, no build, anywhere in this sequence — per the corrected Context section, `vitest bench` transpiles `packages/core/src` directly on every invocation, so a scoped `git checkout <sha> -- packages/core` alone is sufficient to swap which version of the engine gets measured; `git checkout HEAD -- packages/core` restores head's version afterward (`HEAD` never moves — it stays pointed at the job's initial checkout, a `pull_request` event's merge-ref commit — only the working-tree contents of one directory move back and forth).
+No `pnpm install`, no build, anywhere in this sequence — per the corrected Context section, `vitest bench` transpiles `packages/core/src` directly on every invocation, so a scoped, leak-free checkout alone is sufficient to swap which version of the engine gets measured; the `HEAD`-targeted restore afterward is correct because `HEAD` never moves — it stays pointed at the job's initial checkout, a `pull_request` event's merge-ref commit — only the working-tree contents of one directory move back and forth.
 
-`git fetch --depth 1 origin <sha>` (not a full/unbounded fetch) — this can fail loudly if the base branch was force-pushed and that exact commit was later pruned server-side (a rare edge case). That's an acceptable failure mode consistent with this project's existing "fail loudly rather than silently produce wrong data" philosophy (e.g. `release-branch-drift.yml`'s explicit `exit 1`) — not a scenario this design needs to work around.
+`git fetch --depth 1 origin <sha>` (not a full/unbounded fetch) — empirically tested against this repo's real GitHub remote during review: fetching by the full 40-character SHA succeeds; a short/abbreviated SHA does not (`fatal: couldn't find remote ref`). `github.event.pull_request.base.sha` is always the full 40-character form, so this works as written. If the base commit were ever force-push-pruned server-side, the fetch fails loudly (non-zero exit) before any checkout happens — an acceptable failure mode consistent with this project's existing "fail loudly rather than silently produce wrong data" philosophy (e.g. `release-branch-drift.yml`'s explicit `exit 1`), not a scenario this design needs to work around.
 
 Using `github.event.pull_request.base.sha` (the exact commit the PR is currently based on) rather than `github.base_ref` (the branch name) — this pins the comparison to a specific commit, immune to `main`/`release` advancing mid-run.
+
+**Residual, explicitly-acknowledged verification gap:** whether `vitest bench`'s Vite-powered transform actually re-reads `packages/core/src` fresh on every invocation (rather than serving a stale cached transform left over from a prior round in the same job) is a reasonable but not yet empirically proven assumption — each `bench:core:sample` invocation is a fresh `node` process with no watch mode, and `git checkout` rewrites both file content and mtime, which should invalidate any transform cache correctly, but this repo has no prior precedent of swapping source mid-job like this. The implementation plan must include a real, deliberate smoke test of this exact mechanism (a temporary, clearly-labeled marker change to `packages/core/src` that differs between the two measured commits, confirmed to actually show up differently in the corresponding round's output, then reverted) — not just trust the theory.
 
 **Cost, honestly re-estimated:** the earlier draft's "~3 minutes" claim assumed an install+build cycle that turns out to be unnecessary — that cost doesn't exist. The real added cost is purely 3 more `vitest bench suites/core` invocations (doubling the sampling portion from 3 to 6) plus 6 near-instant scoped-path checkouts. Expect the job to land somewhere close to double the *sampling* time specifically, not a flat 2x of the whole original job — plausibly less than the original "~3 minutes" estimate, not more. Confirm the real number empirically once this runs in CI rather than trusting either estimate.
 
