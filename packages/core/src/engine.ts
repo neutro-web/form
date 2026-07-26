@@ -529,9 +529,19 @@ export function createCoreForm<T extends object>(
         );
       }
     } finally {
+      // Only remove a map entry if it still points at THIS call's own
+      // abortController -- a newer overlapping validation for the same key
+      // (path, or the full-run sentinel) may already have replaced it with
+      // its own controller by the time this call's finally runs. Deleting
+      // unconditionally would clear that newer registration, leaving an even
+      // later validation unable to find and abort it.
       if (expandedScope) {
-        for (const path of expandedScope) ctx.activeAbortControllers.delete(path);
-      } else {
+        for (const path of expandedScope) {
+          if (ctx.activeAbortControllers.get(path) === abortController) {
+            ctx.activeAbortControllers.delete(path);
+          }
+        }
+      } else if (ctx.activeAbortControllers.get(FULL_VALIDATION_KEY) === abortController) {
         ctx.activeAbortControllers.delete(FULL_VALIDATION_KEY);
       }
       ctx.isValidating = false;

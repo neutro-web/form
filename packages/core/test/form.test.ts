@@ -260,6 +260,39 @@ describe('Async validation', () => {
     vi.useRealTimers();
   });
 
+  it("an earlier finished scoped validation does not clobber a later one's still-active abort registration for the same path", async () => {
+    vi.useFakeTimers();
+    const aborted: boolean[] = [];
+    let callIndex = 0;
+    const delays = [50, 500]; // first call resolves quickly, second is still in flight
+    const form = createForm({
+      initialValues: { x: '' },
+      validator: async (_v: any, _scope: any, signal: any) => {
+        const delay = delays[callIndex++] ?? 500;
+        await new Promise((r) => setTimeout(r, delay));
+        aborted.push(signal.aborted);
+        return {};
+      },
+      asyncDebounceMs: 0,
+    });
+
+    const p1 = form.validate(['x']); // A: 50ms, aborted immediately by B
+    const p2 = form.validate(['x']); // B: 500ms, still running when A's finally executes
+
+    await vi.advanceTimersByTimeAsync(50);
+
+    // C should abort B. Without the ownership check, A's finally would have
+    // already deleted the 'x' entry unconditionally, leaving nothing for C
+    // to find and abort.
+    const p3 = form.validate(['x']);
+    await vi.runAllTimersAsync();
+    await Promise.all([p1, p2, p3]);
+
+    expect(aborted[0]).toBe(true); // A aborted by B
+    expect(aborted[1]).toBe(true); // B aborted by C
+    vi.useRealTimers();
+  });
+
   it('AbortSignal fires when a superseding FULL (unscoped) validation starts — regression for the previously-unregistered full-run controller', async () => {
     vi.useFakeTimers();
     const aborted: boolean[] = [];
@@ -277,6 +310,41 @@ describe('Async validation', () => {
     await vi.runAllTimersAsync();
     await Promise.all([p1, p2]);
     expect(aborted[0]).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it("an earlier finished full validation does not clobber a later one's still-active abort registration", async () => {
+    vi.useFakeTimers();
+    const aborted: boolean[] = [];
+    let callIndex = 0;
+    const delays = [50, 500]; // first call resolves quickly, second is still in flight
+    const form = createForm({
+      initialValues: { x: '' },
+      validator: async (_v: any, _scope: any, signal: any) => {
+        const delay = delays[callIndex++] ?? 500;
+        await new Promise((r) => setTimeout(r, delay));
+        aborted.push(signal.aborted);
+        return {};
+      },
+      asyncDebounceMs: 0,
+    });
+
+    const p1 = form.validate(); // A: 50ms, aborted immediately by B
+    const p2 = form.validate(); // B: 500ms, still running when A's finally executes
+
+    // Let A's timer fire and its `finally` run, while B is still in flight.
+    await vi.advanceTimersByTimeAsync(50);
+
+    // C should abort B. If A's `finally` incorrectly deleted B's registration
+    // (a same-key finally race: A's cleanup unconditionally clears the shared
+    // '*' slot without checking it still owns it), C would find nothing to
+    // abort and B would run to completion uncancelled.
+    const p3 = form.validate();
+    await vi.runAllTimersAsync();
+    await Promise.all([p1, p2, p3]);
+
+    expect(aborted[0]).toBe(true); // A aborted by B
+    expect(aborted[1]).toBe(true); // B aborted by C
     vi.useRealTimers();
   });
 });
