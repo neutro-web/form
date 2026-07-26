@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import type { LibraryBenchResult } from '../types/schema.js'
 
 export const REGRESSION_THRESHOLD = 0.25  // 25%
@@ -78,6 +79,11 @@ async function main() {
   const headFiles = (process.env.BENCH_HEAD_FILES ?? '').split(',').map(s => s.trim()).filter(Boolean)
   const baseFiles = (process.env.BENCH_BASE_FILES ?? '').split(',').map(s => s.trim()).filter(Boolean)
 
+  if (!headFiles.length || !baseFiles.length) {
+    console.error('[compare] BENCH_HEAD_FILES and BENCH_BASE_FILES must both be set to non-empty comma-separated file lists')
+    process.exit(1)
+  }
+
   const headSamples = headFiles.map(f => readJson(f) as Record<string, LibraryBenchResult[]>)
   const baseSamples = baseFiles.map(f => readJson(f) as Record<string, LibraryBenchResult[]>)
 
@@ -137,4 +143,6 @@ async function main() {
   process.exit(0)
 }
 
-main()
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main()
+}

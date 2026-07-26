@@ -29,19 +29,19 @@ jobs:
         run: git fetch --depth 1 origin ${{ github.event.pull_request.base.sha }}
 
       - run: BENCH_OUTPUT_FILE=results/head-1.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core/src && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core/src
       - run: BENCH_OUTPUT_FILE=results/base-1.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core/src && git checkout HEAD -- packages/core/src
 
       - run: BENCH_OUTPUT_FILE=results/head-2.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core/src && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core/src
       - run: BENCH_OUTPUT_FILE=results/base-2.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core/src && git checkout HEAD -- packages/core/src
 
       - run: BENCH_OUTPUT_FILE=results/head-3.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core/src && git checkout ${{ github.event.pull_request.base.sha }} -- packages/core/src
       - run: BENCH_OUTPUT_FILE=results/base-3.json pnpm --dir bench run bench:core:sample
-      - run: git rm -rqf --ignore-unmatch -- packages/core && git checkout HEAD -- packages/core
+      - run: git rm -rqf --ignore-unmatch -- packages/core/src && git checkout HEAD -- packages/core/src
 
       - run: pnpm --dir bench run bench:compare
         env:
