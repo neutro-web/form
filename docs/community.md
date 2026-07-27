@@ -6,7 +6,7 @@ Neutro is a collection of focused, zero-dependency primitives for the web. Each 
 
 | Package | Description | Status |
 |---|---|---|
-| [`@neutro/form`](https://github.com/neutro-web/form) | Reactive form engine for every framework | `v0.4.4` — stable |
+| [`@neutro/form`](https://github.com/neutro-web/form) | Reactive form engine for every framework | `v0.5.0` — stable |
 | `@neutro/fluid` | Physics-grounded glass material system for the web | In development |
 
 ---
@@ -656,6 +656,8 @@ await fx.validate()
 expect(fx.form.getState().errors.email).toBe('Invalid email')
 fx.cleanup()
 ```
+
+The package also exports `fillForm`, `blurField`, and `triggerValidation` as standalone functions for use against a form instance you created yourself. See [API Reference → Testing Utilities](/api/testing) for the full reference.
 
 #### Do I need to mock the library in tests?
 

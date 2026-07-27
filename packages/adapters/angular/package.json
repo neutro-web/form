@@ -26,7 +26,8 @@
     "@neutro/form-core": "workspace:*"
   },
   "devDependencies": {
-    "tsup": "^8.0.0"
+    "tsup": "^8.0.0",
+    "@angular/core": "^18.0.0"
   },
   "private": true
 }
