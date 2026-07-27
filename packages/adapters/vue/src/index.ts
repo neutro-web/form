@@ -140,7 +140,19 @@ export function useVueWatch<T extends object>(
 ): Readonly<ShallowRef<Record<string, unknown>>> {
   const pathArray = computed(() => (Array.isArray(paths) ? paths : [paths]) as string[]);
 
-  const watched = shallowRef<Record<string, unknown>>({});
+  // Seed with the current values for each watched path -- form.watch()'s first
+  // notification is deliberately skipped (it only fires on subsequent
+  // changes), so without this the returned ref would start out as `{}` even
+  // though the paths already have real values. Every other adapter's watch
+  // hook (React/Svelte/Solid) seeds its initial snapshot the same way.
+  const seedInitial = (initialPaths: string[]): Record<string, unknown> => {
+    const snap: Record<string, unknown> = {};
+    initialPaths.forEach((p) => {
+      snap[p] = form.get(p as any);
+    });
+    return snap;
+  };
+  const watched = shallowRef<Record<string, unknown>>(seedInitial(pathArray.value));
 
   let stop: (() => void) | null = null;
 
