@@ -23,6 +23,18 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: bench/pnpm-lock.yaml
 
+      - name: Install root workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      # bench:bundle-size's neutro fixtures import @neutro/form-core and
+      # @neutro/form (the alias package) by name, resolved via each package's
+      # real dist/ output (gitignored, not committed) -- a fresh checkout has
+      # no dist/ until something builds it. Skipping this step is what caused
+      # the bundle-size ERROR regression: it silently recorded a build
+      # failure as the published result instead of failing the job.
+      - name: Build all packages
+        run: pnpm build
+
       - run: pnpm --dir bench install --frozen-lockfile --ignore-workspace
 
       - run: pnpm --dir bench exec playwright install --with-deps chromium
