@@ -87,6 +87,17 @@ export function attachPersistence<T extends object>(
           ctx.unindexKey(k);
           delete ctx.dirty[k];
         }
+        // Match reset()'s full six-structure clear: wasSet/validatedPaths were
+        // previously left untouched here, which let isDirty()/isFieldDirty()
+        // report stale dirty state and isFieldValid() return stale validity
+        // against the freshly-hydrated values if any interaction happened
+        // before hydrate() ran.
+        for (const k of Object.keys(ctx.wasSet)) {
+          ctx.unindexKey(k);
+          delete ctx.wasSet[k];
+        }
+        for (const k of ctx.validatedPaths) ctx.unindexKey(k);
+        ctx.validatedPaths.clear();
         ctx.isSubmitting = false;
         ctx.isValidating = false;
         ctx.hasValidated = false;

@@ -130,6 +130,12 @@ function resolveWildcardDependents(dependentPatterns: string[], indices: string[
   });
 }
 
+// Sentinel key for a full-form (unscoped) validation's AbortController in
+// ctx.activeAbortControllers, which is otherwise keyed by real field paths.
+// No real field path can equal '*' (it's not a valid dot-path segment), so
+// this can't collide with a scoped entry.
+const FULL_VALIDATION_KEY = '*';
+
 // ---------------------------------------------------------------------------
 // createCoreForm
 // ---------------------------------------------------------------------------
@@ -404,10 +410,21 @@ export function createCoreForm<T extends object>(
           ctx.activeAbortControllers.get(path)?.abort();
           ctx.activeAbortControllers.delete(path);
         }
+      } else {
+        // Full-form (unscoped) validation: abort any prior full-form run so its
+        // in-flight async work (e.g. a network call) is actually cancelled, not
+        // just superseded via the activeEpoch check below. Previously this
+        // sentinel was never populated, so a superseded full run's validator
+        // kept running to completion for nothing -- its result was correctly
+        // discarded by the epoch check, but the work itself was never aborted.
+        ctx.activeAbortControllers.get(FULL_VALIDATION_KEY)?.abort();
+        ctx.activeAbortControllers.delete(FULL_VALIDATION_KEY);
       }
       abortController = new AbortController();
       if (expandedScope) {
         for (const path of expandedScope) ctx.activeAbortControllers.set(path, abortController);
+      } else {
+        ctx.activeAbortControllers.set(FULL_VALIDATION_KEY, abortController);
       }
 
       // Built-in rules run synchronously first; custom validator ctx.errors override on conflict.
@@ -512,8 +529,20 @@ export function createCoreForm<T extends object>(
         );
       }
     } finally {
+      // Only remove a map entry if it still points at THIS call's own
+      // abortController -- a newer overlapping validation for the same key
+      // (path, or the full-run sentinel) may already have replaced it with
+      // its own controller by the time this call's finally runs. Deleting
+      // unconditionally would clear that newer registration, leaving an even
+      // later validation unable to find and abort it.
       if (expandedScope) {
-        for (const path of expandedScope) ctx.activeAbortControllers.delete(path);
+        for (const path of expandedScope) {
+          if (ctx.activeAbortControllers.get(path) === abortController) {
+            ctx.activeAbortControllers.delete(path);
+          }
+        }
+      } else if (ctx.activeAbortControllers.get(FULL_VALIDATION_KEY) === abortController) {
+        ctx.activeAbortControllers.delete(FULL_VALIDATION_KEY);
       }
       ctx.isValidating = false;
       if (!expandedScope && activeEpoch === ctx.asyncEpoch) ctx.hasValidated = true;
