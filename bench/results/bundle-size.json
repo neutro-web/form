@@ -3,12 +3,12 @@
     {
       "library": "neutro/form",
       "status": "ok",
-      "gzipBytes": 12125
+      "gzipBytes": 12183
     },
     {
       "library": "neutro/form (minimal)",
       "status": "ok",
-      "gzipBytes": 8149
+      "gzipBytes": 8185
     },
     {
       "library": "react-hook-form",

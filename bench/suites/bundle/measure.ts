@@ -35,3 +35,19 @@ async function measureOne(library: string, entry: string): Promise<BundleSizeRes
 const results = await Promise.all(LIBRARIES.map((l) => measureOne(l.library, l.entry)))
 writeFileSync('results/bundle-size.json', JSON.stringify({ 'bundle-size': results }, null, 2))
 console.log('[bundle-size] wrote results/bundle-size.json')
+
+// A failure to bundle our OWN library (as opposed to a competitor's) almost
+// always means the workspace packages weren't built before this script ran
+// (dist/ missing) -- that's an environment bug, not a real "neutro/form is
+// too big to measure" result, and it must never be silently recorded as an
+// ERROR badge in the published docs. Fail the job loudly instead.
+const ownFailures = results.filter((r) => r.library.startsWith('neutro/form') && r.status === 'error')
+if (ownFailures.length > 0) {
+  for (const f of ownFailures) {
+    console.error(`[bundle-size] FATAL: ${f.library} failed to bundle: ${f.error}`)
+  }
+  console.error(
+    '[bundle-size] Did you run `pnpm build` (or `pnpm --filter "@neutro/*" run build`) before this script?'
+  )
+  process.exit(1)
+}

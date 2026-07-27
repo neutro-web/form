@@ -1,296 +1,296 @@
 {
   "meta": {
-    "generatedAt": "2026-07-27T01:56:16.312Z",
+    "generatedAt": "2026-07-27T03:12:48.466Z",
     "neutroVersion": "0.5.1",
-    "nodeVersion": "v22.23.1",
-    "platform": "linux",
-    "runner": "github-actions"
+    "nodeVersion": "v20.19.0",
+    "platform": "darwin",
+    "runner": "local"
   },
   "core": {
     "array-ops-nested/remove-outer": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 331.30235741046386,
-        "median": 2.903318499999955,
-        "rme": 1.2808454543471552,
+        "opsPerSec": 524.2205344442691,
+        "median": 1.8710829999999987,
+        "rme": 1.0041986294452898,
         "highVariance": false,
-        "samples": 166
+        "samples": 263
       }
     ],
     "array-ops-nested/remove-inner": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 13198.91127460468,
-        "median": 0.07078299999989213,
-        "rme": 0.8933602371638372,
+        "opsPerSec": 20594.49235959225,
+        "median": 0.04729199999997036,
+        "rme": 0.3738849717200218,
         "highVariance": false,
-        "samples": 6600
+        "samples": 10298
       }
     ],
     "array-ops-nested/move-outer": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 769.0555951148658,
-        "median": 1.2651299999999992,
-        "rme": 1.1708882409443062,
+        "opsPerSec": 1226.8256922619782,
+        "median": 0.7882084999999961,
+        "rme": 0.9273714338729415,
         "highVariance": false,
-        "samples": 385
+        "samples": 614
       }
     ],
     "array-ops-nested/move-inner": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 4587.0646791636345,
-        "median": 0.211225499999955,
-        "rme": 0.8667452270957169,
+        "opsPerSec": 5354.177063335158,
+        "median": 0.18383399999993344,
+        "rme": 0.3419002283719583,
         "highVariance": false,
-        "samples": 2294
+        "samples": 2678
       }
     ],
     "array-ops-scale/remove-start": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 480.6515282921636,
-        "median": 2.0309250000000247,
-        "rme": 0.6653692431818796,
+        "opsPerSec": 803.0696390047926,
+        "median": 1.2235830000000192,
+        "rme": 0.4470120797926918,
         "highVariance": false,
-        "samples": 241
+        "samples": 402
       }
     ],
     "array-ops-scale/remove-end": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 3614.9354665739643,
-        "median": 0.26277249999998276,
-        "rme": 0.8302131584933906,
+        "opsPerSec": 5900.563578603449,
+        "median": 0.16220799999996416,
+        "rme": 0.774305038504535,
         "highVariance": false,
-        "samples": 1808
+        "samples": 2951
       }
     ],
     "array-ops-scale/remove-start-with-unrelated-fields": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 406.21608581051834,
-        "median": 2.372028499999942,
-        "rme": 1.3061921901283338,
+        "opsPerSec": 612.2234768527009,
+        "median": 1.5982919999999012,
+        "rme": 0.7129934483993317,
         "highVariance": false,
-        "samples": 204
+        "samples": 307
       }
     ],
     "array-ops/remove": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 50284.41141487286,
-        "median": 0.018685000000004948,
-        "rme": 0.6603178098449067,
+        "opsPerSec": 89084.92171610842,
+        "median": 0.01066600000001472,
+        "rme": 0.3561495380279137,
         "highVariance": false,
-        "samples": 25143
+        "samples": 44543
       }
     ],
     "array-ops/move": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 100502.74874077961,
-        "median": 0.008415999999897394,
-        "rme": 2.361924489374357,
+        "opsPerSec": 158830.36341194043,
+        "median": 0.005540999999993801,
+        "rme": 1.6680798297525266,
         "highVariance": false,
-        "samples": 50252
+        "samples": 79416
       }
     ],
     "computed-fields/simple": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 3404420.1684219404,
-        "median": 0.0002800000000320324,
-        "rme": 0.45102360315987217,
+        "opsPerSec": 5137316.633473137,
+        "median": 0.00016700000003311288,
+        "rme": 0.18587129278440545,
         "highVariance": false,
-        "samples": 1702211
+        "samples": 2568659
       }
     ],
     "dependency-graph/deep-chain": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 1324702.3944606008,
-        "median": 0.0006920000000718574,
-        "rme": 0.721355605263574,
+        "opsPerSec": 1823760.7780802422,
+        "median": 0.0005409999999983484,
+        "rme": 0.32884297675581525,
         "highVariance": false,
-        "samples": 662352
+        "samples": 911881
       }
     ],
     "dependency-scopes/dependent": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 883248.7740506978,
-        "median": 0.0010009999999738284,
-        "rme": 1.7987198412907583,
+        "opsPerSec": 1511107.2384019168,
+        "median": 0.0006250000000136424,
+        "rme": 0.9286415894806866,
         "highVariance": false,
-        "samples": 441625
+        "samples": 755554
       }
     ],
     "nested-set": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 955687.1934000213,
-        "median": 0.0009620000000722939,
-        "rme": 0.7493365875772092,
+        "opsPerSec": 1952510.1685452515,
+        "median": 0.0004999999999881766,
+        "rme": 0.33797761053509306,
         "highVariance": false,
-        "samples": 477844
+        "samples": 976256
       }
     ],
     "schema-validate/zod/small": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 94556.81709421922,
-        "median": 0.009989000000018677,
-        "rme": 0.6762639560984106,
+        "opsPerSec": 129709.40463383392,
+        "median": 0.006958999999937987,
+        "rme": 1.0272155328233512,
         "highVariance": false,
-        "samples": 47279
+        "samples": 64855
       }
     ],
     "schema-validate/zod/large": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 9403.079682979103,
-        "median": 0.09884499999998297,
-        "rme": 0.9676360587132969,
+        "opsPerSec": 11480.118385636202,
+        "median": 0.08179199999995035,
+        "rme": 0.7547401999461832,
         "highVariance": false,
-        "samples": 4702
+        "samples": 5741
       }
     ],
     "schema-validate/yup/small": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 44393.28677745279,
-        "median": 0.02084899999999834,
-        "rme": 0.7630974200004456,
+        "opsPerSec": 65485.28398390639,
+        "median": 0.014042000000017651,
+        "rme": 0.9411079043144197,
         "highVariance": false,
-        "samples": 22197
+        "samples": 32743
       }
     ],
     "schema-validate/yup/large": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 4334.837084585596,
-        "median": 0.21970649999980196,
-        "rme": 0.8095262581325082,
+        "opsPerSec": 6212.400828628272,
+        "median": 0.15399999999999636,
+        "rme": 0.6233889818880315,
         "highVariance": false,
-        "samples": 2168
+        "samples": 3107
       }
     ],
     "schema-validate/class-validator/small": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 51081.70474774868,
-        "median": 0.017652999999882013,
-        "rme": 0.9707028183892888,
+        "opsPerSec": 76761.70999425733,
+        "median": 0.011582999999973254,
+        "rme": 2.2563843302153543,
         "highVariance": false,
-        "samples": 25541
+        "samples": 38381
       }
     ],
     "schema-validate/class-validator/large": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 3636.742778021609,
-        "median": 0.2633930000001783,
-        "rme": 0.8329051077777718,
+        "opsPerSec": 6093.440804937292,
+        "median": 0.1515409999997246,
+        "rme": 0.9420413943016924,
         "highVariance": false,
-        "samples": 1819
+        "samples": 3047
       }
     ],
     "set-get/small": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 2469821.4862771668,
-        "median": 0.00039099999980862776,
-        "rme": 0.40291979300085023,
+        "opsPerSec": 3151809.0103319725,
+        "median": 0.00029200000005857873,
+        "rme": 0.3293135705556655,
         "highVariance": false,
-        "samples": 1234911
+        "samples": 1575905
       }
     ],
     "set-get/large": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 2381908.6089649014,
-        "median": 0.00040100000001075387,
-        "rme": 0.47524464030686936,
+        "opsPerSec": 3149640.494472527,
+        "median": 0.0002919999999448919,
+        "rme": 0.3743258650724687,
         "highVariance": false,
-        "samples": 1190955
+        "samples": 1574821
       }
     ],
     "set-get/xlarge": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 2439227.9560945784,
-        "median": 0.00039100000003600144,
-        "rme": 0.6134193858866248,
+        "opsPerSec": 3127657.718511734,
+        "median": 0.00029200000017226557,
+        "rme": 0.39795669311133974,
         "highVariance": false,
-        "samples": 1219614
+        "samples": 1563829
       }
     ],
     "ssr-mount": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 5977.209322796395,
-        "median": 0.13283899999998994,
-        "rme": 4.932294702877372,
+        "opsPerSec": 9381.49165449317,
+        "median": 0.09729199999998173,
+        "rme": 1.8293218659303283,
         "highVariance": false,
-        "samples": 2989
+        "samples": 4691
       }
     ],
     "subscriptions/small": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 3319855.9800816034,
-        "median": 0.0002899999999499414,
-        "rme": 0.3939178725700176,
+        "opsPerSec": 4924437.409067277,
+        "median": 0.00020800000004328467,
+        "rme": 0.16981955093671955,
         "highVariance": false,
-        "samples": 1659928
+        "samples": 2462219
       }
     ],
     "subscriptions/large": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 2975210.571898109,
-        "median": 0.0003209999999853608,
-        "rme": 0.3952029251503487,
+        "opsPerSec": 4678639.663139977,
+        "median": 0.0002080000001569715,
+        "rme": 0.13758730255288246,
         "highVariance": false,
-        "samples": 1487606
+        "samples": 2339320
       }
     ],
     "subscriptions/xlarge": [
       {
         "library": "neutro/form",
         "status": "ok",
-        "opsPerSec": 3131057.455194901,
-        "median": 0.00030999999989944627,
-        "rme": 0.4785394799913004,
+        "opsPerSec": 4435066.793662557,
+        "median": 0.00020899999981338624,
+        "rme": 0.17124137278508159,
         "highVariance": false,
-        "samples": 1565529
+        "samples": 2217534
       }
     ]
   },
@@ -369,6 +369,51 @@
     ]
   },
   "browser": {
+    "dependency-chain-settle": [
+      {
+        "library": "neutro/form (React)",
+        "status": "ok",
+        "settleLatencyMs": 87.89999997615814
+      },
+      {
+        "library": "react-hook-form",
+        "status": "ok",
+        "settleLatencyMs": 24.5
+      },
+      {
+        "library": "tanstack-form (React)",
+        "status": "ok",
+        "settleLatencyMs": 156
+      },
+      {
+        "library": "neutro/form (Vue)",
+        "status": "ok",
+        "settleLatencyMs": 23.199999928474426
+      },
+      {
+        "library": "vee-validate",
+        "status": "ok",
+        "settleLatencyMs": 23.399999976158142
+      },
+      {
+        "library": "neutro/form (Svelte)",
+        "status": "ok",
+        "settleLatencyMs": 24.399999976158142
+      },
+      {
+        "library": "tanstack-form (Svelte)",
+        "status": "ok",
+        "settleLatencyMs": 167.60000002384186
+      },
+      {
+        "library": "formik",
+        "status": "na"
+      },
+      {
+        "library": "felte",
+        "status": "na"
+      }
+    ],
     "array-ops": [
       {
         "library": "neutro/form (React)",
@@ -414,6 +459,35 @@
         "library": "felte",
         "status": "ok",
         "renderCount": 47
+      }
+    ],
+    "dom-cleanup": [
+      {
+        "library": "neutro/form (React)",
+        "status": "ok",
+        "connectedCountAfterCleanup": 0
+      },
+      {
+        "library": "neutro/form (Vue)",
+        "status": "ok",
+        "connectedCountAfterCleanup": 0
+      },
+      {
+        "library": "neutro/form (Svelte)",
+        "status": "ok",
+        "connectedCountAfterCleanup": 0
+      }
+    ],
+    "memory-churn": [
+      {
+        "library": "neutro/form (React)",
+        "status": "ok",
+        "heapDeltaBytes": 604840
+      },
+      {
+        "library": "react-hook-form",
+        "status": "ok",
+        "heapDeltaBytes": 651204
       }
     ],
     "async-cancellation": [
@@ -463,127 +537,6 @@
         "cancellationPass": true
       }
     ],
-    "dependency-chain-settle": [
-      {
-        "library": "neutro/form (React)",
-        "status": "ok",
-        "settleLatencyMs": 54.09999999997672
-      },
-      {
-        "library": "react-hook-form",
-        "status": "ok",
-        "settleLatencyMs": 55.30000000001746
-      },
-      {
-        "library": "tanstack-form (React)",
-        "status": "ok",
-        "settleLatencyMs": 276.20000000001164
-      },
-      {
-        "library": "neutro/form (Vue)",
-        "status": "ok",
-        "settleLatencyMs": 49
-      },
-      {
-        "library": "vee-validate",
-        "status": "ok",
-        "settleLatencyMs": 49.30000000001746
-      },
-      {
-        "library": "neutro/form (Svelte)",
-        "status": "ok",
-        "settleLatencyMs": 48.70000000001164
-      },
-      {
-        "library": "tanstack-form (Svelte)",
-        "status": "ok",
-        "settleLatencyMs": 265.5
-      },
-      {
-        "library": "formik",
-        "status": "na"
-      },
-      {
-        "library": "felte",
-        "status": "na"
-      }
-    ],
-    "dom-cleanup": [
-      {
-        "library": "neutro/form (React)",
-        "status": "ok",
-        "connectedCountAfterCleanup": 0
-      },
-      {
-        "library": "neutro/form (Vue)",
-        "status": "ok",
-        "connectedCountAfterCleanup": 0
-      },
-      {
-        "library": "neutro/form (Svelte)",
-        "status": "ok",
-        "connectedCountAfterCleanup": 0
-      }
-    ],
-    "memory-churn": [
-      {
-        "library": "neutro/form (React)",
-        "status": "ok",
-        "heapDeltaBytes": 687044
-      },
-      {
-        "library": "react-hook-form",
-        "status": "ok",
-        "heapDeltaBytes": 646416
-      }
-    ],
-    "mount-cost": [
-      {
-        "library": "neutro/form (React)",
-        "status": "ok",
-        "mountMs": 8.199999999982538
-      },
-      {
-        "library": "react-hook-form",
-        "status": "ok",
-        "mountMs": 8.800000000017462
-      },
-      {
-        "library": "formik",
-        "status": "ok",
-        "mountMs": 10.700000000011642
-      },
-      {
-        "library": "tanstack-form (React)",
-        "status": "ok",
-        "mountMs": 9.200000000011642
-      },
-      {
-        "library": "neutro/form (Vue)",
-        "status": "ok",
-        "mountMs": 7.5
-      },
-      {
-        "library": "vee-validate",
-        "status": "ok",
-        "mountMs": 7.699999999982538
-      },
-      {
-        "library": "neutro/form (Svelte)",
-        "status": "ok",
-        "mountMs": 7.399999999994179
-      },
-      {
-        "library": "tanstack-form (Svelte)",
-        "status": "ok",
-        "mountMs": 8.5
-      },
-      {
-        "library": "felte",
-        "status": "ok",
-        "mountMs": 9.10000000000582
-      }
-    ],
     "re-renders/10": [
       {
         "library": "neutro/form (React)",
@@ -629,6 +582,145 @@
         "library": "felte",
         "status": "ok",
         "renderCount": 200
+      }
+    ],
+    "mount-cost": [
+      {
+        "library": "neutro/form (React)",
+        "status": "ok",
+        "mountMs": 3.5
+      },
+      {
+        "library": "react-hook-form",
+        "status": "ok",
+        "mountMs": 5.300000071525574
+      },
+      {
+        "library": "formik",
+        "status": "ok",
+        "mountMs": 4.5
+      },
+      {
+        "library": "tanstack-form (React)",
+        "status": "ok",
+        "mountMs": 5.800000071525574
+      },
+      {
+        "library": "neutro/form (Vue)",
+        "status": "ok",
+        "mountMs": 3.399999976158142
+      },
+      {
+        "library": "vee-validate",
+        "status": "ok",
+        "mountMs": 5.5
+      },
+      {
+        "library": "neutro/form (Svelte)",
+        "status": "ok",
+        "mountMs": 3.899999976158142
+      },
+      {
+        "library": "tanstack-form (Svelte)",
+        "status": "ok",
+        "mountMs": 4.100000023841858
+      },
+      {
+        "library": "felte",
+        "status": "ok",
+        "mountMs": 4
+      }
+    ],
+    "schema-validate-submit": [
+      {
+        "library": "neutro/form (React)",
+        "status": "ok",
+        "submitLatencyMs": 39.299999952316284
+      },
+      {
+        "library": "react-hook-form",
+        "status": "ok",
+        "submitLatencyMs": 44.89999997615814
+      },
+      {
+        "library": "tanstack-form (React)",
+        "status": "ok",
+        "submitLatencyMs": 66.10000002384186
+      },
+      {
+        "library": "neutro/form (Vue)",
+        "status": "ok",
+        "submitLatencyMs": 55.39999997615814
+      },
+      {
+        "library": "vee-validate",
+        "status": "ok",
+        "submitLatencyMs": 75.70000004768372
+      },
+      {
+        "library": "neutro/form (Svelte)",
+        "status": "ok",
+        "submitLatencyMs": 48.699999928474426
+      },
+      {
+        "library": "tanstack-form (Svelte)",
+        "status": "ok",
+        "submitLatencyMs": 49.799999952316284
+      },
+      {
+        "library": "felte",
+        "status": "ok",
+        "submitLatencyMs": 49.199999928474426
+      },
+      {
+        "library": "formik",
+        "status": "na"
+      }
+    ],
+    "schema-validate-rerenders": [
+      {
+        "library": "neutro/form (React)",
+        "status": "ok",
+        "renderCount": 20
+      },
+      {
+        "library": "react-hook-form",
+        "status": "ok",
+        "renderCount": 0
+      },
+      {
+        "library": "tanstack-form (React)",
+        "status": "ok",
+        "renderCount": 200
+      },
+      {
+        "library": "neutro/form (Vue)",
+        "status": "ok",
+        "renderCount": 20
+      },
+      {
+        "library": "vee-validate",
+        "status": "ok",
+        "renderCount": 20
+      },
+      {
+        "library": "neutro/form (Svelte)",
+        "status": "ok",
+        "renderCount": 20
+      },
+      {
+        "library": "tanstack-form (Svelte)",
+        "status": "ok",
+        "renderCount": 200
+      },
+      {
+        "library": "felte",
+        "status": "ok",
+        "renderCount": 200
+      },
+      {
+        "library": "formik",
+        "status": "na"
       }
     ],
     "re-renders/100": [
@@ -682,168 +774,76 @@
       {
         "library": "neutro/form (React)",
         "status": "ok",
-        "p50Ms": 300,
-        "p99Ms": 301
+        "p50Ms": 302,
+        "p99Ms": 303
       },
       {
         "library": "react-hook-form",
         "status": "ok",
-        "p50Ms": 200,
-        "p99Ms": 201
+        "p50Ms": 202,
+        "p99Ms": 203
       },
       {
         "library": "formik",
         "status": "ok",
-        "p50Ms": 200,
-        "p99Ms": 201
+        "p50Ms": 203,
+        "p99Ms": 203
       },
       {
         "library": "tanstack-form (React)",
         "status": "ok",
-        "p50Ms": 200,
-        "p99Ms": 200
+        "p50Ms": 201,
+        "p99Ms": 202
       },
       {
         "library": "neutro/form (Vue)",
         "status": "ok",
-        "p50Ms": 300,
-        "p99Ms": 300
+        "p50Ms": 302,
+        "p99Ms": 304
       },
       {
         "library": "vee-validate",
         "status": "ok",
-        "p50Ms": 200,
-        "p99Ms": 201
+        "p50Ms": 203,
+        "p99Ms": 203
       },
       {
         "library": "neutro/form (Svelte)",
         "status": "ok",
-        "p50Ms": 300,
-        "p99Ms": 301
+        "p50Ms": 303,
+        "p99Ms": 303
       },
       {
         "library": "tanstack-form (Svelte)",
         "status": "ok",
-        "p50Ms": 200,
-        "p99Ms": 200
+        "p50Ms": 201,
+        "p99Ms": 202
       },
       {
         "library": "felte",
         "status": "ok",
-        "p50Ms": 200,
-        "p99Ms": 200
-      }
-    ],
-    "schema-validate-rerenders": [
-      {
-        "library": "neutro/form (React)",
-        "status": "ok",
-        "renderCount": 20
-      },
-      {
-        "library": "react-hook-form",
-        "status": "ok",
-        "renderCount": 0
-      },
-      {
-        "library": "tanstack-form (React)",
-        "status": "ok",
-        "renderCount": 200
-      },
-      {
-        "library": "neutro/form (Vue)",
-        "status": "ok",
-        "renderCount": 20
-      },
-      {
-        "library": "vee-validate",
-        "status": "ok",
-        "renderCount": 20
-      },
-      {
-        "library": "neutro/form (Svelte)",
-        "status": "ok",
-        "renderCount": 20
-      },
-      {
-        "library": "tanstack-form (Svelte)",
-        "status": "ok",
-        "renderCount": 200
-      },
-      {
-        "library": "felte",
-        "status": "ok",
-        "renderCount": 200
-      },
-      {
-        "library": "formik",
-        "status": "na"
-      }
-    ],
-    "schema-validate-submit": [
-      {
-        "library": "neutro/form (React)",
-        "status": "ok",
-        "submitLatencyMs": 70.10000000000582
-      },
-      {
-        "library": "react-hook-form",
-        "status": "ok",
-        "submitLatencyMs": 67.79999999998836
-      },
-      {
-        "library": "tanstack-form (React)",
-        "status": "ok",
-        "submitLatencyMs": 73.80000000001746
-      },
-      {
-        "library": "neutro/form (Vue)",
-        "status": "ok",
-        "submitLatencyMs": 56
-      },
-      {
-        "library": "vee-validate",
-        "status": "ok",
-        "submitLatencyMs": 78.89999999999418
-      },
-      {
-        "library": "neutro/form (Svelte)",
-        "status": "ok",
-        "submitLatencyMs": 60.70000000001164
-      },
-      {
-        "library": "tanstack-form (Svelte)",
-        "status": "ok",
-        "submitLatencyMs": 61.80000000001746
-      },
-      {
-        "library": "felte",
-        "status": "ok",
-        "submitLatencyMs": 55.10000000000582
-      },
-      {
-        "library": "formik",
-        "status": "na"
+        "p50Ms": 202,
+        "p99Ms": 203
       }
     ],
     "async-latency-debounce-floor": [
       {
         "library": "neutro/form (React) [debounce=0]",
         "status": "ok",
-        "p50Ms": 200,
-        "p99Ms": 201
+        "p50Ms": 203,
+        "p99Ms": 203
       },
       {
         "library": "neutro/form (Vue) [debounce=0]",
         "status": "ok",
-        "p50Ms": 200,
-        "p99Ms": 200
+        "p50Ms": 202,
+        "p99Ms": 203
       },
       {
         "library": "neutro/form (Svelte) [debounce=0]",
         "status": "ok",
-        "p50Ms": 200,
-        "p99Ms": 200
+        "p50Ms": 202,
+        "p99Ms": 203
       }
     ]
   },
@@ -851,13 +851,13 @@
     "bundle-size": [
       {
         "library": "neutro/form",
-        "status": "error",
-        "error": "Build failed with 1 error:\nfixtures/bundle/neutro.ts:1:27: ERROR: Could not resolve \"@neutro/form-core\""
+        "status": "ok",
+        "gzipBytes": 12183
       },
       {
         "library": "neutro/form (minimal)",
-        "status": "error",
-        "error": "Build failed with 1 error:\nfixtures/bundle/neutro-minimal.ts:1:27: ERROR: Could not resolve \"@neutro/form/core/minimal\""
+        "status": "ok",
+        "gzipBytes": 8185
       },
       {
         "library": "react-hook-form",
