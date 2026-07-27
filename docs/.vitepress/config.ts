@@ -43,6 +43,7 @@ export default defineConfig({
             { text: 'Array Operations', link: '/api/array-operations' },
             { text: 'Validation Adapters', link: '/api/validation' },
             { text: 'Devtools', link: '/api/devtools' },
+            { text: 'Testing Utilities', link: '/api/testing' },
           ],
         },
       ],
