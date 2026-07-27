@@ -20,7 +20,7 @@
     "build": "tsup"
   },
   "peerDependencies": {
-    "vue": "^3.0.0"
+    "vue": "^3.2.0"
   },
   "dependencies": {
     "@neutro/form-core": "workspace:*"
@@ -28,7 +28,7 @@
   "devDependencies": {
     "tsup": "^8.0.0",
     "@vue/test-utils": "^2.4.0",
-    "vue": "^3.0.0"
+    "vue": "^3.2.0"
   },
   "private": true
 }
