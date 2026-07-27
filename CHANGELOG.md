@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.5.1](https://github.com/neutro-web/form/compare/v0.5.0...v0.5.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* **bench:** compare regression check against base branch, not local baseline ([03160f5](https://github.com/neutro-web/form/commit/03160f5ff4db86516d074f1c7246d6644b32fdf2))
+* **bench:** compare-baseline.ts compares head vs base medians ([7c8bb43](https://github.com/neutro-web/form/commit/7c8bb4317702987b37f915e7e7d0733929c34337))
+* **bench:** fail loudly on empty env vars, narrow checkout to core/src ([01403cc](https://github.com/neutro-web/form/commit/01403cc2db3e5be37f0b5526018345062211c44b))
+* **bench:** resolve bundle-size ERROR + scorecard self-comparison bug ([5161336](https://github.com/neutro-web/form/commit/516133649e673dc77f47b7b2823ce5e68e335272))
+* **core:** hydrate() full state reset, abort superseded full validations ([5d65f1a](https://github.com/neutro-web/form/commit/5d65f1a0b7a49fca351414efde8d532606fd3923))
+* **core:** hydrate() full state reset, abort superseded full validations ([2f23a74](https://github.com/neutro-web/form/commit/2f23a74551c6a78a66780f7a1875cf6231c31a20))
+* **core:** stop a validation's cleanup from clobbering a newer registration ([69762b5](https://github.com/neutro-web/form/commit/69762b53d6c1d4496cd076bc33f363bedbfd0152))
+* **react:** close stale-subscription race, comma-collision in useWatch key ([9c39235](https://github.com/neutro-web/form/commit/9c39235f8d2657d4330c37ab4f406d83c89dee23))
+* **react:** stop useForm() infinite re-render crash, useWatch/useFormConnect churn ([af0bd69](https://github.com/neutro-web/form/commit/af0bd69a48c99a4a41e89665b53766adf5599b16))
+* **react:** stop useForm() infinite re-render crash, useWatch/useFormConnect churn ([0a8e934](https://github.com/neutro-web/form/commit/0a8e9348990559c0a506f1a491141b54ae3c8c91))
+* **vue:** stop subscriber leak outside component scope, use shallowReadonly ([2d26805](https://github.com/neutro-web/form/commit/2d268053616e00f6f811045569628784f2726125))
+* **vue:** stop subscriber leak outside component scope, use shallowReadonly ([9a07520](https://github.com/neutro-web/form/commit/9a0752095f934850c0cd162e9b98c0e03c64ee98))
+
+
+### Documentation
+
+* add public roadmap page ([d0b6cb2](https://github.com/neutro-web/form/commit/d0b6cb28a640e6e0f4117b093449e53a10cc4c8e))
+* add public roadmap page ([a1362df](https://github.com/neutro-web/form/commit/a1362df07ae1756f19e2128918454e8f96ae014f))
+* add staged release gate design spec ([67b2c7d](https://github.com/neutro-web/form/commit/67b2c7df222c7517cfbc27976109a890e595b2ee))
+* clarify main branch protection isn't applied yet ([60e9488](https://github.com/neutro-web/form/commit/60e94884b1553f775b74473e3e3297c2e4221dcd))
+* confirm main branch protection is live ([ce90ecd](https://github.com/neutro-web/form/commit/ce90ecd030a29a8a1b1d7078b00d869f1ceb155f))
+* confirm main branch protection is live, no admin bypass ([36b113a](https://github.com/neutro-web/form/commit/36b113a47117cc52ee205e298155d000ad952242))
+* describe the real two-branch release flow ([f613a92](https://github.com/neutro-web/form/commit/f613a9264c324d1926585ff1dd2c5c53ce55f6f2))
+* describe the real two-branch release flow ([8fb0ca6](https://github.com/neutro-web/form/commit/8fb0ca6b9091cb86402ccd2f2e4c6eba6f322e98))
+* design spec for base-vs-head benchmark regression comparison ([8442369](https://github.com/neutro-web/form/commit/8442369ea0cd810095a58840abda58bb98fc5c87))
+* document branch rulesets, replacing classic protection ([53f540e](https://github.com/neutro-web/form/commit/53f540e5dc702b3393ed35d187bfaf17c4fc4be4))
+* fix branch-protection command — null disables PR requirement entirely ([212dc65](https://github.com/neutro-web/form/commit/212dc65365bc2d37d151e333236c72b1e5b8167f))
+* fix checkout-leak bug found by plan's adversarial review ([b2d8e6d](https://github.com/neutro-web/form/commit/b2d8e6d5800026c3338b70225faae998d861a655))
+* fix critical bugs found by 2-pass adversarial review ([26fa960](https://github.com/neutro-web/form/commit/26fa960f7a149e2babe145917ecfa27b925f30a9))
+* fix findings from plan's 2-pass adversarial review ([240777d](https://github.com/neutro-web/form/commit/240777df0d61bb4b108d2992d1aca5a551c0441b))
+* fix git rm needing -f, found by Task 2.5's smoke test ([99e2570](https://github.com/neutro-web/form/commit/99e2570f92345c59ba32a0b65393d95cfe3990b6))
+* fix stale version, devtools-panel roadmap claim, document testing subpath ([0a5d8ae](https://github.com/neutro-web/form/commit/0a5d8aedb0c387c9d98e478c8dd5280ceeab40e3))
+* fix stale version, devtools-panel roadmap claim, document testing subpath ([edea744](https://github.com/neutro-web/form/commit/edea744620d1d95aa449d1ec302fc531929291ba))
+* fold adversarial review fixes into release gate design ([0db3461](https://github.com/neutro-web/form/commit/0db3461f5d5025683cec8b2e1da504029420fc5b))
+* implementation plan for base-vs-head bench regression fix ([60e442c](https://github.com/neutro-web/form/commit/60e442c544a058db06ade272e12139700ed8a7d9))
+* **solid:** fix causation wording in fieldState null-placeholder comment ([7a17e2d](https://github.com/neutro-web/form/commit/7a17e2ddcf5f855fe7f1a720c73ec936ee14ff8d))
+* **vue:** document the shallowReadonly dev-warning trade-off ([973ca44](https://github.com/neutro-web/form/commit/973ca44adf58ff481cb1fda65aff4c3baaa141a9))
+* write staged release gate plan, fold in 2-pass adversarial review fixes ([1eb0ef4](https://github.com/neutro-web/form/commit/1eb0ef4a2e0a77d7122c551d9b256bdc3a593539))
+
 ## [0.5.0](https://github.com/neutro-web/form/compare/v0.4.4...v0.5.0) (2026-07-17)
 
 
