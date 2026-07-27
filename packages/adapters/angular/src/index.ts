@@ -40,12 +40,26 @@ export interface AngularFormReturn<T extends object> {
 // Must be called inside an injection context (component constructor or inject() call site).
 export function useAngularForm<T extends object>(form: FormInstance<T>): AngularFormReturn<T> {
   const formSignal = signal(form.getState());
-  // NgZone.run() ensures signal updates trigger change detection in zone.js apps.
-  // In zoneless apps the optional inject returns null and we call set() directly.
+  // NgZone.run() is a defensive, idempotent wrap: zone.js already patches most
+  // of the async boundaries core relies on (setTimeout, event listeners,
+  // Promise), so callbacks are very likely already running inside the Angular
+  // zone by the time they get here. This doesn't "ensure" change detection so
+  // much as guarantee it even in the rare case a callback fires outside the
+  // zone. In zoneless apps the optional inject returns null and we call set()
+  // directly.
   const zone = inject(NgZone, { optional: true });
-  const unsubscribe = form.subscribe((s) =>
-    zone ? zone.run(() => formSignal.set(s)) : formSignal.set(s)
-  );
+  // form.subscribe() fires its callback once synchronously on registration,
+  // with the exact same state already used to seed formSignal above (nothing
+  // else can run between these two statements) -- skip that redundant first
+  // call instead of cloning and set()-ing an identical value again.
+  let skipFirst = true;
+  const unsubscribe = form.subscribe((s) => {
+    if (skipFirst) {
+      skipFirst = false;
+      return;
+    }
+    zone ? zone.run(() => formSignal.set(s)) : formSignal.set(s);
+  });
   inject(DestroyRef).onDestroy(unsubscribe);
   return {
     state: formSignal.asReadonly(),
@@ -86,6 +100,14 @@ export function useAngularForm<T extends object>(form: FormInstance<T>): Angular
 
 // Returns two readonly Signals for direct template binding.
 // Must be called inside an injection context.
+//
+// Unlike useAngularForm above, the synchronous first call subscribeToPath
+// makes below is NOT skippable here: `value`'s seed (form.get(path)) does
+// duplicate that first call, but `fieldState`'s seed is `null` -- there's no
+// public API to read the current error/touched/dirty state synchronously
+// without subscribing, so the first callback is what actually populates
+// fieldState for the first time, not a redundant re-set of an already-known
+// value.
 export function useAngularFormPath<T extends object>(form: FormInstance<T>, path: string) {
   const value = signal<unknown>(form.get(path as any));
   const fieldState = signal<{ error?: string; touched?: boolean; dirty?: boolean } | null>(null);

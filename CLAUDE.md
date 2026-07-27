@@ -43,8 +43,8 @@ The CI pipeline runs these steps in order. Lefthook enforces the same sequence o
 | Lint | `pnpm lint` (`biome check packages vitest.config.ts`) | Biome formatted a file but it was never staged — run `git add` after any biome write |
 | Type check | `pnpm exec tsc --noEmit` | Missing `.js` extensions on relative imports (NodeNext requirement), or implicit `any` |
 | Type check tests | `pnpm typecheck` (`vitest --typecheck run packages/core/test/types.test.ts`) | A `Path<T>`/`GetPathValue<T, P>` type-level assertion in `types.test.ts` no longer holds |
+| Test | `pnpm test` | Failing assertions — runs before Build since the root `vitest.config.ts` aliases `@neutro/form-core`/`-testing` straight to `src/`, not `dist/`, so tests never depend on a build having happened |
 | Build | `pnpm build` | Missing export, bad import path |
-| Test | `pnpm test` | Failing assertions |
 
 **Key rule:** If you run `pnpm exec biome check --write` or `biome check --write --unsafe`, always `git add` the changed files before committing. Biome edits the working tree but does not stage — pushing without staging will fail CI even though local lint passes.
 
@@ -60,7 +60,7 @@ This is a pnpm monorepo. The published packages live under `packages/`. Two root
 |---|---|---|
 | Core engine | `@neutro/form-core` | `packages/core/src/index.ts` |
 | React adapter | `@neutro/form-react` | `packages/adapters/react/src/index.ts` |
-| Svelte 5 adapter | `@neutro/form-svelte` | `packages/adapters/svelte/src/index.ts` |
+| Svelte adapter (store-based, rune-free — Svelte 4 & 5) | `@neutro/form-svelte` | `packages/adapters/svelte/src/index.ts` |
 | Vue 3 adapter | `@neutro/form-vue` | `packages/adapters/vue/src/index.ts` |
 | SolidJS adapter | `@neutro/form-solid` | `packages/adapters/solid/src/index.ts` |
 | Angular 16+ adapter | `@neutro/form-angular` | `packages/adapters/angular/src/index.ts` |
@@ -124,7 +124,7 @@ The VitePress documentation site lives in `docs/`. Source files are Markdown; th
 
 - Dev server: `pnpm docs:dev` → http://localhost:5173/form/
 - Production build: `pnpm docs:build` → outputs to `docs/.vitepress/dist`
-- The site is deployed to GitHub Pages automatically on every push to `main` via `.github/workflows/docs.yml`
+- The site deploys to GitHub Pages via `.github/workflows/docs.yml`, which triggers on `workflow_run` completion of `CI` or `Bench Full` on `main`, gated on `conclusion == 'success'` — not a direct `push` trigger. In practice this fires on nearly every push to `main` (since CI always runs), but a CI failure silently skips the docs deploy too, which a bare "on push" description wouldn't suggest
 - Public URL: https://neutro-web.github.io/form/
 
 ### Browser Demo
